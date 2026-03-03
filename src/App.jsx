@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 const SB_URL = "https://cleifbyyhpbdjbrgzrkv.supabase.co";
-const SB_KEY = "sb_publishable_B2XYz7AcMxl9Exb-LVQg7w_zFC6mVGz";
+const SB_KEY = "sb_secret_kS6lUoP6vJeexEJ7ojAqgg_f0ooPUME";
 
 const sb = async (path, options = {}) => {
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
@@ -37,11 +37,11 @@ const COLUMNS = [
   { key: "firma", label: "Firma", width: 90 },
   { key: "cislo_stavby", label: "Č. stavby", width: 130 },
   { key: "nazev_stavby", label: "Název stavby", width: 260 },
-  { key: "ps_i", label: "PS I", width: 110, type: "number" },
+  { key: "ps_i", label: "Plán. stavby I", width: 120, type: "number" },
   { key: "snk_i", label: "SNK I", width: 110, type: "number" },
-  { key: "bo_i", label: "BO I", width: 110, type: "number" },
-  { key: "ps_ii", label: "PS II", width: 110, type: "number" },
-  { key: "bo_ii", label: "BO II", width: 110, type: "number" },
+  { key: "bo_i", label: "Běžné opravy I", width: 120, type: "number" },
+  { key: "ps_ii", label: "Plán. stavby II", width: 120, type: "number" },
+  { key: "bo_ii", label: "Běžné opravy II", width: 120, type: "number" },
   { key: "poruch", label: "Poruchy", width: 110, type: "number" },
   { key: "nabidka", label: "Nabídka", width: 120, type: "number", computed: true },
   { key: "rozdil", label: "Rozdíl", width: 120, type: "number", computed: true },
@@ -145,28 +145,36 @@ function Login({ onLogin, users }) {
 // ============================================================
 // SUMMARY CARDS
 // ============================================================
-function SummaryCards({ data }) {
+const FIRMA_COLORS = ["#2563eb","#ca8a04","#16a34a","#7c3aed","#e11d48","#0891b2","#d97706","#059669","#9333ea","#dc2626"];
+
+function SummaryCards({ data, firmy }) {
   const sum = (firma, fields) => data.filter(r => r.firma === firma).reduce((a, r) => { fields.forEach(f => a += Number(r[f])||0); return a; }, 0);
-  const durI = sum("DUR plus", ["ps_i","snk_i","bo_i"]);
-  const zmesI = sum("ZMES", ["ps_i","snk_i","bo_i"]);
-  const durII = sum("DUR plus", ["ps_ii","bo_ii","poruch"]);
-  const zmesII = sum("ZMES", ["ps_ii","bo_ii","poruch"]);
-  const cards = [
-    { label: "DUR plus – Kat. I", value: durI, color: "#2563eb" },
-    { label: "ZMES – Kat. I", value: zmesI, color: "#ca8a04" },
-    { label: "DUR plus – Kat. II", value: durII, color: "#7c3aed" },
-    { label: "ZMES – Kat. II", value: zmesII, color: "#b45309" },
-    { label: "Celkem DUR plus", value: durI+durII, color: "#0891b2", big: true },
-    { label: "Celkem ZMES", value: zmesI+zmesII, color: "#d97706", big: true },
-  ];
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 10, padding: "14px 18px", background: "#0f172a" }}>
-      {cards.map(c => (
-        <div key={c.label} style={{ background: c.big ? `linear-gradient(135deg,${c.color}22,${c.color}0a)` : "rgba(255,255,255,0.02)", border: `1px solid ${c.color}33`, borderLeft: `3px solid ${c.color}`, borderRadius: 10, padding: "12px 14px" }}>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 600, marginBottom: 5 }}>{c.label}</div>
-          <div style={{ color: "#fff", fontSize: c.big ? 17 : 14, fontWeight: 700 }}>{fmt(c.value)}</div>
-        </div>
-      ))}
+    <div style={{ overflowX: "auto", background: "#0f172a", padding: "14px 18px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${firmy.length * 3}, minmax(140px, 1fr))`, gap: 10, minWidth: firmy.length * 3 * 150 }}>
+        {firmy.map((firma, fi) => {
+          const color = FIRMA_COLORS[fi % FIRMA_COLORS.length];
+          const colorDark = FIRMA_COLORS[(fi * 2 + 1) % FIRMA_COLORS.length];
+          const katI = sum(firma, ["ps_i","snk_i","bo_i"]);
+          const katII = sum(firma, ["ps_ii","bo_ii","poruch"]);
+          const celkem = katI + katII;
+          return [
+            <div key={`${firma}-I`} style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${color}33`, borderLeft: `3px solid ${color}`, borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 600, marginBottom: 5 }}>{firma} – Kat. I</div>
+              <div style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{fmt(katI)}</div>
+            </div>,
+            <div key={`${firma}-II`} style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${colorDark}33`, borderLeft: `3px solid ${colorDark}`, borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 600, marginBottom: 5 }}>{firma} – Kat. II</div>
+              <div style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{fmt(katII)}</div>
+            </div>,
+            <div key={`${firma}-C`} style={{ background: `linear-gradient(135deg,${color}22,${color}0a)`, border: `1px solid ${color}44`, borderLeft: `3px solid ${color}`, borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 600, marginBottom: 5 }}>Celkem {firma}</div>
+              <div style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>{fmt(celkem)}</div>
+            </div>,
+          ];
+        })}
+      </div>
     </div>
   );
 }
@@ -402,9 +410,9 @@ export default function App() {
   const [stavbyvedouci, setStavbyvedouci] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
-  const [filterFirma, setFilterFirma] = useState("vse");
+  const [filterFirma, setFilterFirma] = useState("Všechny firmy");
   const [filterText, setFilterText] = useState("");
-  const [filterObjed, setFilterObjed] = useState("");
+  const [filterObjed, setFilterObjed] = useState("Všichni objednatelé");
   const [editRow, setEditRow] = useState(null);
   const [adding, setAdding] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -492,9 +500,9 @@ export default function App() {
   };
 
   const filtered = useMemo(() => data.filter(r => {
-    if (filterFirma !== "vse" && r.firma !== filterFirma) return false;
+    if (filterFirma !== "Všechny firmy" && r.firma !== filterFirma) return false;
     if (filterText && !r.nazev_stavby?.toLowerCase().includes(filterText.toLowerCase()) && !r.cislo_stavby?.toLowerCase().includes(filterText.toLowerCase())) return false;
-    if (filterObjed && r.objednatel !== filterObjed) return false;
+    if (filterObjed !== "Všichni objednatelé" && filterObjed && r.objednatel !== filterObjed) return false;
     return true;
   }), [data, filterFirma, filterText, filterObjed]);
 
@@ -593,13 +601,13 @@ export default function App() {
       </div>
 
       {/* SUMMARY */}
-      <SummaryCards data={data} />
+      <SummaryCards data={data} firmy={firmy} />
 
       {/* FILTERS */}
       <div style={{ padding: "10px 18px", display: "flex", gap: 10, alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", flexWrap: "wrap" }}>
         <input placeholder="🔍 Hledat stavbu / číslo..." value={filterText} onChange={e => setFilterText(e.target.value)} style={{ ...inputSx, width: 230 }} />
-        <NativeSelect value={filterFirma} onChange={setFilterFirma} options={["vse", ...firmy]} style={{ width: 160 }} />
-        <NativeSelect value={filterObjed} onChange={setFilterObjed} options={["", ...objednatele]} style={{ width: 170 }} />
+        <NativeSelect value={filterFirma} onChange={setFilterFirma} options={["Všechny firmy", ...firmy]} style={{ width: 170 }} />
+        <NativeSelect value={filterObjed} onChange={setFilterObjed} options={["Všichni objednatelé", ...objednatele]} style={{ width: 190 }} />
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>{filtered.length} záznamů</span>
           <div style={{ position: "relative" }}>
@@ -622,7 +630,7 @@ export default function App() {
           <thead>
             <tr style={{ background: "#1a2744" }}>
               {COLUMNS.map(col => (
-                <th key={col.key} style={{ padding: "9px 11px", textAlign: col.key === "id" ? "center" : col.type === "number" ? "right" : "left", color: "rgba(255,255,255,0.65)", fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, whiteSpace: "nowrap", minWidth: col.width, position: "sticky", top: 0, background: "#1a2744", zIndex: 10, border: "1px solid rgba(255,255,255,0.13)" }}>
+                <th key={col.key} style={{ padding: "9px 11px", textAlign: "center", color: "rgba(255,255,255,0.65)", fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, whiteSpace: "nowrap", minWidth: col.width, position: "sticky", top: 0, background: "#1a2744", zIndex: 10, border: "1px solid rgba(255,255,255,0.13)" }}>
                   {col.label.toUpperCase()}
                 </th>
               ))}
@@ -630,11 +638,14 @@ export default function App() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((row, i) => (
+            {filtered.map((row, i) => {
+              const isFaktura = row.cislo_faktury && row.cislo_faktury.trim() !== "" && row.splatna && row.splatna.trim() !== "";
+              const baseBg = isFaktura ? "rgba(22,163,74,0.15)" : rowBg(row.firma, i);
+              return (
               <tr key={row.id}
-                style={{ background: rowBg(row.firma, i), transition: "background 0.1s" }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.07)"}
-                onMouseLeave={e => e.currentTarget.style.background = rowBg(row.firma, i)}
+                style={{ background: baseBg, transition: "background 0.1s" }}
+                onMouseEnter={e => e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.25)" : "rgba(255,255,255,0.07)"}
+                onMouseLeave={e => e.currentTarget.style.background = baseBg}
               >
                 {COLUMNS.map(col => {
                   const isEditing = editingCell?.rowId === row.id && editingCell?.colKey === col.key;
@@ -654,10 +665,7 @@ export default function App() {
                         : isEditing
                         ? <input autoFocus value={cellValue} onChange={e => setCellValue(e.target.value)} onBlur={commitCell} onKeyDown={e => { if (e.key === "Enter") commitCell(); if (e.key === "Escape") setEditingCell(null); }} style={{ width: "100%", height: "100%", padding: "7px 11px", background: "transparent", border: "none", outline: "none", color: "#fff", fontSize: 12.5, boxSizing: "border-box" }} />
                         : col.key === "id"
-                        ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{row[col.key]}</span>
-                            {isAdmin && <span onClick={e => { e.stopPropagation(); setEditRow(row); }} title="Editovat" style={{ cursor: "pointer", opacity: 0.4, fontSize: 12, transition: "opacity 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.4}>✏️</span>}
-                          </span>
+                        ? <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{row[col.key]}</span>
                         : col.key === "firma" ? <span style={firmaBadge(row[col.key])}>{row[col.key]}</span>
                         : col.type === "number" ? fmtN(row[col.key])
                         : row[col.key] ?? ""}
@@ -666,12 +674,13 @@ export default function App() {
                 })}
                 {isAdmin && (
                   <td style={{ padding: "7px 11px", whiteSpace: "nowrap", border: "1px solid rgba(255,255,255,0.07)", textAlign: "center" }}>
-                    <button onClick={() => setEditRow(row)} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11, marginRight: 5 }}>✏️</button>
+                    <button onClick={() => setEditRow(row)} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11, marginRight: 5 }}>✏️ Editovat</button>
                     <button onClick={() => setDeleteConfirm({ id: row.id, step: 1 })} style={{ padding: "3px 9px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 5, color: "#f87171", cursor: "pointer", fontSize: 11 }}>🗑️</button>
                   </td>
                 )}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
