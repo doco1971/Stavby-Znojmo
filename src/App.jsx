@@ -815,7 +815,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} body{background:${T.appBg};color:${T.text}} table td{color:${T.text}} select option{background:${T.modalBg};color:${T.text}}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} ${!isDark ? "table td, table td *, table td span { color: #1e293b !important; } table td span.firma-badge { color: inherit !important; }" : ""}`}</style>
 
       {/* HEADER */}
       <div style={{ background: T.headerBg, borderBottom: `1px solid ${T.headerBorder}`, padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -909,7 +909,7 @@ export default function App() {
                         ? <input autoFocus value={cellValue} onChange={e => setCellValue(e.target.value)} onBlur={commitCell} onKeyDown={e => { if (e.key === "Enter") commitCell(); if (e.key === "Escape") setEditingCell(null); }} style={{ width: "100%", height: "100%", padding: "7px 11px", background: "transparent", border: "none", outline: "none", color: T.text, fontSize: 12.5, boxSizing: "border-box" }} />
                         : col.key === "id"
                         ? <span style={{ color: T.textMuted, fontSize: 12 }}>{row[col.key]}</span>
-                        : col.key === "firma" ? <span style={firmaBadge(row[col.key])}>{row[col.key]}</span>
+                        : col.key === "firma" ? <span className="firma-badge" style={firmaBadge(row[col.key])}>{row[col.key]}</span>
                         : col.type === "number" ? fmtN(row[col.key])
                         : row[col.key] ?? ""}
                     </td>
