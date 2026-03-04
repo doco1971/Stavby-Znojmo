@@ -340,7 +340,7 @@ function ListEditor({ label, color, list, setList, nv, setNv }) {
 function FirmyEditor({ list, setList }) {
   const [newNazev, setNewNazev] = useState("");
   const [newBarva, setNewBarva] = useState("#3b82f6");
-  const PRESET_COLORS = ["#3b82f6","#eab308","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899","#f59e0b","#6366f1"];
+  const PRESET_COLORS = ["#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899","#f59e0b","#6366f1"];
 
   const add = () => {
     const v = newNazev.trim();
@@ -671,7 +671,7 @@ export default function App() {
   const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: objednatele[0]||"", stavbyvedouci: stavbyvedouci[0]||"", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
 
   const FIRMA_COLOR_FALLBACK = [
-    "#3b82f6","#eab308","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899",
+    "#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899",
   ];
 
   const getFirmaColor = (firmaName) => {
