@@ -661,14 +661,13 @@ export default function App() {
   const handleAdd = async (newRow) => {
     const { id, nabidka, rozdil, ...fields } = newRow;
     try {
-      console.log("Přidávám stavbu:", JSON.stringify(fields));
+      alert("Ukládám: " + fields.nazev_stavby);
       const result = await sb("stavby", { method: "POST", body: JSON.stringify(fields) });
-      console.log("Výsledek:", result);
+      alert("Uloženo OK: " + JSON.stringify(result).substring(0, 100));
       await logAkce(user?.email, "Přidání stavby", fields.nazev_stavby);
       await loadAll();
     } catch (e) { 
-      console.error("Chyba přidání stavby:", e);
-      alert("Chyba přidání: " + e.message); 
+      alert("CHYBA: " + e.message); 
     }
     setAdding(false);
   };
@@ -1092,4 +1091,3 @@ export default function App() {
     </div>
   );
 }
-// v2
