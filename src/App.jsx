@@ -492,7 +492,7 @@ export default function App() {
         sb("uzivatele?order=id"),
       ]);
       setData(stavbyRes.map(computeRow));
-      setFirmy(ciselnikyRes.filter(r => r.typ === "firma").map(r => r.hodnota));
+      setFirmy(ciselnikyRes.filter(r => r.typ === "firma").map(r => ({ hodnota: r.hodnota, barva: r.barva || "" })));
       setObjednatele(ciselnikyRes.filter(r => r.typ === "objednatel").map(r => r.hodnota));
       setStavbyvedouci(ciselnikyRes.filter(r => r.typ === "stavbyvedouci").map(r => r.hodnota));
       setUsers(uzivRes.map(u => ({ id: u.id, email: u.email, password: u.heslo, role: u.role, name: u.jmeno })));
@@ -537,7 +537,7 @@ export default function App() {
     try {
       await sb("ciselniky?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
       const items = [
-        ...nFirmy.map((h, i) => ({ typ: "firma", hodnota: h, poradi: i })),
+        ...nFirmy.map((f, i) => ({ typ: "firma", hodnota: f.hodnota, barva: f.barva || "", poradi: i })),
         ...nObjed.map((h, i) => ({ typ: "objednatel", hodnota: h, poradi: i })),
         ...nSv.map((h, i) => ({ typ: "stavbyvedouci", hodnota: h, poradi: i })),
       ];
@@ -622,18 +622,22 @@ export default function App() {
   const nextId = data.length > 0 ? Math.max(...data.map(r => r.id)) + 1 : 1;
   const emptyRow = { id: nextId, firma: firmy[0]||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: objednatele[0]||"", stavbyvedouci: stavbyvedouci[0]||"", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
 
-  const FIRMA_ROW_COLORS = [
-    { bg0: "rgba(96,165,250,0.22)", bg1: "rgba(96,165,250,0.12)", badge: "rgba(37,99,235,0.2)", badgeBorder: "rgba(37,99,235,0.35)", text: "#60a5fa" },
-    { bg0: "rgba(253,224,71,0.18)", bg1: "rgba(253,224,71,0.09)", badge: "rgba(202,138,4,0.25)", badgeBorder: "rgba(202,138,4,0.45)", text: "#fde047" },
-    { bg0: "rgba(192,132,252,0.20)", bg1: "rgba(192,132,252,0.10)", badge: "rgba(168,85,247,0.2)", badgeBorder: "rgba(168,85,247,0.35)", text: "#c084fc" },
-    { bg0: "rgba(251,113,133,0.20)", bg1: "rgba(251,113,133,0.10)", badge: "rgba(244,63,94,0.2)", badgeBorder: "rgba(244,63,94,0.35)", text: "#fb7185" },
-    { bg0: "rgba(56,189,248,0.20)", bg1: "rgba(56,189,248,0.10)", badge: "rgba(14,165,233,0.2)", badgeBorder: "rgba(14,165,233,0.35)", text: "#38bdf8" },
-    { bg0: "rgba(251,146,60,0.20)", bg1: "rgba(251,146,60,0.10)", badge: "rgba(249,115,22,0.2)", badgeBorder: "rgba(249,115,22,0.35)", text: "#fb923c" },
+  const FIRMA_COLOR_MAP = {
+    "DUR plus": { bg: "rgba(96,165,250,0.22)", badge: "rgba(37,99,235,0.2)", badgeBorder: "rgba(37,99,235,0.35)", text: "#60a5fa" },
+    "ZMES":     { bg: "rgba(253,224,71,0.20)", badge: "rgba(202,138,4,0.25)", badgeBorder: "rgba(202,138,4,0.45)", text: "#fde047" },
+  };
+  const FIRMA_COLOR_FALLBACK = [
+    { bg: "rgba(192,132,252,0.20)", badge: "rgba(168,85,247,0.2)", badgeBorder: "rgba(168,85,247,0.35)", text: "#c084fc" },
+    { bg: "rgba(251,113,133,0.20)", badge: "rgba(244,63,94,0.2)",  badgeBorder: "rgba(244,63,94,0.35)",  text: "#fb7185" },
+    { bg: "rgba(56,189,248,0.20)",  badge: "rgba(14,165,233,0.2)", badgeBorder: "rgba(14,165,233,0.35)", text: "#38bdf8" },
+    { bg: "rgba(251,146,60,0.20)",  badge: "rgba(249,115,22,0.2)", badgeBorder: "rgba(249,115,22,0.35)", text: "#fb923c" },
   ];
 
   const getFirmaColor = (firma) => {
-    const idx = firmy.indexOf(firma);
-    return FIRMA_ROW_COLORS[(idx >= 0 ? idx : 0) % FIRMA_ROW_COLORS.length];
+    if (FIRMA_COLOR_MAP[firma]) return FIRMA_COLOR_MAP[firma];
+    const extraFirmy = firmy.filter(f => !FIRMA_COLOR_MAP[f]);
+    const idx = extraFirmy.indexOf(firma);
+    return FIRMA_COLOR_FALLBACK[(idx >= 0 ? idx : 0) % FIRMA_COLOR_FALLBACK.length];
   };
 
   const firmaBadge = (firma) => {
@@ -641,10 +645,7 @@ export default function App() {
     return { display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: c.badge, color: c.text, border: `1px solid ${c.badgeBorder}` };
   };
 
-  const rowBg = (firma) => {
-    const c = getFirmaColor(firma);
-    return c.bg0;
-  };
+  const rowBg = (firma) => getFirmaColor(firma).bg;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f172a", fontFamily: "'Segoe UI',Tahoma,sans-serif", color: "#fff" }}>
