@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 const SB_URL = "https://cleifbyyhpbdjbrgzrkv.supabase.co";
-const SB_KEY = "sb_secret_kS6lUoP6vJeexEJ7ojAqgg_f0ooPUME";
+const SB_KEY = "sb_publishable_B2XYz7AcMxl9Exb-LVQg7w_zFC6mVGz";
 
 const sb = async (path, options = {}) => {
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
