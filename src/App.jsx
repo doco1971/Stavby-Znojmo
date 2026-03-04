@@ -182,17 +182,19 @@ function SummaryCards({ data, firmy }) {
 // ============================================================
 // FORM MODAL (Add + Edit)
 // ============================================================
+function FormField({ label, value, onChange, full }) {
+  return (
+    <div style={full ? { gridColumn: "1 / -1" } : {}}>
+      <Lbl>{label}</Lbl>
+      <input type="text" value={value ?? ""} onChange={e => onChange(e.target.value)} style={inputSx} />
+    </div>
+  );
+}
+
 function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavbyvedouci: svList }) {
   const [form, setForm] = useState({ ...initial });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const computed = computeRow(form);
-
-  const Field = ({ k, label, full }) => (
-    <div style={full ? { gridColumn: "1 / -1" } : {}}>
-      <Lbl>{label}</Lbl>
-      <input type="text" value={form[k] ?? ""} onChange={e => set(k, e.target.value)} style={inputSx} />
-    </div>
-  );
 
   const SelectField = ({ k, label, options }) => (
     <div>
@@ -213,19 +215,19 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
 
             <SecHead color="#60a5fa">Základní informace</SecHead>
-            <Field k="cislo_stavby" label="Číslo stavby" />
-            <Field k="nazev_stavby" label="Název stavby" />
+            <FormField label="Číslo stavby" value={form["cislo_stavby"]} onChange={v => set("cislo_stavby", v)} />
+            <FormField label="Název stavby" value={form["nazev_stavby"]} onChange={v => set("nazev_stavby", v)} />
             <SelectField k="firma" label="Firma" options={firmy} />
 
             <SecHead color="#818cf8">Kategorie I</SecHead>
-            <Field k="ps_i" label="PS I" />
-            <Field k="snk_i" label="SNK I" />
-            <Field k="bo_i" label="BO I" />
+            <FormField label="PS I" value={form["ps_i"]} onChange={v => set("ps_i", v)} />
+            <FormField label="SNK I" value={form["snk_i"]} onChange={v => set("snk_i", v)} />
+            <FormField label="BO I" value={form["bo_i"]} onChange={v => set("bo_i", v)} />
 
             <SecHead color="#fb923c">Kategorie II</SecHead>
-            <Field k="ps_ii" label="PS II" />
-            <Field k="bo_ii" label="BO II" />
-            <Field k="poruch" label="Poruchy" />
+            <FormField label="PS II" value={form["ps_ii"]} onChange={v => set("ps_ii", v)} />
+            <FormField label="BO II" value={form["bo_ii"]} onChange={v => set("bo_ii", v)} />
+            <FormField label="Poruchy" value={form["poruch"]} onChange={v => set("poruch", v)} />
 
             <div style={{ gridColumn: "1 / -1", background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 8, padding: "12px 16px", display: "flex", gap: 32 }}>
               <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>Nabídka: </span><span style={{ color: "#60a5fa", fontWeight: 700 }}>{fmt(computed.nabidka)}</span></div>
@@ -233,17 +235,17 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             </div>
 
             <SecHead color="#34d399">Fakturace & termíny</SecHead>
-            <Field k="vyfakturovano" label="Vyfakturováno" />
-            <Field k="ukonceni" label="Ukončení" />
-            <Field k="zrealizovano" label="Zrealizováno" />
-            <Field k="nabidkova_cena" label="Nabídková cena" />
-            <Field k="cislo_faktury" label="Číslo faktury" />
-            <Field k="castka_bez_dph" label="Částka bez DPH" />
-            <Field k="splatna" label="Splatná" />
+            <FormField label="Vyfakturováno" value={form["vyfakturovano"]} onChange={v => set("vyfakturovano", v)} />
+            <FormField label="Ukončení" value={form["ukonceni"]} onChange={v => set("ukonceni", v)} />
+            <FormField label="Zrealizováno" value={form["zrealizovano"]} onChange={v => set("zrealizovano", v)} />
+            <FormField label="Nabídková cena" value={form["nabidkova_cena"]} onChange={v => set("nabidkova_cena", v)} />
+            <FormField label="Číslo faktury" value={form["cislo_faktury"]} onChange={v => set("cislo_faktury", v)} />
+            <FormField label="Částka bez DPH" value={form["castka_bez_dph"]} onChange={v => set("castka_bez_dph", v)} />
+            <FormField label="Splatná" value={form["splatna"]} onChange={v => set("splatna", v)} />
 
             <SecHead color="#f472b6">Ostatní</SecHead>
-            <Field k="sod" label="SOD" />
-            <Field k="ze_dne" label="Ze dne" />
+            <FormField label="SOD" value={form["sod"]} onChange={v => set("sod", v)} />
+            <FormField label="Ze dne" value={form["ze_dne"]} onChange={v => set("ze_dne", v)} />
             <SelectField k="objednatel" label="Objednatel" options={objednatele} />
             <SelectField k="stavbyvedouci" label="Stavbyvedoucí" options={svList} />
           </div>
