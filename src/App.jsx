@@ -650,6 +650,8 @@ export default function App() {
   // ── CRUD stavby ────────────────────────────────────────────
   const handleSave = async (updated) => {
     const { id, nabidka, rozdil, ...fields } = updated;
+    const numFields = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","cislo_stavby"];
+    numFields.forEach(k => { if (fields[k] === "" || fields[k] == null) fields[k] = 0; else fields[k] = Number(fields[k]) || 0; });
     try {
       await sb(`stavby?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(fields) });
       await logAkce(user?.email, "Editace stavby", `ID: ${id}, ${fields.nazev_stavby}`);
@@ -660,6 +662,8 @@ export default function App() {
 
   const handleAdd = async (newRow) => {
     const { id, nabidka, rozdil, ...fields } = newRow;
+    const numFields = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","cislo_stavby"];
+    numFields.forEach(k => { if (fields[k] === "" || fields[k] == null) fields[k] = 0; else fields[k] = Number(fields[k]) || 0; });
     try {
       await sb("stavby", { method: "POST", body: JSON.stringify(fields) });
       await logAkce(user?.email, "Přidání stavby", fields.nazev_stavby);
