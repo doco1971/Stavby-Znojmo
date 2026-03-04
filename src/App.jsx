@@ -661,14 +661,10 @@ export default function App() {
   const handleAdd = async (newRow) => {
     const { id, nabidka, rozdil, ...fields } = newRow;
     try {
-      alert("Ukládám: " + fields.nazev_stavby);
-      const result = await sb("stavby", { method: "POST", body: JSON.stringify(fields) });
-      alert("Uloženo OK: " + JSON.stringify(result).substring(0, 100));
+      await sb("stavby", { method: "POST", body: JSON.stringify(fields) });
       await logAkce(user?.email, "Přidání stavby", fields.nazev_stavby);
       await loadAll();
-    } catch (e) { 
-      alert("CHYBA: " + e.message); 
-    }
+    } catch (e) { alert("Chyba přidání: " + e.message); }
     setAdding(false);
   };
 
@@ -1061,8 +1057,8 @@ export default function App() {
           </div>
         </div>
       )}
-      {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={r => { setData(d => [...d, r]); setAdding(false); }} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
-      {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={r => { setData(d => d.map(x => x.id === r.id ? r : x)); setEditRow(null); }} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
+      {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={handleAdd} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
+      {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={handleSave} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isDark={isDark} />}
 
       {deleteConfirm && (
