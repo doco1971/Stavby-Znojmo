@@ -641,9 +641,9 @@ export default function App() {
     return { display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: c.badge, color: c.text, border: `1px solid ${c.badgeBorder}` };
   };
 
-  const rowBg = (firma, i) => {
+  const rowBg = (firma) => {
     const c = getFirmaColor(firma);
-    return i % 2 === 0 ? c.bg0 : c.bg1;
+    return c.bg0;
   };
 
   return (
@@ -710,7 +710,7 @@ export default function App() {
           <tbody>
             {filtered.map((row, i) => {
               const isFaktura = row.cislo_faktury && row.cislo_faktury.trim() !== "" && row.castka_bez_dph && Number(row.castka_bez_dph) !== 0 && row.splatna && row.splatna.trim() !== "";
-              const baseBg = isFaktura ? "rgba(22,163,74,0.25)" : rowBg(row.firma, i);
+              const baseBg = isFaktura ? "rgba(22,163,74,0.25)" : rowBg(row.firma);
               return (
               <tr key={row.id}
                 style={{ background: baseBg, transition: "background 0.1s" }}
