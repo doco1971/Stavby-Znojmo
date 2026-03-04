@@ -682,12 +682,27 @@ export default function App() {
     return `rgba(${r},${g},${b},${alpha})`;
   };
 
+  // Mixes hex color with dark background #0f172a to get visible but subtle row color
+  const hexToRowBg = (hex) => {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    // Mix with base dark color at 20% opacity equivalent
+    const br = 15, bg2 = 23, bb = 42; // #0f172a
+    const mix = 0.18;
+    const mr = Math.round(r * mix + br * (1 - mix));
+    const mg = Math.round(g * mix + bg2 * (1 - mix));
+    const mb = Math.round(b * mix + bb * (1 - mix));
+    return `rgb(${mr},${mg},${mb})`;
+  };
+
   const getFirmaColor = (firmaName) => {
     const firmaObj = firmy.find(f => f.hodnota === firmaName);
     const hex = (firmaObj?.barva && firmaObj.barva !== "") ? firmaObj.barva
       : FIRMA_COLOR_FALLBACK[firmy.findIndex(f => f.hodnota === firmaName) % FIRMA_COLOR_FALLBACK.length] || "#3b82f6";
     return {
-      bg: hexToRgba(hex, 0.22),
+      bg: hexToRowBg(hex),
       badge: hexToRgba(hex, 0.25),
       badgeBorder: hexToRgba(hex, 0.6),
       text: hex,
