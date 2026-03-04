@@ -182,11 +182,36 @@ function SummaryCards({ data, firmy }) {
 // ============================================================
 // FORM MODAL (Add + Edit)
 // ============================================================
-function FormField({ label, value, onChange, full }) {
+function FormField({ label, value, onChange, full, type }) {
+  const [err, setErr] = useState("");
+
+  const handleChange = (v) => {
+    if (type === "number") {
+      if (v !== "" && v !== "-" && isNaN(v.replace(",", "."))) {
+        setErr("Zadejte číslo");
+      } else {
+        setErr("");
+      }
+    } else if (type === "date") {
+      if (v !== "" && !/^\d{0,2}\.?\d{0,2}\.?\d{0,4}$/.test(v)) {
+        setErr("Formát: DD.MM.RRRR");
+      } else {
+        setErr("");
+      }
+    }
+    onChange(v);
+  };
+
   return (
     <div style={full ? { gridColumn: "1 / -1" } : {}}>
-      <Lbl>{label}</Lbl>
-      <input type="text" value={value ?? ""} onChange={e => onChange(e.target.value)} style={inputSx} />
+      <Lbl>{label}{type === "number" && <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, marginLeft: 4 }}>123</span>}{type === "date" && <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, marginLeft: 4 }}>DD.MM.RRRR</span>}</Lbl>
+      <input
+        type="text"
+        value={value ?? ""}
+        onChange={e => handleChange(e.target.value)}
+        style={{ ...inputSx, borderColor: err ? "#f87171" : "rgba(255,255,255,0.15)" }}
+      />
+      {err && <div style={{ color: "#f87171", fontSize: 11, marginTop: 3 }}>{err}</div>}
     </div>
   );
 }
@@ -202,8 +227,32 @@ function FormSelectField({ label, value, onChange, options }) {
 
 function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavbyvedouci: svList }) {
   const [form, setForm] = useState({ ...initial });
+  const [saveErr, setSaveErr] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const computed = computeRow(form);
+
+  const numFields = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph"];
+  const dateFields = ["ukonceni","splatna","ze_dne"];
+
+  const handleSave = () => {
+    for (const k of numFields) {
+      const v = form[k];
+      if (v !== "" && v != null && isNaN(String(v).replace(",", "."))) {
+        setSaveErr(`Pole "${k}" musí být číslo!`);
+        return;
+      }
+    }
+    for (const k of dateFields) {
+      const v = form[k];
+      if (v && !/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(v.trim())) {
+        setSaveErr(`Pole "${k}" musí být datum ve formátu DD.MM.RRRR`);
+        return;
+      }
+    }
+    if (!form.nazev_stavby?.trim()) { setSaveErr("Název stavby je povinný!"); return; }
+    setSaveErr("");
+    onSave(computeRow(form));
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
@@ -222,14 +271,14 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             <FormSelectField label="Firma" value={form["firma"]} onChange={v => set("firma", v)} options={firmy} />
 
             <SecHead color="#818cf8">Kategorie I</SecHead>
-            <FormField label="PS I" value={form["ps_i"]} onChange={v => set("ps_i", v)} />
-            <FormField label="SNK I" value={form["snk_i"]} onChange={v => set("snk_i", v)} />
-            <FormField label="BO I" value={form["bo_i"]} onChange={v => set("bo_i", v)} />
+            <FormField label="Plán. stavby I" value={form["ps_i"]} onChange={v => set("ps_i", v)} type="number" />
+            <FormField label="SNK I" value={form["snk_i"]} onChange={v => set("snk_i", v)} type="number" />
+            <FormField label="Běžné opravy I" value={form["bo_i"]} onChange={v => set("bo_i", v)} type="number" />
 
             <SecHead color="#fb923c">Kategorie II</SecHead>
-            <FormField label="PS II" value={form["ps_ii"]} onChange={v => set("ps_ii", v)} />
-            <FormField label="BO II" value={form["bo_ii"]} onChange={v => set("bo_ii", v)} />
-            <FormField label="Poruchy" value={form["poruch"]} onChange={v => set("poruch", v)} />
+            <FormField label="Plán. stavby II" value={form["ps_ii"]} onChange={v => set("ps_ii", v)} type="number" />
+            <FormField label="Běžné opravy II" value={form["bo_ii"]} onChange={v => set("bo_ii", v)} type="number" />
+            <FormField label="Poruchy" value={form["poruch"]} onChange={v => set("poruch", v)} type="number" />
 
             <div style={{ gridColumn: "1 / -1", background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 8, padding: "12px 16px", display: "flex", gap: 32 }}>
               <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>Nabídka: </span><span style={{ color: "#60a5fa", fontWeight: 700 }}>{fmt(computed.nabidka)}</span></div>
@@ -237,25 +286,27 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             </div>
 
             <SecHead color="#34d399">Fakturace & termíny</SecHead>
-            <FormField label="Vyfakturováno" value={form["vyfakturovano"]} onChange={v => set("vyfakturovano", v)} />
-            <FormField label="Ukončení" value={form["ukonceni"]} onChange={v => set("ukonceni", v)} />
-            <FormField label="Zrealizováno" value={form["zrealizovano"]} onChange={v => set("zrealizovano", v)} />
-            <FormField label="Nabídková cena" value={form["nabidkova_cena"]} onChange={v => set("nabidkova_cena", v)} />
+            <FormField label="Vyfakturováno" value={form["vyfakturovano"]} onChange={v => set("vyfakturovano", v)} type="number" />
+            <FormField label="Ukončení" value={form["ukonceni"]} onChange={v => set("ukonceni", v)} type="date" />
+            <FormField label="Zrealizováno" value={form["zrealizovano"]} onChange={v => set("zrealizovano", v)} type="number" />
+            <FormField label="Nabídková cena" value={form["nabidkova_cena"]} onChange={v => set("nabidkova_cena", v)} type="number" />
             <FormField label="Číslo faktury" value={form["cislo_faktury"]} onChange={v => set("cislo_faktury", v)} />
-            <FormField label="Částka bez DPH" value={form["castka_bez_dph"]} onChange={v => set("castka_bez_dph", v)} />
-            <FormField label="Splatná" value={form["splatna"]} onChange={v => set("splatna", v)} />
+            <FormField label="Částka bez DPH" value={form["castka_bez_dph"]} onChange={v => set("castka_bez_dph", v)} type="number" />
+            <FormField label="Splatná" value={form["splatna"]} onChange={v => set("splatna", v)} type="date" />
 
             <SecHead color="#f472b6">Ostatní</SecHead>
             <FormField label="SOD" value={form["sod"]} onChange={v => set("sod", v)} />
-            <FormField label="Ze dne" value={form["ze_dne"]} onChange={v => set("ze_dne", v)} />
+            <FormField label="Ze dne" value={form["ze_dne"]} onChange={v => set("ze_dne", v)} type="date" />
             <FormSelectField label="Objednatel" value={form["objednatel"]} onChange={v => set("objednatel", v)} options={objednatele} />
             <FormSelectField label="Stavbyvedoucí" value={form["stavbyvedouci"]} onChange={v => set("stavbyvedouci", v)} options={svList} />
           </div>
         </div>
 
+        {saveErr && <div style={{ padding: "8px 24px", background: "rgba(239,68,68,0.15)", borderTop: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: 13 }}>⚠️ {saveErr}</div>}
+
         <div style={{ padding: "14px 24px", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ padding: "9px 18px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
-          <button onClick={() => onSave(computeRow(form))} style={{ padding: "9px 22px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Uložit</button>
+          <button onClick={handleSave} style={{ padding: "9px 22px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Uložit</button>
         </div>
       </div>
     </div>
@@ -571,16 +622,29 @@ export default function App() {
   const nextId = data.length > 0 ? Math.max(...data.map(r => r.id)) + 1 : 1;
   const emptyRow = { id: nextId, firma: firmy[0]||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: objednatele[0]||"", stavbyvedouci: stavbyvedouci[0]||"", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
 
-  const firmaBadge = (firma) => ({
-    display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700,
-    background: firma === "DUR plus" ? "rgba(37,99,235,0.2)" : "rgba(202,138,4,0.25)",
-    color: firma === "DUR plus" ? "#60a5fa" : "#fde047",
-    border: `1px solid ${firma === "DUR plus" ? "rgba(37,99,235,0.35)" : "rgba(202,138,4,0.45)"}`,
-  });
+  const FIRMA_ROW_COLORS = [
+    { bg0: "rgba(37,99,235,0.13)", bg1: "rgba(37,99,235,0.07)", badge: "rgba(37,99,235,0.2)", badgeBorder: "rgba(37,99,235,0.35)", text: "#60a5fa" },
+    { bg0: "rgba(202,138,4,0.15)", bg1: "rgba(202,138,4,0.08)", badge: "rgba(202,138,4,0.25)", badgeBorder: "rgba(202,138,4,0.45)", text: "#fde047" },
+    { bg0: "rgba(22,163,74,0.13)", bg1: "rgba(22,163,74,0.07)", badge: "rgba(22,163,74,0.2)", badgeBorder: "rgba(22,163,74,0.35)", text: "#4ade80" },
+    { bg0: "rgba(168,85,247,0.13)", bg1: "rgba(168,85,247,0.07)", badge: "rgba(168,85,247,0.2)", badgeBorder: "rgba(168,85,247,0.35)", text: "#c084fc" },
+    { bg0: "rgba(244,63,94,0.13)", bg1: "rgba(244,63,94,0.07)", badge: "rgba(244,63,94,0.2)", badgeBorder: "rgba(244,63,94,0.35)", text: "#fb7185" },
+    { bg0: "rgba(14,165,233,0.13)", bg1: "rgba(14,165,233,0.07)", badge: "rgba(14,165,233,0.2)", badgeBorder: "rgba(14,165,233,0.35)", text: "#38bdf8" },
+  ];
 
-  const rowBg = (firma, i) => firma === "DUR plus"
-    ? (i % 2 === 0 ? "rgba(37,99,235,0.05)" : "transparent")
-    : (i % 2 === 0 ? "rgba(234,179,8,0.07)" : "rgba(234,179,8,0.03)");
+  const getFirmaColor = (firma) => {
+    const idx = firmy.indexOf(firma);
+    return FIRMA_ROW_COLORS[(idx >= 0 ? idx : 0) % FIRMA_ROW_COLORS.length];
+  };
+
+  const firmaBadge = (firma) => {
+    const c = getFirmaColor(firma);
+    return { display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: c.badge, color: c.text, border: `1px solid ${c.badgeBorder}` };
+  };
+
+  const rowBg = (firma, i) => {
+    const c = getFirmaColor(firma);
+    return i % 2 === 0 ? c.bg0 : c.bg1;
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f172a", fontFamily: "'Segoe UI',Tahoma,sans-serif", color: "#fff" }}>
