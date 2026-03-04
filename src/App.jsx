@@ -729,6 +729,29 @@ export default function App() {
 
   if (!user) return <Login onLogin={setUser} users={users} onLogAction={logAkce} />;
 
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = theme === "dark" || (theme === "system" && systemDark);
+
+  const T = isDark ? {
+    appBg: "#0f172a", headerBg: "rgba(255,255,255,0.03)", headerBorder: "rgba(255,255,255,0.08)",
+    cardBg: "rgba(255,255,255,0.04)", cardBorder: "rgba(255,255,255,0.08)",
+    theadBg: "#1a2744", cellBorder: "rgba(255,255,255,0.07)", filterBg: "rgba(255,255,255,0.02)",
+    text: "#e2e8f0", textMuted: "rgba(255,255,255,0.45)", textFaint: "rgba(255,255,255,0.25)",
+    inputBg: "#0f172a", inputBorder: "rgba(255,255,255,0.15)", modalBg: "#1e293b",
+    dropdownBg: "#1e293b", hoverBg: "rgba(255,255,255,0.07)", numColor: "#93c5fd",
+  } : {
+    appBg: "#f1f5f9", headerBg: "#ffffff", headerBorder: "rgba(0,0,0,0.08)",
+    cardBg: "#ffffff", cardBorder: "rgba(0,0,0,0.08)",
+    theadBg: "#e2e8f0", cellBorder: "rgba(0,0,0,0.07)", filterBg: "#f8fafc",
+    text: "#1e293b", textMuted: "rgba(0,0,0,0.5)", textFaint: "rgba(0,0,0,0.3)",
+    inputBg: "#ffffff", inputBorder: "rgba(0,0,0,0.15)", modalBg: "#ffffff",
+    dropdownBg: "#ffffff", hoverBg: "rgba(0,0,0,0.04)", numColor: "#2563eb",
+  };
+
+  const changeTheme = (t) => { setTheme(t); localStorage.setItem("theme", t); };
+
   const nextId = data.length > 0 ? Math.max(...data.map(r => r.id)) + 1 : 1;
   const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: objednatele[0]||"", stavbyvedouci: stavbyvedouci[0]||"", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
 
@@ -744,15 +767,14 @@ export default function App() {
     return `rgba(${r},${g},${b},${alpha})`;
   };
 
-  // Mixes hex color with dark background #0f172a to get visible but subtle row color
+  // Mixes hex color with background to get visible but subtle row color
   const hexToRowBg = (hex) => {
     const h = hex.replace("#", "");
     const r = parseInt(h.substring(0, 2), 16);
     const g = parseInt(h.substring(2, 4), 16);
     const b = parseInt(h.substring(4, 6), 16);
-    // Mix with base dark color at 20% opacity equivalent
-    const br = 15, bg2 = 23, bb = 42; // #0f172a
-    const mix = 0.18;
+    const br = isDark ? 15 : 241, bg2 = isDark ? 23 : 245, bb = isDark ? 42 : 249;
+    const mix = isDark ? 0.18 : 0.15;
     const mr = Math.round(r * mix + br * (1 - mix));
     const mg = Math.round(g * mix + bg2 * (1 - mix));
     const mb = Math.round(b * mix + bb * (1 - mix));
@@ -779,10 +801,10 @@ export default function App() {
   const rowBg = (firma) => getFirmaColor(firma).bg;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0f172a", fontFamily: "'Segoe UI',Tahoma,sans-serif", color: "#fff" }}>
+    <div style={{ minHeight: "100vh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text }}>
 
       {/* HEADER */}
-      <div style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: T.headerBg, borderBottom: `1px solid ${T.headerBorder}`, padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <svg width="32" height="32" viewBox="0 0 80 80" fill="none">
             <circle cx="40" cy="40" r="38" fill="#1e3a8a" />
@@ -797,8 +819,13 @@ export default function App() {
           <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
           <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{user.name}</span>
           <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isAdmin ? "rgba(245,158,11,0.2)" : "rgba(100,116,139,0.2)", color: isAdmin ? "#fbbf24" : "#94a3b8" }}>{isAdmin ? "ADMIN" : "USER"}</span>
-          {isAdmin && <button onClick={() => setShowSettings(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
-          <button onClick={() => setUser(null)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 12 }}>Odhlásit</button>
+          {isAdmin && <button onClick={() => setShowSettings(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
+          <div style={{ display: "flex", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 8, overflow: "hidden" }}>
+            {[["🌞","light"],["🌙","dark"],["💻","system"]].map(([icon, val]) => (
+              <button key={val} onClick={() => changeTheme(val)} title={val} style={{ padding: "5px 9px", background: theme === val ? (isDark ? "rgba(37,99,235,0.3)" : "rgba(37,99,235,0.15)") : "transparent", border: "none", color: theme === val ? "#60a5fa" : T.textMuted, cursor: "pointer", fontSize: 13 }}>{icon}</button>
+            ))}
+          </div>
+          <button onClick={() => setUser(null)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>Odhlásit</button>
         </div>
       </div>
 
@@ -806,8 +833,8 @@ export default function App() {
       <SummaryCards data={data} firmy={firmy.map(f => f.hodnota)} />
 
       {/* FILTERS */}
-      <div style={{ padding: "10px 18px", display: "flex", gap: 10, alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", flexWrap: "wrap" }}>
-        <input placeholder="🔍 Hledat stavbu / číslo..." value={filterText} onChange={e => setFilterText(e.target.value)} style={{ ...inputSx, width: 230 }} />
+      <div style={{ padding: "10px 18px", display: "flex", gap: 10, alignItems: "center", background: T.filterBg, borderBottom: `1px solid ${T.cellBorder}`, flexWrap: "wrap" }}>
+        <input placeholder="🔍 Hledat stavbu / číslo..." value={filterText} onChange={e => setFilterText(e.target.value)} style={{ ...inputSx, width: 230, background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.text }} />
         <NativeSelect value={filterFirma} onChange={setFilterFirma} options={["Všechny firmy", ...firmy.map(f => f.hodnota)]} style={{ width: 170 }} />
         <NativeSelect value={filterObjed} onChange={setFilterObjed} options={["Všichni objednatelé", ...objednatele]} style={{ width: 190 }} />
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
@@ -830,13 +857,13 @@ export default function App() {
       <div style={{ overflowX: "auto", paddingBottom: 40 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 2100 }}>
           <thead>
-            <tr style={{ background: "#1a2744" }}>
+            <tr style={{ background: T.theadBg }}>
               {COLUMNS.map(col => (
-                <th key={col.key} style={{ padding: "9px 11px", textAlign: "center", color: "rgba(255,255,255,0.65)", fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, whiteSpace: "nowrap", minWidth: col.width, position: "sticky", top: 0, background: "#1a2744", zIndex: 10, border: "1px solid rgba(255,255,255,0.13)" }}>
+                <th key={col.key} style={{ padding: "9px 11px", textAlign: "center", color: T.textMuted, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, whiteSpace: "nowrap", minWidth: col.width, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}` }}>
                   {col.label.toUpperCase()}
                 </th>
               ))}
-              {isAdmin && <th style={{ padding: "9px 11px", color: "rgba(255,255,255,0.65)", fontWeight: 700, fontSize: 10.5, position: "sticky", top: 0, background: "#1a2744", zIndex: 10, border: "1px solid rgba(255,255,255,0.13)", textAlign: "center" }}>AKCE</th>}
+              {isAdmin && <th style={{ padding: "9px 11px", color: T.textMuted, fontWeight: 700, fontSize: 10.5, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>AKCE</th>}
             </tr>
           </thead>
           <tbody>
@@ -846,7 +873,7 @@ export default function App() {
               return (
               <tr key={row.id}
                 style={{ background: baseBg, transition: "background 0.1s" }}
-                onMouseEnter={e => e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.38)" : "rgba(255,255,255,0.07)"}
+                onMouseEnter={e => e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.38)" : T.hoverBg}
                 onMouseLeave={e => e.currentTarget.style.background = baseBg}
               >
                 {COLUMNS.map(col => {
@@ -858,7 +885,7 @@ export default function App() {
                   return (
                     <td key={col.key}
                       onClick={() => canEdit && !isEditing && startCell(row, col)}
-                      style={{ padding: isEditing ? 0 : "7px 11px", whiteSpace: "nowrap", textAlign: align, border: "1px solid rgba(255,255,255,0.07)", cursor: canEdit ? "pointer" : "default", outline: isEditing ? "2px solid #2563eb" : "none", color: col.key === "rozdil" ? (Number(row[col.key]) >= 0 ? "#4ade80" : "#f87171") : col.type === "number" ? "#93c5fd" : "#e2e8f0" }}
+                      style={{ padding: isEditing ? 0 : "7px 11px", whiteSpace: "nowrap", textAlign: align, border: `1px solid ${T.cellBorder}`, cursor: canEdit ? "pointer" : "default", outline: isEditing ? "2px solid #2563eb" : "none", color: col.key === "rozdil" ? (Number(row[col.key]) >= 0 ? "#4ade80" : "#f87171") : col.type === "number" ? T.numColor : T.text }}
                     >
                       {isEditing && isSelectCol
                         ? <select autoFocus value={cellValue} onChange={e => { setCellValue(e.target.value); }} onBlur={commitCell} onKeyDown={e => { if (e.key === "Enter") commitCell(); if (e.key === "Escape") setEditingCell(null); }} style={{ width: "100%", height: "100%", padding: "7px 11px", background: "#1e3a5f", border: "none", outline: "none", color: "#fff", fontSize: 12.5, boxSizing: "border-box", cursor: "pointer" }}>
