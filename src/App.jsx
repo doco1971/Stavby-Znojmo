@@ -755,8 +755,6 @@ export default function App() {
     dropdownBg: "#ffffff", hoverBg: "rgba(0,0,0,0.04)", numColor: "#2563eb",
   };
 
-  const changeTheme = (t) => { setTheme(t); localStorage.setItem("theme", t); };
-
   const nextId = data.length > 0 ? Math.max(...data.map(r => r.id)) + 1 : 1;
   const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: objednatele[0]||"", stavbyvedouci: stavbyvedouci[0]||"", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
 
