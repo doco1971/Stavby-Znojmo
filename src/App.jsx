@@ -304,6 +304,8 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const [userErr, setUserErr] = useState("");
 
   const add = (list, setList, val, setVal) => { const v = val.trim(); if (v && !list.includes(v)) { setList([...list, v]); setVal(""); } };
+
+  const addUser = () => {
     setUserErr("");
     if (!newEmail.trim() || !newPass.trim() || !newName.trim()) { setUserErr("Vyplň jméno, email a heslo."); return; }
     if (uList.find(u => u.email === newEmail.trim())) { setUserErr("Uživatel s tímto emailem již existuje."); return; }
