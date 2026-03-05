@@ -1112,6 +1112,10 @@ export default function App() {
         </div>
       )}
 
+      <div style={{ textAlign: "center", padding: "6px", borderTop: `1px solid ${T.cellBorder}`, color: T.textFaint, fontSize: 11 }}>
+        © {new Date().getFullYear()} Stavby Znojmo – Martin Dočekal &amp; Claude AI
+      </div>
+
       {/* EXPORT PREVIEW - sdílená tabulka pro CSV a XLS */}
       {(exportPreview?.type === "csv" || exportPreview?.type === "xls") && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
