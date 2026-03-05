@@ -166,15 +166,7 @@ function SummaryCards({ data, firmy, isDark, firmaColors }) {
 
   return (
     <div style={{ overflowX: "auto", background: bg, padding: "14px 18px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${firmy.length * 3 + 3}, minmax(140px, 1fr))`, gap: 10, minWidth: (firmy.length * 3 + 3) * 150 }}>
-        <div style={{ background: cardBg, border: "1px solid #2563eb33", borderLeft: "3px solid #2563eb", borderRight: "3px solid #2563eb", borderRadius: 10, padding: "12px 14px" }}>
-          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>Celkem – Kat. I</div>
-          <div style={{ color: textMain, fontSize: 13, fontWeight: 700 }}>{fmt(totalI)}</div>
-        </div>
-        <div style={{ background: cardBg, border: "1px solid #6366f133", borderLeft: "3px solid #6366f1", borderRight: "3px solid #6366f1", borderRadius: 10, padding: "12px 14px" }}>
-          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>Celkem – Kat. II</div>
-          <div style={{ color: textMain, fontSize: 13, fontWeight: 700 }}>{fmt(totalII)}</div>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${firmy.length * 3 + 1}, minmax(140px, 1fr))`, gap: 10, minWidth: (firmy.length * 3 + 1) * 150 }}>
         <div style={{ background: isDark ? "linear-gradient(135deg,#2563eb22,#6366f10a)" : "#2563eb18", border: "1px solid #2563eb44", borderLeft: "3px solid #2563eb", borderRight: "3px solid #2563eb", borderRadius: 10, padding: "12px 14px" }}>
           <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>CELKEM VŠE</div>
           <div style={{ color: textMain, fontSize: 15, fontWeight: 800 }}>{fmt(totalCelkem)}</div>
@@ -960,6 +952,7 @@ export default function App() {
           <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
           <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isAdmin ? "rgba(245,158,11,0.2)" : "rgba(100,116,139,0.2)", color: isAdmin ? "#fbbf24" : "#94a3b8" }}>{isAdmin ? "ADMIN" : "USER"}</span>
           {isAdmin && <button onClick={() => { setShowSettings(true); loadLog(); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
+          {deadlineWarnings.length > 0 && <button onClick={() => setShowDeadlines(true)} style={{ padding: "5px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>⚠️ Termíny ({deadlineWarnings.length})</button>}
           <div style={{ display: "flex", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 8, overflow: "hidden" }}>
             {[["🌞","light","Světlý"],["🌙","dark","Tmavý"]].map(([icon, val, label]) => (
               <button key={val} onClick={() => changeTheme(val)} title={label} style={{ padding: "5px 9px", background: theme === val ? (isDark ? "rgba(37,99,235,0.3)" : "rgba(37,99,235,0.15)") : "transparent", border: "none", color: theme === val ? "#60a5fa" : T.textMuted, cursor: "pointer", fontSize: 13 }}>{icon}</button>
