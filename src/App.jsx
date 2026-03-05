@@ -906,7 +906,7 @@ export default function App() {
       </div>
 
       {/* TABLE */}
-      <div style={{ overflowX: "auto", overflowY: "auto", height: tableHeight, display: "block" }}>
+      <div style={{ overflowX: "auto", overflowY: "auto", height: tableHeight }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 2100 }}>
           <thead>
             <tr style={{ background: T.theadBg }}>
