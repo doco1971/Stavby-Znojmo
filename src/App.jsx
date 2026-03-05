@@ -688,26 +688,28 @@ export default function App() {
     } catch {}
   };
 
+  const [editingColWidth, setEditingColWidth] = useState(null);
+
   const startDrag = (e, colKey, currentWidth) => {
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
     const startWidth = currentWidth;
+    let lastWidth = startWidth;
     const onMove = (ev) => {
+      ev.preventDefault();
       const diff = ev.clientX - startX;
-      const newW = Math.max(40, startWidth + diff);
-      setColWidths(prev => ({ ...prev, [colKey]: newW }));
+      lastWidth = Math.max(40, startWidth + diff);
+      setColWidths(prev => ({ ...prev, [colKey]: lastWidth }));
     };
-    const onUp = () => {
-      setColWidths(prev => {
-        saveColWidths(prev);
-        return prev;
-      });
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
+    const onUp = (ev) => {
+      ev.preventDefault();
+      saveColWidths({ ...colWidths, [colKey]: lastWidth });
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
     };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   };
 
   const getColWidth = (col) => colWidths[col.key] ?? col.width;
@@ -1091,11 +1093,22 @@ export default function App() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                     {col.label.toUpperCase()}
                     {isSuperAdmin && (
-                      <span
-                        onMouseDown={e => startDrag(e, col.key, getColWidth(col))}
-                        style={{ cursor: "col-resize", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)", fontSize: 14, padding: "0 4px", userSelect: "none", flexShrink: 0, lineHeight: 1 }}
-                        title="Přetáhni pro změnu šířky"
-                      >⟺</span>
+                      editingColWidth === col.key
+                        ? <input
+                            autoFocus
+                            type="number"
+                            defaultValue={getColWidth(col)}
+                            onBlur={e => { const w = Math.max(40, parseInt(e.target.value)||40); setColWidths(prev => { const n = {...prev, [col.key]: w}; saveColWidths(n); return n; }); setEditingColWidth(null); }}
+                            onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") setEditingColWidth(null); }}
+                            style={{ width: 50, fontSize: 10, padding: "1px 3px", background: "#1e3a8a", color: "#fff", border: "1px solid #60a5fa", borderRadius: 3 }}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        : <span
+                            onMouseDown={e => startDrag(e, col.key, getColWidth(col))}
+                            onClick={e => { e.stopPropagation(); setEditingColWidth(col.key); }}
+                            style={{ cursor: "col-resize", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)", fontSize: 14, padding: "0 4px", userSelect: "none", flexShrink: 0, display: "inline-block" }}
+                            title="Táhni = resize | Klik = zadat číslo"
+                          >⟺</span>
                     )}
                   </div>
                 </th>
