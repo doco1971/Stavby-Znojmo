@@ -852,7 +852,7 @@ export default function App() {
   const rowBg = (firma) => getFirmaColor(firma).bg;
 
   return (
-    <div style={{ minHeight: "100vh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text }}>
+    <div style={{ height: "100vh", overflow: "hidden", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text, display: "flex", flexDirection: "column" }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} ${!isDark ? "table td:not(.colored-cell), table td:not(.colored-cell) * { color: #1e293b !important; } .firma-badge { color: inherit !important; }" : ""}`}</style>
 
       {/* HEADER */}
