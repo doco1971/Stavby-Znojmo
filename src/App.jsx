@@ -457,6 +457,12 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const [newO, setNewO] = useState("");
   const [newS, setNewS] = useState("");
   const [localLogData, setLocalLogData] = useState([]);
+  const [logFilterUser, setLogFilterUser] = useState("");
+  const [logFilterAkce, setLogFilterAkce] = useState("");
+  const localLogFiltered = localLogData.filter(r =>
+    (!logFilterUser || r.uzivatel === logFilterUser) &&
+    (!logFilterAkce || r.akce === logFilterAkce)
+  );
 
   // Users
   const [uList, setUList] = useState(users.map(u => ({ ...u })));
@@ -583,11 +589,27 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
           {tab === "log" && (
             <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <span style={{ color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.5)", fontSize: 12 }}>{localLogData.length} záznamů</span>
-                <button onClick={handleLoadLog} style={{ padding: "5px 12px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 6, color: isDark ? "#fff" : "#1e293b", cursor: "pointer", fontSize: 12 }}>🔄 Obnovit</button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {/* Filtr uživatel */}
+                  <select onChange={e => setLogFilterUser(e.target.value)} style={{ padding: "5px 10px", background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 6, color: isDark ? "#e2e8f0" : "#1e293b", fontSize: 12, cursor: "pointer" }}>
+                    <option value="">Všichni uživatelé</option>
+                    {[...new Set(localLogData.map(r => r.uzivatel))].filter(Boolean).map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                  {/* Filtr akce */}
+                  <select onChange={e => setLogFilterAkce(e.target.value)} style={{ padding: "5px 10px", background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 6, color: isDark ? "#e2e8f0" : "#1e293b", fontSize: 12, cursor: "pointer" }}>
+                    <option value="">Všechny akce</option>
+                    {Object.keys(AKCE_COLOR).map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.5)", fontSize: 12 }}>{localLogFiltered.length} záznamů</span>
+                  <button onClick={handleLoadLog} style={{ padding: "5px 12px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 6, color: isDark ? "#fff" : "#1e293b", cursor: "pointer", fontSize: 12 }}>🔄 Obnovit</button>
+                </div>
               </div>
-              <div style={{ overflowY: "auto", maxHeight: 420 }}>
+              <div style={{ overflowY: "auto", maxHeight: 400 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                   <thead>
                     <tr style={{ background: isDark ? "#1a2744" : "#e2e8f0" }}>
@@ -597,7 +619,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                     </tr>
                   </thead>
                   <tbody>
-                    {localLogData.map((r, i) => (
+                    {localLogFiltered.map((r, i) => (
                       <tr key={r.id} style={{ background: i % 2 === 0 ? (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)") : "transparent" }}>
                         <td style={{ padding: "7px 12px", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.5)", whiteSpace: "nowrap" }}>{fmtCas(r.cas)}</td>
                         <td style={{ padding: "7px 12px", color: isDark ? "#e2e8f0" : "#1e293b" }}>{r.uzivatel}</td>
@@ -607,7 +629,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                         <td style={{ padding: "7px 12px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontSize: 12 }}>{r.detail}</td>
                       </tr>
                     ))}
-                    {localLogData.length === 0 && (
+                    {localLogFiltered.length === 0 && (
                       <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.3)" }}>Žádné záznamy</td></tr>
                     )}
                   </tbody>
