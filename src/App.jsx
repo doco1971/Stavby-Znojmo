@@ -167,6 +167,18 @@ function SummaryCards({ data, firmy, isDark, firmaColors }) {
   return (
     <div style={{ overflowX: "auto", background: bg, padding: "14px 18px" }}>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${firmy.length * 3 + 3}, minmax(140px, 1fr))`, gap: 10, minWidth: (firmy.length * 3 + 3) * 150 }}>
+        <div style={{ background: cardBg, border: "1px solid #2563eb33", borderLeft: "3px solid #2563eb", borderRight: "3px solid #2563eb", borderRadius: 10, padding: "12px 14px" }}>
+          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>Celkem – Kat. I</div>
+          <div style={{ color: textMain, fontSize: 13, fontWeight: 700 }}>{fmt(totalI)}</div>
+        </div>
+        <div style={{ background: cardBg, border: "1px solid #6366f133", borderLeft: "3px solid #6366f1", borderRight: "3px solid #6366f1", borderRadius: 10, padding: "12px 14px" }}>
+          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>Celkem – Kat. II</div>
+          <div style={{ color: textMain, fontSize: 13, fontWeight: 700 }}>{fmt(totalII)}</div>
+        </div>
+        <div style={{ background: isDark ? "linear-gradient(135deg,#2563eb22,#6366f10a)" : "#2563eb18", border: "1px solid #2563eb44", borderLeft: "3px solid #2563eb", borderRight: "3px solid #2563eb", borderRadius: 10, padding: "12px 14px" }}>
+          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>CELKEM VŠE</div>
+          <div style={{ color: textMain, fontSize: 15, fontWeight: 800 }}>{fmt(totalCelkem)}</div>
+        </div>
         {firmy.map((firma) => {
           const color = firmaColors[firma] || "#2563eb";
           const katI = sum(firma, ["ps_i","snk_i","bo_i"]);
@@ -187,18 +199,6 @@ function SummaryCards({ data, firmy, isDark, firmaColors }) {
             </div>,
           ];
         })}
-        <div style={{ background: cardBg, border: "1px solid #2563eb33", borderLeft: "3px solid #2563eb", borderRight: "3px solid #2563eb", borderRadius: 10, padding: "12px 14px" }}>
-          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>Celkem – Kat. I</div>
-          <div style={{ color: textMain, fontSize: 13, fontWeight: 700 }}>{fmt(totalI)}</div>
-        </div>
-        <div style={{ background: cardBg, border: "1px solid #6366f133", borderLeft: "3px solid #6366f1", borderRight: "3px solid #6366f1", borderRadius: 10, padding: "12px 14px" }}>
-          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>Celkem – Kat. II</div>
-          <div style={{ color: textMain, fontSize: 13, fontWeight: 700 }}>{fmt(totalII)}</div>
-        </div>
-        <div style={{ background: isDark ? "linear-gradient(135deg,#2563eb22,#6366f10a)" : "#2563eb18", border: "1px solid #2563eb44", borderLeft: "3px solid #2563eb", borderRight: "3px solid #2563eb", borderRadius: 10, padding: "12px 14px" }}>
-          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>CELKEM VŠE</div>
-          <div style={{ color: textMain, fontSize: 15, fontWeight: 800 }}>{fmt(totalCelkem)}</div>
-        </div>
       </div>
     </div>
   );
@@ -994,6 +994,7 @@ export default function App() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 2100 }}>
           <thead>
             <tr style={{ background: T.theadBg }}>
+              {isAdmin && <th style={{ padding: "9px 11px", color: T.textMuted, fontWeight: 700, fontSize: 10.5, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>AKCE</th>}
               {COLUMNS.map(col => (
                 <th key={col.key} style={{ padding: "9px 11px", textAlign: "center", color: T.textMuted, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, whiteSpace: "nowrap", minWidth: col.width, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}` }}>
                   {col.label.toUpperCase()}
@@ -1013,6 +1014,12 @@ export default function App() {
                 onMouseEnter={e => e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.38)" : T.hoverBg}
                 onMouseLeave={e => e.currentTarget.style.background = baseBg}
               >
+                {isAdmin && (
+                  <td style={{ padding: "7px 11px", whiteSpace: "nowrap", border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>
+                    <button onClick={() => setEditRow(row)} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11, marginRight: 5 }}>✏️</button>
+                    <button onClick={() => setDeleteConfirm({ id: row.id, step: 1 })} style={{ padding: "3px 9px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 5, color: "#f87171", cursor: "pointer", fontSize: 11 }}>🗑️</button>
+                  </td>
+                )}
                 {COLUMNS.map(col => {
                   const isEditing = editingCell?.rowId === row.id && editingCell?.colKey === col.key;
                   const canEdit = isAdmin && !col.computed && col.key !== "id";
@@ -1050,6 +1057,7 @@ export default function App() {
             })}
             {paginated.length < PAGE_SIZE && Array.from({ length: PAGE_SIZE - paginated.length }).map((_, i) => (
               <tr key={`empty-${i}`} style={{ height: 36 }}>
+                {isAdmin && <td style={{ border: `1px solid ${T.cellBorder}` }} />}
                 {COLUMNS.map(col => <td key={col.key} style={{ border: `1px solid ${T.cellBorder}` }} />)}
                 {isAdmin && <td style={{ border: `1px solid ${T.cellBorder}` }} />}
               </tr>
