@@ -444,8 +444,10 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const removeUser = (id) => setUList(uList.filter(u => u.id !== id));
 
   const handleLoadLog = async () => {
-    const res = await onLoadLog();
-    setLocalLogData(Array.isArray(res) ? res : []);
+    try {
+      const res = await onLoadLog();
+      setLocalLogData(Array.isArray(res) ? res : []);
+    } catch(e) { setLocalLogData([]); }
   };
 
   useEffect(() => { if (tab === "log") handleLoadLog(); }, [tab]);
@@ -694,11 +696,16 @@ export default function App() {
       })
       .filter(Boolean)
       .sort((a, b) => a.dniDo - b.dniDo);
-    if (warnings.length > 0) {
-      setDeadlineWarnings(warnings);
+    setDeadlineWarnings(warnings);
+  }, [data]);
+
+  const shownDeadlineOnce = useRef(false);
+  useEffect(() => {
+    if (!shownDeadlineOnce.current && deadlineWarnings.length > 0) {
+      shownDeadlineOnce.current = true;
       setShowDeadlines(true);
     }
-  }, [data]);
+  }, [deadlineWarnings]);
 
   useEffect(() => {
     const dark = isDarkComputed(theme);
@@ -949,10 +956,10 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
+          {deadlineWarnings.length > 0 && <button onClick={() => setShowDeadlines(true)} style={{ padding: "5px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>⚠️ Termíny ({deadlineWarnings.length})</button>}
           <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
           <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isAdmin ? "rgba(245,158,11,0.2)" : "rgba(100,116,139,0.2)", color: isAdmin ? "#fbbf24" : "#94a3b8" }}>{isAdmin ? "ADMIN" : "USER"}</span>
           {isAdmin && <button onClick={() => { setShowSettings(true); loadLog(); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
-          {deadlineWarnings.length > 0 && <button onClick={() => setShowDeadlines(true)} style={{ padding: "5px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>⚠️ Termíny ({deadlineWarnings.length})</button>}
           <div style={{ display: "flex", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 8, overflow: "hidden" }}>
             {[["🌞","light","Světlý"],["🌙","dark","Tmavý"]].map(([icon, val, label]) => (
               <button key={val} onClick={() => changeTheme(val)} title={label} style={{ padding: "5px 9px", background: theme === val ? (isDark ? "rgba(37,99,235,0.3)" : "rgba(37,99,235,0.15)") : "transparent", border: "none", color: theme === val ? "#60a5fa" : T.textMuted, cursor: "pointer", fontSize: 13 }}>{icon}</button>
