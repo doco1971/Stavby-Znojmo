@@ -734,7 +734,7 @@ export default function App() {
   useEffect(() => {
     const calc = () => {
       const rowH = 36;
-      const reserved = 52 + 90 + 52 + 44 + 40; // header + cards + filters + pagination + padding
+      const reserved = 52 + 105 + 52 + 44; // header + cards + filters + pagination
       const rows = Math.max(5, Math.floor((window.innerHeight - reserved) / rowH));
       setPageSize(rows);
     };
