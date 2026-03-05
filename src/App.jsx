@@ -156,44 +156,60 @@ function SummaryCards({ data, firmy, isDark, firmaColors }) {
   const sum = (firma, fields) => data.filter(r => r.firma === firma).reduce((a, r) => { fields.forEach(f => a += Number(r[f])||0); return a; }, 0);
   const sumAll = (fields) => data.reduce((a, r) => { fields.forEach(f => a += Number(r[f])||0); return a; }, 0);
   const bg = isDark ? "#0f172a" : "#f1f5f9";
-  const cardBg = isDark ? "rgba(255,255,255,0.02)" : "#ffffff";
-  const textMuted = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.45)";
+  const cardBg = isDark ? "rgba(255,255,255,0.04)" : "#ffffff";
+  const textMuted = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)";
   const textMain = isDark ? "#fff" : "#1e293b";
+  const groupBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
 
   const totalI = sumAll(["ps_i","snk_i","bo_i"]);
   const totalII = sumAll(["ps_ii","bo_ii","poruch"]);
   const totalCelkem = totalI + totalII;
 
   return (
-    <div style={{ overflowX: "auto", background: bg, padding: "14px 18px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${firmy.length * 3 + 1}, minmax(140px, 1fr))`, gap: 10, minWidth: (firmy.length * 3 + 1) * 150 }}>
-        <div style={{ background: isDark ? "linear-gradient(135deg,rgba(249,115,22,0.15),rgba(249,115,22,0.05))" : "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.4)", borderLeft: "3px solid #f97316", borderRight: "3px solid #f97316", borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
-          <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>CELKEM VŠE</div>
-          <div style={{ color: textMain, fontSize: 15, fontWeight: 800 }}>{fmt(totalCelkem)}</div>
-          <div style={{ marginTop: 6, display: "flex", gap: 10, justifyContent: "center" }}>
-            <div style={{ color: textMuted, fontSize: 10 }}>Kat. I: <span style={{ color: textMain, fontWeight: 600 }}>{fmt(totalI)}</span></div>
-            <div style={{ color: textMuted, fontSize: 10 }}>Kat. II: <span style={{ color: textMain, fontWeight: 600 }}>{fmt(totalII)}</span></div>
+    <div style={{ overflowX: "auto", background: bg, padding: "10px 18px" }}>
+      <div style={{ display: "flex", gap: 10, minWidth: "max-content" }}>
+
+        {/* CELKEM VŠE – samostatná skupina */}
+        <div style={{ background: isDark ? "rgba(249,115,22,0.08)" : "rgba(249,115,22,0.07)", border: `1px solid rgba(249,115,22,0.35)`, borderRadius: 12, padding: "10px 14px", minWidth: 170 }}>
+          <div style={{ color: "#f97316", fontSize: 10, fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textAlign: "center" }}>CELKEM VŠE</div>
+          <div style={{ color: textMain, fontSize: 20, fontWeight: 800, textAlign: "center", marginBottom: 6 }}>{fmt(totalCelkem)}</div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <div style={{ background: isDark ? "rgba(249,115,22,0.12)" : "rgba(249,115,22,0.1)", borderRadius: 6, padding: "3px 8px", textAlign: "center" }}>
+              <div style={{ color: textMuted, fontSize: 9, fontWeight: 600 }}>KAT. I</div>
+              <div style={{ color: textMain, fontSize: 12, fontWeight: 700 }}>{fmt(totalI)}</div>
+            </div>
+            <div style={{ background: isDark ? "rgba(249,115,22,0.12)" : "rgba(249,115,22,0.1)", borderRadius: 6, padding: "3px 8px", textAlign: "center" }}>
+              <div style={{ color: textMuted, fontSize: 9, fontWeight: 600 }}>KAT. II</div>
+              <div style={{ color: textMain, fontSize: 12, fontWeight: 700 }}>{fmt(totalII)}</div>
+            </div>
           </div>
         </div>
+
+        {/* Separator */}
+        <div style={{ width: 1, background: groupBorder, margin: "4px 0" }} />
+
+        {/* Skupiny firem */}
         {firmy.map((firma) => {
           const color = firmaColors[firma] || "#2563eb";
           const katI = sum(firma, ["ps_i","snk_i","bo_i"]);
           const katII = sum(firma, ["ps_ii","bo_ii","poruch"]);
           const celkem = katI + katII;
-          return [
-            <div key={`${firma}-I`} style={{ background: cardBg, border: `1px solid ${color}33`, borderLeft: `3px solid ${color}`, borderRight: `3px solid ${color}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
-              <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>{firma} – Kat. I</div>
-              <div style={{ color: textMain, fontSize: 13, fontWeight: 700 }}>{fmt(katI)}</div>
-            </div>,
-            <div key={`${firma}-II`} style={{ background: cardBg, border: `1px solid ${color}33`, borderLeft: `3px solid ${color}`, borderRight: `3px solid ${color}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
-              <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>{firma} – Kat. II</div>
-              <div style={{ color: textMain, fontSize: 13, fontWeight: 700 }}>{fmt(katII)}</div>
-            </div>,
-            <div key={`${firma}-C`} style={{ background: isDark ? `linear-gradient(135deg,${color}22,${color}0a)` : `${color}18`, border: `1px solid ${color}44`, borderLeft: `3px solid ${color}`, borderRight: `3px solid ${color}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
-              <div style={{ color: textMuted, fontSize: 10, fontWeight: 600, marginBottom: 5 }}>Celkem {firma}</div>
-              <div style={{ color: textMain, fontSize: 15, fontWeight: 800 }}>{fmt(celkem)}</div>
-            </div>,
-          ];
+          return (
+            <div key={firma} style={{ background: isDark ? `${color}0d` : `${color}0f`, border: `1px solid ${color}40`, borderRadius: 12, padding: "10px 14px", minWidth: 210 }}>
+              <div style={{ color, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textAlign: "center" }}>{firma.toUpperCase()}</div>
+              <div style={{ color: textMain, fontSize: 18, fontWeight: 800, textAlign: "center", marginBottom: 6 }}>{fmt(celkem)}</div>
+              <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                <div style={{ background: cardBg, border: `1px solid ${color}25`, borderRadius: 6, padding: "3px 10px", textAlign: "center" }}>
+                  <div style={{ color: textMuted, fontSize: 9, fontWeight: 600 }}>KAT. I</div>
+                  <div style={{ color: textMain, fontSize: 12, fontWeight: 700 }}>{fmt(katI)}</div>
+                </div>
+                <div style={{ background: cardBg, border: `1px solid ${color}25`, borderRadius: 6, padding: "3px 10px", textAlign: "center" }}>
+                  <div style={{ color: textMuted, fontSize: 9, fontWeight: 600 }}>KAT. II</div>
+                  <div style={{ color: textMain, fontSize: 12, fontWeight: 700 }}>{fmt(katII)}</div>
+                </div>
+              </div>
+            </div>
+          );
         })}
       </div>
     </div>
