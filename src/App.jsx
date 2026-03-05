@@ -623,7 +623,6 @@ export default function App() {
   const [filterText, setFilterText] = useState("");
   const [filterObjed, setFilterObjed] = useState("Všichni objednatelé");
   const [filterSV, setFilterSV] = useState("Všichni SV");
-  const [filterSV, setFilterSV] = useState("Všichni SV");
   const [editRow, setEditRow] = useState(null);
   const [adding, setAdding] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
