@@ -73,19 +73,19 @@ function SecHead({ color, children }) {
   return <div style={{ gridColumn: "1 / -1", borderLeft: `3px solid ${color}`, paddingLeft: 10, color, fontWeight: 700, fontSize: 12, letterSpacing: 0.5, marginTop: 8, marginBottom: 2 }}>{children}</div>;
 }
 
-function NativeSelect({ value, onChange, options, style }) {
+function NativeSelect({ value, onChange, options, style, isDark = true }) {
   return (
     <div style={{ position: "relative" }}>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        style={{ ...inputSx, appearance: "none", WebkitAppearance: "none", cursor: "pointer", ...style }}
+        style={{ ...inputSx, appearance: "none", WebkitAppearance: "none", cursor: "pointer", background: isDark ? "#0f172a" : "#fff", color: isDark ? "#e2e8f0" : "#1e293b", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.2)"}`, ...style }}
       >
         {options.map(o => (
-          <option key={o} value={o} style={{ background: "#1e293b", color: "#fff", padding: 8 }}>{o}</option>
+          <option key={o} value={o} style={{ background: isDark ? "#1e293b" : "#fff", color: isDark ? "#fff" : "#1e293b", padding: 8 }}>{o}</option>
         ))}
       </select>
-      <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.5)", pointerEvents: "none", fontSize: 11 }}>▼</span>
+      <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.4)", pointerEvents: "none", fontSize: 11 }}>▼</span>
     </div>
   );
 }
@@ -993,9 +993,9 @@ export default function App() {
       {/* FILTERS */}
       <div ref={filtersRef} style={{ padding: "10px 18px", display: "flex", gap: 10, alignItems: "center", background: T.filterBg, borderBottom: `1px solid ${T.cellBorder}`, flexWrap: "wrap" }}>
         <input placeholder="🔍 Hledat stavbu / číslo..." value={filterText} onChange={e => setFilterText(e.target.value)} style={{ ...inputSx, width: 230, background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.text }} />
-        <NativeSelect value={filterFirma} onChange={setFilterFirma} options={["Všechny firmy", ...firmy.map(f => f.hodnota)]} style={{ width: 170, background: T.inputBg, color: T.text, borderColor: T.inputBorder }} />
-        <NativeSelect value={filterObjed} onChange={setFilterObjed} options={["Všichni objednatelé", ...objednatele]} style={{ width: 190, background: T.inputBg, color: T.text, borderColor: T.inputBorder }} />
-        <NativeSelect value={filterSV} onChange={setFilterSV} options={["Všichni stavbyvedoucí", ...stavbyvedouci]} style={{ width: 170, background: T.inputBg, color: T.text, borderColor: T.inputBorder }} />
+        <NativeSelect value={filterFirma} onChange={setFilterFirma} options={["Všechny firmy", ...firmy.map(f => f.hodnota)]} isDark={isDark} style={{ width: 170 }} />
+        <NativeSelect value={filterObjed} onChange={setFilterObjed} options={["Všichni objednatelé", ...objednatele]} isDark={isDark} style={{ width: 190 }} />
+        <NativeSelect value={filterSV} onChange={setFilterSV} options={["Všichni stavbyvedoucí", ...stavbyvedouci]} isDark={isDark} style={{ width: 170 }} />
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <span style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, padding: "4px 12px", color: T.text, fontSize: 13, fontWeight: 600 }}>{filtered.length} záznamů</span>
           <div style={{ position: "relative" }}>
