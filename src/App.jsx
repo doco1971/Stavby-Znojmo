@@ -1232,11 +1232,14 @@ export default function App() {
             {/* footer */}
             <div style={{ padding: "14px 24px", borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button onClick={() => {
+                const existing = document.getElementById("deadline-print-style");
+                if (existing) existing.remove();
                 const style = document.createElement("style");
+                style.id = "deadline-print-style";
                 style.innerHTML = `.print-header { display: block !important; } @media print { body * { visibility: hidden; } #deadline-print-area, #deadline-print-area * { visibility: visible; } #deadline-print-area { position: fixed; top: 0; left: 0; width: 100%; } }`;
                 document.head.appendChild(style);
                 window.print();
-                setTimeout(() => document.head.removeChild(style), 1000);
+                setTimeout(() => { const s = document.getElementById("deadline-print-style"); if (s) s.remove(); }, 1000);
               }} style={{ padding: "9px 18px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>🖨️ Tisk / PDF</button>
               <button onClick={() => setShowDeadlines(false)} style={{ padding: "9px 18px", background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, color: isDark ? "#fff" : "#1e293b", cursor: "pointer", fontSize: 13 }}>Zavřít</button>
             </div>
