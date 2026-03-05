@@ -225,11 +225,11 @@ function FormField({ label, value, onChange, full, type }) {
   );
 }
 
-function FormSelectField({ label, value, onChange, options }) {
+function FormSelectField({ label, value, onChange, options, allowEmpty }) {
   return (
     <div>
       <Lbl>{label}</Lbl>
-      <NativeSelect value={value ?? options[0]} onChange={onChange} options={options} />
+      <NativeSelect value={value ?? ""} onChange={onChange} options={allowEmpty ? ["", ...options] : options} />
     </div>
   );
 }
@@ -306,8 +306,8 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             <SecHead color="#f472b6">Ostatní</SecHead>
             <FormField label="SOD" value={form["sod"]} onChange={v => set("sod", v)} />
             <FormField label="Ze dne" value={form["ze_dne"]} onChange={v => set("ze_dne", v)} type="date" />
-            <FormSelectField label="Objednatel" value={form["objednatel"]} onChange={v => set("objednatel", v)} options={objednatele} />
-            <FormSelectField label="Stavbyvedoucí" value={form["stavbyvedouci"]} onChange={v => set("stavbyvedouci", v)} options={svList} />
+            <FormSelectField label="Objednatel" value={form["objednatel"]} onChange={v => set("objednatel", v)} options={objednatele} allowEmpty />
+            <FormSelectField label="Stavbyvedoucí" value={form["stavbyvedouci"]} onChange={v => set("stavbyvedouci", v)} options={svList} allowEmpty />
           </div>
         </div>
 
@@ -790,7 +790,7 @@ export default function App() {
   };
 
   const nextId = data.length > 0 ? Math.max(...data.map(r => r.id)) + 1 : 1;
-  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: objednatele[0]||"", stavbyvedouci: stavbyvedouci[0]||"", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
+  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
 
   const FIRMA_COLOR_FALLBACK = [
     "#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899",
