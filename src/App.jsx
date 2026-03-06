@@ -90,14 +90,14 @@ function NativeSelect({ value, onChange, options, style, isDark = true }) {
   return (
     <div ref={ref} style={{ position: "relative", ...style }}
       onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setTimeout(() => setOpen(false), 600)}
+      onMouseLeave={() => setTimeout(() => setOpen(false), 800)}
     >
       <button style={{ width: "100%", padding: "7px 30px 7px 12px", background: bg, border: `1px solid ${border}`, borderRadius: 7, color: textColor, cursor: "pointer", fontSize: 13, textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{value}</span>
         <span style={{ marginLeft: 8, fontSize: 10, color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)", flexShrink: 0 }}>▼</span>
       </button>
       {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, minWidth: "100%", background: dropBg, border: `1px solid ${border}`, borderRadius: 8, zIndex: 500, boxShadow: dropShadow, overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "100%", left: 0, minWidth: "100%", background: dropBg, border: `1px solid ${border}`, borderRadius: "0 0 8px 8px", zIndex: 500, boxShadow: dropShadow, overflow: "hidden" }}>
           {options.map(o => (
             <div key={o} onClick={() => { onChange(o); setOpen(false); }}
               style={{ padding: "9px 14px", color: o === value ? (isDark ? "#60a5fa" : "#2563eb") : textColor, background: o === value ? (isDark ? "rgba(37,99,235,0.15)" : "rgba(37,99,235,0.08)") : "transparent", cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" }}
@@ -1200,7 +1200,7 @@ export default function App() {
           <div style={{ position: "relative" }} onMouseEnter={() => setShowExport(true)} onMouseLeave={() => setTimeout(() => setShowExport(false), 600)}>
             <button style={{ padding: "7px 14px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12 }}>⬇ Export ▾</button>
             {showExport && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"}`, borderRadius: 10, padding: 6, zIndex: 200, minWidth: 160, boxShadow: "0 12px 32px rgba(0,0,0,0.3)" }}>
+              <div style={{ position: "absolute", top: "calc(100% + 2px)", right: 0, background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"}`, borderRadius: 10, padding: "6px 6px", zIndex: 200, minWidth: 180, boxShadow: "0 12px 32px rgba(0,0,0,0.3)" }}>
                 <button onClick={exportCSV} style={{ display: "block", width: "100%", padding: "9px 14px", background: "none", border: "none", color: T.text, cursor: "pointer", fontSize: 13, textAlign: "left", borderRadius: 6 }} onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"} onMouseLeave={e => e.currentTarget.style.background = "none"}>📄 CSV (.csv)</button>
                 <button onClick={exportXLS} style={{ display: "block", width: "100%", padding: "9px 14px", background: "none", border: "none", color: T.text, cursor: "pointer", fontSize: 13, textAlign: "left", borderRadius: 6 }} onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"} onMouseLeave={e => e.currentTarget.style.background = "none"}>📊 Excel (.xlsx)</button>
                 <button onClick={exportXLSColor} style={{ display: "block", width: "100%", padding: "9px 14px", background: "none", border: "none", color: T.text, cursor: "pointer", fontSize: 13, textAlign: "left", borderRadius: 6 }} onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"} onMouseLeave={e => e.currentTarget.style.background = "none"}>🎨 Barevný Excel (.xls)</button>
@@ -1462,9 +1462,10 @@ export default function App() {
                   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Stavby Znojmo – tisk</title>
                   <style>
                     @page { size: A4 landscape; margin: 10mm; }
-                    body { font-family: Arial, sans-serif; font-size: 9px; color: #111; margin: 0; }
+                    body { font-family: Arial, sans-serif; font-size: 9px; color: #111; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     table { border-collapse: collapse; width: 100%; }
-                    thead tr { background: #1e3a5f; }
+                    thead tr { background: #1e3a5f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    td, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     h2 { font-size: 13px; margin: 0 0 2px; }
                     .sub { font-size: 9px; color: #666; margin-bottom: 8px; }
                   </style></head><body>
