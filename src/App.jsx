@@ -395,7 +395,7 @@ function ListEditor({ label, color, list, setList, nv, setNv, isDark }) {
   );
 }
 
-function FirmyEditor({ list, setList, isDark }) {
+function FirmyEditor({ list, setList, isDark, onNvChange }) {
   const [newNazev, setNewNazev] = useState("");
   const [newBarva, setNewBarva] = useState("#3b82f6");
   const PRESET_COLORS = ["#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899","#f59e0b","#6366f1"];
@@ -403,11 +403,13 @@ function FirmyEditor({ list, setList, isDark }) {
   const itemBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const itemText = isDark ? "#e2e8f0" : "#1e293b";
 
+  const setNazev = (v) => { setNewNazev(v); onNvChange?.(v); };
+
   const add = () => {
     const v = newNazev.trim();
     if (v && !list.find(f => f.hodnota === v)) {
       setList([...list, { hodnota: v, barva: newBarva }]);
-      setNewNazev("");
+      setNewNazev(""); onNvChange?.("");
     }
   };
 
@@ -418,7 +420,7 @@ function FirmyEditor({ list, setList, isDark }) {
     <div style={{ flex: 1 }}>
       <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: 12, letterSpacing: 0.5, marginBottom: 10, borderLeft: "3px solid #60a5fa", paddingLeft: 8 }}>Firmy</div>
       <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "center" }}>
-        <input value={newNazev} onChange={e => setNewNazev(e.target.value)} onKeyDown={e => e.key === "Enter" && add()}
+        <input value={newNazev} onChange={e => setNazev(e.target.value)} onKeyDown={e => e.key === "Enter" && add()}
           placeholder="Název firmy..." style={{ ...inputSx, flex: 1, fontSize: 12, background: isDark ? "#0f172a" : "#f8fafc", color: itemText, border: `1px solid ${itemBorder}` }} />
         <input type="color" value={newBarva} onChange={e => setNewBarva(e.target.value)}
           style={{ width: 36, height: 36, border: "none", borderRadius: 6, cursor: "pointer", background: "none", padding: 2 }} />
@@ -539,7 +541,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
         <div style={{ padding: 24, overflowY: "auto", flex: 1, background: modalBg }}>
           {tab === "ciselniky" && (
             <div style={{ display: "flex", gap: 20 }}>
-              <FirmyEditor list={f} setList={setF} isDark={isDark} />
+              <FirmyEditor list={f} setList={setF} isDark={isDark} onNvChange={v => setNewF(v)} />
               <ListEditor label="Objednatelé" color="#34d399" list={o} setList={setO} nv={newO} setNv={setNewO} isDark={isDark} />
               <ListEditor label="Stavbyvedoucí" color="#f472b6" list={s} setList={setS} nv={newS} setNv={setNewS} isDark={isDark} />
             </div>
