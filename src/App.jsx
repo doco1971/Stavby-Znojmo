@@ -1114,7 +1114,7 @@ export default function App() {
           </svg>
           <div>
             <div style={{ fontWeight: 800, fontSize: 22 }}>Stavby Znojmo</div>
-            <div style={{ color: T.textMuted, fontSize: 14 }}>kategorie 1 & 2</div>
+            <div style={{ color: T.textMuted, fontSize: 16, textAlign: "center", letterSpacing: 1 }}>kategorie 1 & 2</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
