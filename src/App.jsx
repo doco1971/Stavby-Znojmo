@@ -148,7 +148,7 @@ function Login({ onLogin, users, onLogAction }) {
             <circle cx="15" cy="58" r="1.6" fill="#facc15" opacity="0.5" />
           </svg>
           <h1 style={{ color: "#fff", fontSize: 28, fontWeight: 800, margin: 0 }}>Stavby Znojmo</h1>
-          <p style={{ color: "rgba(255,255,255,0.35)", margin: "6px 0 0", fontSize: 11, letterSpacing: 2, textTransform: "uppercase" }}>kategorie 1 & 2</p>
+          <p style={{ color: "rgba(255,255,255,0.5)", margin: "6px 0 0", fontSize: 15, letterSpacing: 2, textTransform: "uppercase" }}>kategorie 1 & 2</p>
         </div>
 
         <div style={{ marginBottom: 14 }}><Lbl>Email</Lbl><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="vas@email.cz" style={inputSx} onKeyDown={e => e.key === "Enter" && handle()} /></div>
