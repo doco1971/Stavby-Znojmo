@@ -61,6 +61,9 @@ const COLUMNS = [
   { key: "cislo_faktury", label: "Č. faktury", width: 105 },
   { key: "castka_bez_dph", label: "Č. bez DPH", width: 105, type: "number" },
   { key: "splatna", label: "Splatná", width: 88 },
+  { key: "cislo_faktury_2", label: "Č. faktury 2", width: 105, hidden: true },
+  { key: "castka_bez_dph_2", label: "Č. bez DPH 2", width: 105, type: "number", hidden: true },
+  { key: "splatna_2", label: "Splatná 2", width: 88, hidden: true },
 ];
 
 const inputSx = { width: "100%", padding: "9px 11px", background: "#0f172a", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 7, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
@@ -286,8 +289,8 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const computed = computeRow(form);
 
-  const numFields = ["cislo_stavby","ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph"];
-  const dateFields = ["ukonceni","splatna","ze_dne"];
+  const numFields = ["cislo_stavby","ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","castka_bez_dph_2"];
+  const dateFields = ["ukonceni","splatna","ze_dne","splatna_2"];
 
   const handleSave = () => {
     for (const k of numFields) {
@@ -348,6 +351,9 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             <FormField label="Číslo faktury" value={form["cislo_faktury"]} onChange={v => set("cislo_faktury", v)} />
             <FormField label="Částka bez DPH" value={form["castka_bez_dph"]} onChange={v => set("castka_bez_dph", v)} type="number" />
             <FormField label="Splatná" value={form["splatna"]} onChange={v => set("splatna", v)} type="date" />
+            <FormField label="Číslo faktury 2" value={form["cislo_faktury_2"]} onChange={v => set("cislo_faktury_2", v)} />
+            <FormField label="Částka bez DPH 2" value={form["castka_bez_dph_2"]} onChange={v => set("castka_bez_dph_2", v)} type="number" />
+            <FormField label="Splatná 2" value={form["splatna_2"]} onChange={v => set("splatna_2", v)} type="date" />
 
             <SecHead color="#f472b6">Ostatní</SecHead>
             <FormField label="SOD" value={form["sod"]} onChange={v => set("sod", v)} />
@@ -1028,7 +1034,7 @@ export default function App() {
   // ── CRUD stavby ────────────────────────────────────────────
   const handleSave = async (updated) => {
     const { id, nabidka, rozdil, ...fields } = updated;
-    const numFields = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","cislo_stavby"];
+    const numFields = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","castka_bez_dph_2","cislo_stavby"];
     numFields.forEach(k => { if (fields[k] === "" || fields[k] == null) fields[k] = 0; else fields[k] = Number(fields[k]) || 0; });
     try {
       await sb(`stavby?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(fields) });
@@ -1040,7 +1046,7 @@ export default function App() {
 
   const handleAdd = async (newRow) => {
     const { id, nabidka, rozdil, ...fields } = newRow;
-    const numFields = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","cislo_stavby"];
+    const numFields = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","castka_bez_dph_2","cislo_stavby"];
     numFields.forEach(k => { if (fields[k] === "" || fields[k] == null) fields[k] = 0; else fields[k] = Number(fields[k]) || 0; });
     try {
       await sb("stavby", { method: "POST", body: JSON.stringify(fields) });
@@ -1205,7 +1211,7 @@ export default function App() {
   };
 
   const nextId = data.length > 0 ? Math.max(...data.map(r => r.id)) + 1 : 1;
-  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
+  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "", cislo_faktury_2: "", castka_bez_dph_2: 0, splatna_2: "" };
 
   const FIRMA_COLOR_FALLBACK = [
     "#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899",
@@ -1379,18 +1385,24 @@ export default function App() {
                     <button onClick={() => setEditRow(row)} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11 }}>✏️</button>
                   </td>
                 )}
-                {COLUMNS.filter(col => col.key !== "id").map(col => {
+                {COLUMNS.filter(col => col.key !== "id" && !col.hidden).map(col => {
                   const isEditing = editingCell?.rowId === row.id && editingCell?.colKey === col.key;
                   const canEdit = isAdmin && !col.computed && col.key !== "id";
                   const centerCols = ["cislo_stavby","ukonceni","sod","ze_dne","cislo_faktury","splatna"];
                   const align = col.type === "number" ? "right" : centerCols.includes(col.key) ? "center" : "left";
                   const selectOptions = col.key === "firma" ? firmy.map(f => f.hodnota) : col.key === "objednatel" ? objednatele : col.key === "stavbyvedouci" ? stavbyvedouci : null;
                   const isSelectCol = selectOptions != null;
+
+                  // Dvojité hodnoty pro faktury
+                  const key2 = col.key === "cislo_faktury" ? "cislo_faktury_2" : col.key === "castka_bez_dph" ? "castka_bez_dph_2" : col.key === "splatna" ? "splatna_2" : null;
+                  const val2 = key2 ? row[key2] : null;
+                  const hasDouble = key2 && (val2 || val2 === 0);
+
                   return (
                     <td key={col.key}
                       onClick={() => canEdit && !isEditing && startCell(row, col)}
                       className={col.key === "rozdil" || col.type === "number" ? "colored-cell" : ""}
-                      style={{ padding: isEditing ? 0 : "7px 11px", whiteSpace: "nowrap", textAlign: align, border: `1px solid ${T.cellBorder}`, cursor: canEdit ? "pointer" : "default", outline: isEditing ? "2px solid #2563eb" : "none", color: col.key === "rozdil" ? (Number(row[col.key]) >= 0 ? "#4ade80" : "#f87171") : col.type === "number" ? T.numColor : T.text }}
+                      style={{ padding: isEditing ? 0 : "5px 11px", whiteSpace: "nowrap", textAlign: align, border: `1px solid ${T.cellBorder}`, cursor: canEdit ? "pointer" : "default", outline: isEditing ? "2px solid #2563eb" : "none", color: col.key === "rozdil" ? (Number(row[col.key]) >= 0 ? "#4ade80" : "#f87171") : col.type === "number" ? T.numColor : T.text }}
                     >
                       {isEditing && isSelectCol
                         ? <select autoFocus value={cellValue} onChange={e => { setCellValue(e.target.value); }} onBlur={commitCell} onKeyDown={e => { if (e.key === "Enter") commitCell(); if (e.key === "Escape") setEditingCell(null); }} style={{ width: "100%", height: "100%", padding: "7px 11px", background: "#1e3a5f", border: "none", outline: "none", color: "#fff", fontSize: 12.5, boxSizing: "border-box", cursor: "pointer" }}>
@@ -1398,10 +1410,20 @@ export default function App() {
                           </select>
                         : isEditing
                         ? <input autoFocus value={cellValue} onChange={e => setCellValue(e.target.value)} onBlur={commitCell} onKeyDown={e => { if (e.key === "Enter") commitCell(); if (e.key === "Escape") setEditingCell(null); }} style={{ width: "100%", height: "100%", padding: "7px 11px", background: "transparent", border: "none", outline: "none", color: T.text, fontSize: 12.5, boxSizing: "border-box" }} />
-                        : col.key === "firma" ? <span className="firma-badge" style={firmaBadge(row[col.key])}>{row[col.key]}</span>
-                        : col.type === "number" ? fmtN(row[col.key])
-                        : col.truncate ? <span title={row[col.key] ?? ""} style={{ display: "inline-block", maxWidth: col.width - 22, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "middle" }}>{row[col.key] ?? ""}</span>
-                        : row[col.key] ?? ""}
+                        : <div>
+                            <div>
+                              {col.key === "firma" ? <span className="firma-badge" style={firmaBadge(row[col.key])}>{row[col.key]}</span>
+                              : col.type === "number" ? fmtN(row[col.key])
+                              : col.truncate ? <span title={row[col.key] ?? ""} style={{ display: "inline-block", maxWidth: col.width - 22, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "middle" }}>{row[col.key] ?? ""}</span>
+                              : row[col.key] ?? ""}
+                            </div>
+                            {hasDouble && (
+                              <div style={{ borderTop: `1px dashed ${T.cellBorder}`, marginTop: 3, paddingTop: 3, color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontSize: 11.5 }}>
+                                {col.type === "number" ? fmtN(val2) : val2}
+                              </div>
+                            )}
+                          </div>
+                      }
                     </td>
                   );
                 })}
