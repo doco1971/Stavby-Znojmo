@@ -609,13 +609,37 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                   <span style={{ color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.5)", fontSize: 12 }}>{localLogFiltered.length} záznamů</span>
                   <button onClick={handleLoadLog} style={{ padding: "5px 12px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 6, color: isDark ? "#fff" : "#1e293b", cursor: "pointer", fontSize: 12 }}>🔄 Obnovit</button>
                   <button onClick={() => {
-                    const wb = XLSX.utils.book_new();
-                    const ws = XLSX.utils.aoa_to_sheet([
-                      ["Čas", "Uživatel", "Akce", "Detail"],
-                      ...localLogFiltered.map(r => [r.cas ? new Date(r.cas).toLocaleString("cs-CZ") : "", r.uzivatel, r.akce, r.detail])
-                    ]);
-                    XLSX.utils.book_append_sheet(wb, ws, "Log");
-                    XLSX.writeFile(wb, `log_aktivit_${new Date().toISOString().slice(0,10)}.xlsx`);
+                    const akceColors = {
+                      "Přihlášení":    { bg: "#DBEAFE", color: "#1D4ED8" },
+                      "Přidání stavby":  { bg: "#DCFCE7", color: "#166534" },
+                      "Editace stavby":  { bg: "#FEF9C3", color: "#854D0E" },
+                      "Smazání stavby":  { bg: "#FEE2E2", color: "#991B1B" },
+                      "Nastavení":     { bg: "#F3E8FF", color: "#6B21A8" },
+                      "Záloha":        { bg: "#FFEDD5", color: "#9A3412" },
+                    };
+                    const rows = localLogFiltered.map((r, i) => {
+                      const c = akceColors[r.akce] || { bg: "#F8FAFC", color: "#334155" };
+                      const rowBg = i % 2 === 0 ? c.bg : "#FFFFFF";
+                      return `<tr>
+                        <td style="padding:6px 10px;border:1px solid #E2E8F0;background:${rowBg};color:#1E293B;white-space:nowrap">${r.cas ? new Date(r.cas).toLocaleString("cs-CZ") : ""}</td>
+                        <td style="padding:6px 10px;border:1px solid #E2E8F0;background:${rowBg};color:#1E293B">${r.uzivatel || ""}</td>
+                        <td style="padding:6px 10px;border:1px solid #E2E8F0;background:${c.bg};color:${c.color};font-weight:700;text-align:center">${r.akce || ""}</td>
+                        <td style="padding:6px 10px;border:1px solid #E2E8F0;background:${rowBg};color:#475569">${r.detail || ""}</td>
+                      </tr>`;
+                    }).join("");
+                    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>
+                      <table><thead><tr>
+                        <th style="padding:8px 10px;background:#1E3A8A;color:#fff;border:1px solid #2563EB;font-size:12px">Čas</th>
+                        <th style="padding:8px 10px;background:#1E3A8A;color:#fff;border:1px solid #2563EB;font-size:12px">Uživatel</th>
+                        <th style="padding:8px 10px;background:#1E3A8A;color:#fff;border:1px solid #2563EB;font-size:12px">Akce</th>
+                        <th style="padding:8px 10px;background:#1E3A8A;color:#fff;border:1px solid #2563EB;font-size:12px">Detail</th>
+                      </tr></thead><tbody>${rows}</tbody></table>
+                    </body></html>`;
+                    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `log_aktivit_${new Date().toISOString().slice(0,10)}.xls`;
+                    a.click();
                   }} style={{ padding: "5px 12px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 6, color: isDark ? "#fff" : "#1e293b", cursor: "pointer", fontSize: 12 }}>📥 Export Excel</button>
                 </div>
               </div>
