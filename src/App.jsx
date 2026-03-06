@@ -1645,6 +1645,38 @@ export default function App() {
                 ))}
               </div>
               <div style={{ padding: "14px 24px", borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={() => {
+                  const rows = orphans.map((s, i) => {
+                    const rowBg = i % 2 === 0 ? "#fefce8" : "#ffffff";
+                    return `<tr>
+                      <td style="background:${rowBg}">${s.cislo_stavby || ""}</td>
+                      <td style="background:${rowBg};font-weight:600">${s.nazev_stavby || ""}</td>
+                      <td style="background:#fef3c7;color:#92400e;font-weight:700;text-align:center">${s.firma || ""}</td>
+                      <td style="background:${rowBg}">${s.objednatel || ""}</td>
+                      <td style="background:${rowBg}">${s.stavbyvedouci || ""}</td>
+                    </tr>`;
+                  }).join("");
+                  const w = window.open("", "_blank");
+                  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Stavby bez firmy</title>
+                  <style>
+                    @page { size: A4 landscape; margin: 10mm; }
+                    body { font-family: Arial,sans-serif; padding: 0; color: #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    h2 { margin: 0 0 4px; font-size: 15px; }
+                    p { margin: 0 0 12px; color: #64748b; font-size: 11px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                    th { background: #1e3a8a; color: #fff; padding: 7px 10px; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    td { padding: 6px 10px; border: 1px solid #e2e8f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    @media print { button { display: none; } }
+                  </style>
+                  </head><body>
+                  <h2>🏚️ Stavby Znojmo – Stavby bez firmy</h2>
+                  <p>Vygenerováno: ${new Date().toLocaleDateString("cs-CZ")} &nbsp;|&nbsp; Celkem ${orphans.length} staveb bez přiřazené firmy</p>
+                  <table><thead><tr><th>Č. stavby</th><th>Název stavby</th><th>Původní firma</th><th>Objednatel</th><th>Stavbyvedoucí</th></tr></thead>
+                  <tbody>${rows}</tbody></table>
+                  <script>window.onload=function(){window.print();window.onafterprint=function(){window.close()}}<\/script>
+                  </body></html>`);
+                  w.document.close();
+                }} style={{ padding: "9px 22px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>🖨️ Tisk / PDF</button>
                 <button onClick={() => setShowOrphanWarning(false)} style={{ padding: "9px 22px", background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Rozumím</button>
               </div>
             </div>
