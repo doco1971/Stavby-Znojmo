@@ -1161,15 +1161,15 @@ export default function App() {
 
   const shownDeadlineOnce = useRef(false);
   useEffect(() => {
-    if (user?.email !== "demo" && !shownDeadlineOnce.current && deadlineWarnings.length > 0) {
+    if (user && user.email !== "demo" && !shownDeadlineOnce.current && deadlineWarnings.length > 0) {
       shownDeadlineOnce.current = true;
       setShowDeadlines(true);
     }
-  }, [deadlineWarnings, user?.email]);
+  }, [deadlineWarnings, user]);
 
   const shownOrphanOnce = useRef(false);
   useEffect(() => {
-    if (user?.email !== "demo" && !shownOrphanOnce.current && data.length > 0 && firmy.length > 0 && user) {
+    if (user && user.email !== "demo" && !shownOrphanOnce.current && data.length > 0 && firmy.length > 0) {
       const firmyNames = firmy.map(f => f.hodnota);
       const orphans = data.filter(s => s.firma && !firmyNames.includes(s.firma));
       if (orphans.length > 0) {
