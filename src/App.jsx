@@ -1010,7 +1010,7 @@ export default function App() {
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isSuperAdmin = user?.role === "superadmin";
-  const isEditor = user?.role === "user_e" || isAdmin;
+  const isEditor = user?.role === "user_e" || isAdmin || isDemo;
 
   // ── Šířky sloupců (jen superadmin) ─────────────────────────
   const [colWidths, setColWidths] = useState({});
@@ -1161,15 +1161,15 @@ export default function App() {
 
   const shownDeadlineOnce = useRef(false);
   useEffect(() => {
-    if (!shownDeadlineOnce.current && deadlineWarnings.length > 0) {
+    if (!isDemo && !shownDeadlineOnce.current && deadlineWarnings.length > 0) {
       shownDeadlineOnce.current = true;
       setShowDeadlines(true);
     }
-  }, [deadlineWarnings]);
+  }, [deadlineWarnings, isDemo]);
 
   const shownOrphanOnce = useRef(false);
   useEffect(() => {
-    if (!shownOrphanOnce.current && data.length > 0 && firmy.length > 0 && user) {
+    if (!isDemo && !shownOrphanOnce.current && data.length > 0 && firmy.length > 0 && user) {
       const firmyNames = firmy.map(f => f.hodnota);
       const orphans = data.filter(s => s.firma && !firmyNames.includes(s.firma));
       if (orphans.length > 0) {
@@ -1177,7 +1177,7 @@ export default function App() {
         setShowOrphanWarning(true);
       }
     }
-  }, [data, firmy, user]);
+  }, [data, firmy, user, isDemo]);
 
   useEffect(() => {
     const dark = isDarkComputed(theme);
