@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_09_build0008
+// BUILD: 2026_03_09_build0009
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -1316,11 +1316,8 @@ export default function App() {
       const theadH = thead ? thead.getBoundingClientRect().height : 35;
       const rowH = firstRow ? firstRow.getBoundingClientRect().height : 32;
       if (rowH < 1) return;
-      // Odečti pagination a footer které jsou mimo table wrapper
-      const paginationH = paginationRef.current ? paginationRef.current.getBoundingClientRect().height : 0;
-      const footerH = footerRef.current ? footerRef.current.getBoundingClientRect().height : 22;
-      const wrapH = wrap.getBoundingClientRect().height - paginationH - footerH;
-      const available = wrapH - theadH - 1;
+      // clientHeight = vnitřní výška pouze table wrapperu (bez pagination/footer)
+      const available = wrap.clientHeight - theadH - 1;
       const rows = Math.max(5, Math.floor(available / rowH));
       setPageSize(rows);
     };
@@ -1464,8 +1461,8 @@ export default function App() {
   const rowBg = (firma) => getFirmaColor(firma).bg;
 
   return (
-    <div style={{ height: "100vh", maxHeight: "100vh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}`}</style>
+    <div style={{ height: "100dvh", maxHeight: "100dvh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <style>{`html,body{overflow:hidden;height:100%;margin:0;padding:0} @keyframes spin{to{transform:rotate(360deg)}} ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}`}</style>
       {toast && (
         <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, padding: "12px 20px", borderRadius: 10, background: toast.type === "error" ? "#dc2626" : "#16a34a", color: "#fff", fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxWidth: 360 }}>
           {toast.type === "error" ? "⚠️ " : "✅ "}{toast.msg}
