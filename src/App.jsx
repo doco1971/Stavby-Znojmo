@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_09_build0010
+// BUILD: 2026_03_09_build0011
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -1317,7 +1317,8 @@ export default function App() {
       const rowH = firstRow ? firstRow.getBoundingClientRect().height : 32;
       if (rowH < 1) return;
       // clientHeight = vnitřní výška pouze table wrapperu (bez pagination/footer)
-      const available = wrap.clientHeight - theadH - 1;
+      const scrollbarH = wrap.offsetHeight - wrap.clientHeight;
+      const available = wrap.clientHeight - theadH - scrollbarH - 1;
       const rows = Math.max(5, Math.floor(available / rowH));
       setPageSize(rows);
     };
@@ -1343,7 +1344,8 @@ export default function App() {
     const theadH = thead.getBoundingClientRect().height;
     const rowH = firstRow.getBoundingClientRect().height;
     if (rowH < 1) return;
-    const available = wrap.clientHeight - theadH - 1;
+    const scrollbarH = wrap.offsetHeight - wrap.clientHeight;
+      const available = wrap.clientHeight - theadH - scrollbarH - 1;
     const rows = Math.max(5, Math.floor(available / rowH));
     if (rows !== PAGE_SIZE) setPageSize(rows);
   });
