@@ -1161,15 +1161,15 @@ export default function App() {
 
   const shownDeadlineOnce = useRef(false);
   useEffect(() => {
-    if (!isDemo && !shownDeadlineOnce.current && deadlineWarnings.length > 0) {
+    if (user?.email !== "demo" && !shownDeadlineOnce.current && deadlineWarnings.length > 0) {
       shownDeadlineOnce.current = true;
       setShowDeadlines(true);
     }
-  }, [deadlineWarnings, isDemo]);
+  }, [deadlineWarnings, user?.email]);
 
   const shownOrphanOnce = useRef(false);
   useEffect(() => {
-    if (!isDemo && !shownOrphanOnce.current && data.length > 0 && firmy.length > 0 && user) {
+    if (user?.email !== "demo" && !shownOrphanOnce.current && data.length > 0 && firmy.length > 0 && user) {
       const firmyNames = firmy.map(f => f.hodnota);
       const orphans = data.filter(s => s.firma && !firmyNames.includes(s.firma));
       if (orphans.length > 0) {
@@ -1177,7 +1177,7 @@ export default function App() {
         setShowOrphanWarning(true);
       }
     }
-  }, [data, firmy, user, isDemo]);
+  }, [data, firmy, user]);
 
   useEffect(() => {
     const dark = isDarkComputed(theme);
@@ -1459,7 +1459,7 @@ export default function App() {
           <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
           {isAdmin && <button onClick={() => { setShowSettings(true); loadLog(); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
           <div style={{ display: "flex", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 8, overflow: "hidden" }}>
-            {[["🌞","light","Světlý"],["🌙","dark","Tmavý"],["💻","system","Systém"]].map(([icon, val, label]) => (
+            {[["🌞","light","Světlý"],["🌙","dark","Tmavý"]].map(([icon, val, label]) => (
               <button key={val} onClick={() => changeTheme(val)} title={label} style={{ padding: "5px 9px", background: theme === val ? (isDark ? "rgba(37,99,235,0.3)" : "rgba(37,99,235,0.15)") : "transparent", border: "none", color: theme === val ? "#60a5fa" : T.textMuted, cursor: "pointer", fontSize: 13 }}>{icon}</button>
             ))}
           </div>
