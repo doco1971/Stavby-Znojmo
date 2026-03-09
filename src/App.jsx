@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_09_build0019
+// BUILD: 2026_03_09_build0020
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -75,16 +75,14 @@ const COLUMNS = [
   { key: "cislo_faktury", label: "Č. faktury", width: 105 },
   { key: "castka_bez_dph", label: "Č. bez DPH", width: 105, type: "number" },
   { key: "splatna", label: "Splatná", width: 88 },
-  { key: "cislo_faktury_2", label: "Č. faktury 2", width: 105, hidden: true },
-  { key: "bez_dph_2", label: "Č. bez DPH 2", width: 105, type: "number", hidden: true },
-  { key: "splatna_2", label: "Splatná 2", width: 88, hidden: true },
+
 ];
 
 const inputSx = { width: "100%", padding: "9px 11px", background: "#0f172a", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 7, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
 
 // ── Globální sdílené konstanty ─────────────────────────────
-const NUM_FIELDS = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","bez_dph_2"];
-const DATE_FIELDS = ["ukonceni","splatna","ze_dne","splatna_2"];
+const NUM_FIELDS = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph"];
+const DATE_FIELDS = ["ukonceni","splatna","ze_dne"];
 const FIRMA_COLOR_FALLBACK = ["#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899"];
 const hexToRgb = hex => { const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : "59,130,246"; };
 const hexToRgbaGlobal = (hex, alpha) => `rgba(${hexToRgb(hex)},${alpha})`;
@@ -485,16 +483,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             </div>
 
             {/* Faktura 2 */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "12px 14px", border: "1px solid rgba(96,165,250,0.15)" }}>
-              <div style={{ color: "#93c5fd", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 10, borderLeft: "3px solid #93c5fd", paddingLeft: 8 }}>FAKTURA 2 <span style={{ fontWeight: 400, opacity: 0.5 }}>(nepovinné)</span></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                <div />
-                <FormField label="Číslo faktury 2" value={form["cislo_faktury_2"]} onChange={v => set("cislo_faktury_2", v)} />
-                <FormField label="Částka bez DPH 2" value={form["bez_dph_2"]} onChange={v => set("bez_dph_2", v)} type="number" />
-                <div />
-                <FormField label="Splatná 2" value={form["splatna_2"]} onChange={v => set("splatna_2", v)} type="date" />
-              </div>
-            </div>
+
 
           </div>
         </div>
@@ -1156,8 +1145,8 @@ export default function App() {
       const za10 = new Date(dnes); za10.setDate(za10.getDate() + 10);
       const pred30 = new Date(dnes); pred30.setDate(pred30.getDate() - 30);
       const demoStavby = [
-        computeRow({ id:1, firma:"Elektro s.r.o.", cislo_stavby:"ZN-2025-001", nazev_stavby:"Rekonstrukce VO Pražská", ps_i:850000, snk_i:120000, bo_i:0, ps_ii:0, bo_ii:0, poruch:45000, vyfakturovano:720000, ukonceni:fmtDate(za10), zrealizovano:680000, sod:"SOD-2025-14", ze_dne:"15.01.2025", objednatel:"Město Znojmo", stavbyvedouci:"Jan Novák", nabidkova_cena:1015000, cislo_faktury:"FAK-2025-031", castka_bez_dph:594000, splatna:"28.02.2025", cislo_faktury_2:"", bez_dph_2:0, splatna_2:"" }),
-        computeRow({ id:2, firma:"Stavmont a.s.", cislo_stavby:"ZN-2025-002", nazev_stavby:"Oprava kanalizace Dvořákova", ps_i:0, snk_i:0, bo_i:320000, ps_ii:0, bo_ii:180000, poruch:0, vyfakturovano:0, ukonceni:fmtDate(pred30), zrealizovano:0, sod:"SOD-2025-22", ze_dne:"10.02.2025", objednatel:"Jihomoravský kraj", stavbyvedouci:"Petr Svoboda", nabidkova_cena:500000, cislo_faktury:"", castka_bez_dph:0, splatna:"", cislo_faktury_2:"", bez_dph_2:0, splatna_2:"" }),
+        computeRow({ id:1, firma:"Elektro s.r.o.", cislo_stavby:"ZN-2025-001", nazev_stavby:"Rekonstrukce VO Pražská", ps_i:850000, snk_i:120000, bo_i:0, ps_ii:0, bo_ii:0, poruch:45000, vyfakturovano:720000, ukonceni:fmtDate(za10), zrealizovano:680000, sod:"SOD-2025-14", ze_dne:"15.01.2025", objednatel:"Město Znojmo", stavbyvedouci:"Jan Novák", nabidkova_cena:1015000, cislo_faktury:"FAK-2025-031", castka_bez_dph:594000, splatna:"28.02.2025" }),
+        computeRow({ id:2, firma:"Stavmont a.s.", cislo_stavby:"ZN-2025-002", nazev_stavby:"Oprava kanalizace Dvořákova", ps_i:0, snk_i:0, bo_i:320000, ps_ii:0, bo_ii:180000, poruch:0, vyfakturovano:0, ukonceni:fmtDate(pred30), zrealizovano:0, sod:"SOD-2025-22", ze_dne:"10.02.2025", objednatel:"Jihomoravský kraj", stavbyvedouci:"Petr Svoboda", nabidkova_cena:500000, cislo_faktury:"", castka_bez_dph:0, splatna:"" }),
       ];
       setData(demoStavby);
       setFirmy(DEMO_FIRMY);
@@ -1513,7 +1502,7 @@ export default function App() {
   };
 
   const nextId = data.length > 0 ? data.reduce((max, r) => Math.max(max, r.id), 0) + 1 : 1;
-  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "", cislo_faktury_2: "", bez_dph_2: 0, splatna_2: "" };
+  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
 
   const getFirmaColor = (firmaName) => firmaColorCache[firmaName] || { bg: isDark ? "#1a2744" : "#e2e8f0", badge: "rgba(59,130,246,0.25)", badgeBorder: "rgba(59,130,246,0.6)", text: "#3b82f6", hex: "#3b82f6" };
 
@@ -1670,10 +1659,6 @@ export default function App() {
                   const align = col.type === "number" ? "right" : centerCols.includes(col.key) ? "center" : "left";
 
                   // Dvojité hodnoty pro faktury
-                  const key2 = col.key === "cislo_faktury" ? "cislo_faktury_2" : col.key === "castka_bez_dph" ? "bez_dph_2" : col.key === "splatna" ? "splatna_2" : null;
-                  const val2 = key2 ? row[key2] : null;
-                  const hasDouble = key2 && (val2 || val2 === 0);
-
                   const isOverdue = col.key === "ukonceni" && row.ukonceni && (() => {
                     const s = row.ukonceni.trim();
                     let d;
@@ -1701,11 +1686,7 @@ export default function App() {
                           : isOverdue ? <span>⚠️ {row[col.key]}</span>
                           : row[col.key] ?? ""}
                         </div>
-                        {hasDouble && (
-                          <div style={{ borderTop: `1px dashed ${T.cellBorder}`, marginTop: 3, paddingTop: 3, color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontSize: 11.5 }}>
-                            {col.type === "number" ? fmtN(val2) : val2}
-                          </div>
-                        )}
+
                       </div>
                     </td>
                   );
