@@ -753,8 +753,6 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                 <div style={{ color: modalMuted, fontSize: 11, marginTop: 8 }}>
                   Zobrazí se ve footeru: © {editDatum} Stavby Znojmo – Martin Dočekal &amp; Claude AI | v{editVerze}
                 </div>
-
-                {/* Reset šířek sloupců */}
                 <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 16, marginTop: 8 }}>
                   <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>ŠÍŘKY SLOUPCŮ</div>
                   <button onClick={() => setConfirmResetCols(true)} style={{ padding: "10px 20px", background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.35)", borderRadius: 8, color: "#c084fc", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>↺ Reset šířek sloupců na výchozí</button>
@@ -941,6 +939,7 @@ export default function App() {
   }, []);
 
   const doExportXLSColor = () => {
+    const firmaColorMap = Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#3b82f6"]));
     const cols = COLUMNS.filter(c => c.key !== "id");
     const headers = cols.map(c => `<th style="padding:7px 10px;background:#1E3A8A;color:#fff;border:1px solid #2563EB;white-space:nowrap;font-size:11px">${c.label}</th>`).join("");
     const rows = filtered.map((row, i) => {
@@ -1093,8 +1092,8 @@ export default function App() {
     if (d1 <= d0) return 0;
     const totalDays = Math.round((d1 - d0) / 86400000);
     const fullWeeks = Math.floor(totalDays / 7);
-    let extra = totalDays % 7;
-    const startDay = d0.getDay(); // 0=Sun
+    const extra = totalDays % 7;
+    const startDay = d0.getDay();
     let extraWork = 0;
     for (let i = 1; i <= extra; i++) {
       const day = (startDay + i) % 7;
@@ -1162,21 +1161,20 @@ export default function App() {
     try {
       await sb(`stavby?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(fields) });
       await logAkce(user?.email, "Editace stavby", `ID: ${id}, ${fields.nazev_stavby}`);
-      setData(prev => prev.map(r => r.id === id ? computeRow({ ...r, ...fields }) : r));
-      setEditRow(null);
+      await loadAll();
     } catch (e) { showToast("Chyba uložení: " + e.message, "error"); }
+    setEditRow(null);
   };
 
   const handleAdd = async (newRow) => {
     const { id, nabidka, rozdil, ...fields } = newRow;
     NUM_FIELDS.forEach(k => { if (fields[k] === "" || fields[k] == null) fields[k] = 0; else fields[k] = Number(fields[k]) || 0; });
     try {
-      const res = await sb("stavby", { method: "POST", body: JSON.stringify(fields) });
+      await sb("stavby", { method: "POST", body: JSON.stringify(fields) });
       await logAkce(user?.email, "Přidání stavby", fields.nazev_stavby);
-      if (res && res[0]) setData(prev => [...prev, computeRow(res[0])]);
-      else await loadAll();
-      setAdding(false);
+      await loadAll();
     } catch (e) { showToast("Chyba přidání: " + e.message, "error"); }
+    setAdding(false);
   };
 
   const handleDelete = async (id) => {
@@ -1184,9 +1182,9 @@ export default function App() {
     try {
       await sb(`stavby?id=eq.${id}`, { method: "DELETE", prefer: "return=minimal" });
       await logAkce(user?.email, "Smazání stavby", `ID: ${id}, ${row?.nazev_stavby || ""}`);
-      setData(prev => prev.filter(r => r.id !== id));
-      setDeleteConfirm(null);
+      await loadAll();
     } catch (e) { showToast("Chyba mazání: " + e.message, "error"); }
+    setDeleteConfirm(null);
   };
 
   // ── CRUD číselníky ─────────────────────────────────────────
@@ -1340,7 +1338,7 @@ export default function App() {
   const nextId = data.length > 0 ? data.reduce((max, r) => Math.max(max, r.id), 0) + 1 : 1;
   const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "", cislo_faktury_2: "", bez_dph_2: 0, splatna_2: "" };
 
-  // ── Cache barev firem – počítá se jen při změně firmy nebo tématu ─────
+  // ── Cache barev firem – useMemo, přepočítá se jen při změně firem/tématu ──
   const firmaColorCache = useMemo(() => {
     const cache = {};
     firmy.forEach((firmaObj, idx) => {
@@ -1348,12 +1346,12 @@ export default function App() {
       const hex = (firmaObj.barva && firmaObj.barva !== "")
         ? firmaObj.barva
         : FIRMA_COLOR_FALLBACK[idx % FIRMA_COLOR_FALLBACK.length] || "#3b82f6";
-      const [r, g, b] = hexToRgb(hex).split(",").map(Number);
+      const parts = hexToRgb(hex).split(",").map(Number);
+      const [r, g, b] = parts;
       const br = isDark ? 15 : 241, bg2 = isDark ? 23 : 245, bb = isDark ? 42 : 249;
       const mix = isDark ? 0.18 : 0.15;
-      const rowBgColor = `rgb(${Math.round(r*mix+br*(1-mix))},${Math.round(g*mix+bg2*(1-mix))},${Math.round(b*mix+bb*(1-mix))})`;
       cache[name] = {
-        bg: rowBgColor,
+        bg: `rgb(${Math.round(r*mix+br*(1-mix))},${Math.round(g*mix+bg2*(1-mix))},${Math.round(b*mix+bb*(1-mix))})`,
         badge: hexToRgbaGlobal(hex, 0.25),
         badgeBorder: hexToRgbaGlobal(hex, 0.6),
         text: hex,
@@ -1362,6 +1360,9 @@ export default function App() {
     });
     return cache;
   }, [firmy, isDark]);
+
+  // ── firmaColorMap pro exporty ──────────────────────────────
+  const firmaColorMap = useMemo(() => Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#3b82f6"])), [firmy]);
 
   const getFirmaColor = (firmaName) => firmaColorCache[firmaName] || { bg: isDark ? "#1a2744" : "#e2e8f0", badge: "rgba(59,130,246,0.25)", badgeBorder: "rgba(59,130,246,0.6)", text: "#3b82f6", hex: "#3b82f6" };
 
@@ -1372,13 +1373,9 @@ export default function App() {
 
   const rowBg = (firma) => getFirmaColor(firma).bg;
 
-  // ── firmaColorMap pro exporty (sdílený) ───────────────────
-  const firmaColorMap = useMemo(() => Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#3b82f6"])), [firmy]);
-
   return (
     <div style={{ height: "100vh", maxHeight: "100vh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}`}</style>
-      {/* Toast notifikace */}
       {toast && (
         <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, padding: "12px 20px", borderRadius: 10, background: toast.type === "error" ? "#dc2626" : "#16a34a", color: "#fff", fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxWidth: 360 }}>
           {toast.type === "error" ? "⚠️ " : "✅ "}{toast.msg}
