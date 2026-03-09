@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-
+// BUILD: 2026_03_09_build0002
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -285,6 +285,9 @@ function SummaryCards({ data, firmy, isDark, firmaColors }) {
 function FormField({ label, value, onChange, full, type }) {
   const [err, setErr] = useState("");
 
+  // Číslo 0 zobrazuj jako prázdné pole
+  const displayValue = type === "number" && (value === 0 || value === "0") ? "" : (value ?? "");
+
   const handleChange = (v) => {
     if (type === "number") {
       if (v !== "" && v !== "-" && isNaN(v.replace(",", "."))) {
@@ -302,13 +305,29 @@ function FormField({ label, value, onChange, full, type }) {
     onChange(v);
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+      // Najdi všechny focusovatelné inputy ve formuláři
+      const modal = e.target.closest("[data-modal]");
+      if (!modal) return;
+      const inputs = Array.from(modal.querySelectorAll("input:not([disabled]), select:not([disabled])"));
+      const idx = inputs.indexOf(e.target);
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (idx < inputs.length - 1) inputs[idx + 1].focus();
+      }
+      // Tab necháme výchozí chování
+    }
+  };
+
   return (
     <div style={full ? { gridColumn: "1 / -1" } : {}}>
       <Lbl>{label}{type === "number" && <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, marginLeft: 4 }}>123</span>}{type === "date" && <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, marginLeft: 4 }}>DD.MM.RRRR</span>}</Lbl>
       <input
         type="text"
-        value={value ?? ""}
+        value={displayValue}
         onChange={e => handleChange(e.target.value)}
+        onKeyDown={handleKeyDown}
         style={{ ...inputSx, borderColor: err ? "#f87171" : "rgba(255,255,255,0.15)" }}
       />
       {err && <div style={{ color: "#f87171", fontSize: 11, marginTop: 3 }}>{err}</div>}
