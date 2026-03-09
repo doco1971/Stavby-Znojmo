@@ -2,6 +2,34 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
 // BUILD: 2026_03_09_build0024
 // ============================================================
+// POZNÁMKY PRO CLAUDE (čti na začátku každé session)
+// ============================================================
+// PRAVIDLO: Každá změna = dva soubory:
+//   stavby-app_DATUM_buildXXXX.jsx
+//   stavby-app_DATUM_buildXXXX_changelog.txt
+//   Třetí řádek souboru: // BUILD: DATUM_buildXXXX
+//
+// TRANSCRIPT: /mnt/transcripts/ — vždy přečíst pro kontext
+//
+// EXPORT — uživatel chce zachovat:
+//   - CSV, Excel (.xlsx), Barevný Excel (.xls), PDF tisk, Export logu
+//   - Barevný XLS: zbarvení podle firmy, varování při otevření = OK
+//   - Záloha: kompletní data jako Excel (jen admin)
+//
+// TABULKA:
+//   - Sloupce Faktura 2 (cislo_faktury_2, bez_dph_2, splatna_2): hidden:true
+//     ale data se zobrazují jako druhý řádek v buňkách faktury
+//   - Zelený řádek (isFaktura): vyplněno č.faktury + částka bez DPH + splatná
+//     → isOverdue = false (červené ukončení se NEZOBRAZÍ)
+//   - Červené ukončení (isOverdue): termín v minulosti, jen pokud !isFaktura
+//
+// ROLE: user (jen čtení), user_e (editor), admin, superadmin
+// DEMO: email=demo / heslo=demo, max 5 staveb, jen v paměti
+//
+// MOBIL: tabulka není optimalizována pro mobil (25 sloupců)
+//   → do budoucna zvážit mobilní zobrazení (kartičky)
+// ============================================================
+// ============================================================
 // SUPABASE CONFIG
 // ============================================================
 const SB_URL = import.meta.env.VITE_SB_URL;
