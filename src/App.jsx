@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_09_build0023
+// BUILD: 2026_03_09_build0024
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -1354,7 +1354,8 @@ export default function App() {
       if (rowH < 1) return;
       // clientHeight = vnitřní výška pouze table wrapperu (bez pagination/footer)
       const scrollbarH = wrap.offsetHeight - wrap.clientHeight;
-      const available = wrap.clientHeight - theadH - scrollbarH - 1;
+      const wrapH = wrap.clientHeight > 50 ? wrap.clientHeight : wrap.offsetHeight;
+      const available = wrapH - theadH - scrollbarH - 1;
       const rows = Math.max(5, Math.floor(available / rowH));
       setPageSize(rows);
     };
@@ -1364,10 +1365,12 @@ export default function App() {
     const ro = new ResizeObserver(calc);
     if (tableWrapRef.current) ro.observe(tableWrapRef.current);
     window.addEventListener("resize", calc);
+    window.addEventListener("orientationchange", () => setTimeout(calc, 300));
     return () => {
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       ro.disconnect();
       window.removeEventListener("resize", calc);
+      window.removeEventListener("orientationchange", calc);
     };
   }, []);
   // Přepočítej PAGE_SIZE po změně dat (výška wrapperu se mohla změnit)
@@ -1514,8 +1517,8 @@ export default function App() {
   const rowBg = (firma) => getFirmaColor(firma).bg;
 
   return (
-    <div style={{ height: "100dvh", maxHeight: "100dvh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <style>{`html,body{overflow:hidden;height:100%;margin:0;padding:0} @keyframes spin{to{transform:rotate(360deg)}} ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}`}</style>
+    <div style={{ height: "100vh", height: "100dvh", maxHeight: "100dvh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <style>{`html,body{overflow:hidden;height:100%;margin:0;padding:0} .table-wrapper{-webkit-overflow-scrolling:touch;} * { -webkit-tap-highlight-color: transparent; } @keyframes spin{to{transform:rotate(360deg)}} ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}`}</style>
       {toast && (
         <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, padding: "12px 20px", borderRadius: 10, background: toast.type === "error" ? "#dc2626" : "#16a34a", color: "#fff", fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxWidth: 360 }}>
           {toast.type === "error" ? "⚠️ " : "✅ "}{toast.msg}
@@ -1693,10 +1696,10 @@ export default function App() {
                   );
                 })}
                 {/* AKCE vpravo */}
-                {isAdmin && (
+                {(isAdmin || isEditor) && (
                   <td style={{ padding: "7px 11px", whiteSpace: "nowrap", border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>
-                    <button onClick={() => setEditRow(row)} onMouseEnter={e => showTooltip(e, "Editovat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11, marginRight: 5 }}>✏️ Editovat</button>
-                    <button onClick={() => setDeleteConfirm({ id: row.id, step: 1 })} onMouseEnter={e => showTooltip(e, "Smazat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 5, color: "#f87171", cursor: "pointer", fontSize: 11 }}>🗑️</button>
+                    <button onClick={() => setEditRow(row)} onMouseEnter={e => showTooltip(e, "Editovat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11, marginRight: isAdmin ? 5 : 0 }}>✏️ Editovat</button>
+                    {isAdmin && <button onClick={() => setDeleteConfirm({ id: row.id, step: 1 })} onMouseEnter={e => showTooltip(e, "Smazat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 5, color: "#f87171", cursor: "pointer", fontSize: 11 }}>🗑️</button>}
                   </td>
                 )}
               </tr>
