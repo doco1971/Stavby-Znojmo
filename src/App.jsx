@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_09_build0016
+// BUILD: 2026_03_09_build0017
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -202,9 +202,13 @@ function Login({ onLogin, users, onLogAction }) {
         <div style={{ marginTop: 16, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
           Zapomenuté heslo? Kontaktuj administrátora.
         </div>
-        <div style={{ marginTop: 12, padding: "10px 14px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 8, textAlign: "center" }}>
-          <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 600 }}>🎮 Demo přístup: </span>
-          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>demo / demo</span>
+        <div style={{ marginTop: 16, padding: "14px 18px", background: "rgba(251,191,36,0.12)", border: "2px solid rgba(251,191,36,0.5)", borderRadius: 10, textAlign: "center" }}>
+          <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 800, marginBottom: 6, letterSpacing: 0.5 }}>🎮 DEMO PŘÍSTUP</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
+            <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>email: </span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>demo</span></div>
+            <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>heslo: </span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>demo</span></div>
+          </div>
+          <div style={{ color: "rgba(251,191,36,0.6)", fontSize: 11, marginTop: 6 }}>Data se neukládají · Max 5 staveb</div>
         </div>
 
       </div>
@@ -692,7 +696,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
   const tabs = [
     { key: "ciselniky", label: "📋 Číselníky" },
-    { key: "uzivatele", label: "👥 Uživatelé" },
+    ...(isAdmin ? [{ key: "uzivatele", label: "👥 Uživatelé" }] : []),
     ...(isAdmin ? [{ key: "log", label: "📜 Log aktivit" }] : []),
     ...(isSuperAdmin ? [{ key: "aplikace", label: "⚙️ Aplikace" }] : []),
   ];
@@ -1633,11 +1637,11 @@ export default function App() {
             {paginated.map((row, i) => {
               const globalIndex = page * PAGE_SIZE + i;
               const isFaktura = row.cislo_faktury && row.cislo_faktury.trim() !== "" && row.castka_bez_dph && Number(row.castka_bez_dph) !== 0 && row.splatna && row.splatna.trim() !== "";
-              const baseBg = isFaktura ? "rgba(22,163,74,0.25)" : rowBg(row.firma);
+              const baseBg = isFaktura ? "rgba(22,163,74,0.45)" : rowBg(row.firma);
               return (
               <tr key={row.id}
                 style={{ background: baseBg, transition: "background 0.1s", color: T.text }}
-                onMouseEnter={e => e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.38)" : T.hoverBg}
+                onMouseEnter={e => e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.60)" : T.hoverBg}
                 onMouseLeave={e => e.currentTarget.style.background = baseBg}
               >
                 {/* # číslo řádku */}
