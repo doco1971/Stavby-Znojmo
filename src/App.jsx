@@ -1368,7 +1368,7 @@ export default function App() {
   }, [firmy, isDark]);
 
   // ── firmaColorMap pro exporty ──────────────────────────────
-  const firmaColorMap = useMemo(() => Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#3b82f6"])), [firmy]);
+  const firmaColorMapCache = useMemo(() => Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#3b82f6"])), [firmy]);
 
     if (loading) return (
     <div style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
@@ -1730,7 +1730,7 @@ export default function App() {
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => {
                   const rows = filtered.map((row, i) => {
-                    const hex = firmaColorMap[row.firma] || "#3b82f6";
+                    const hex = firmaColorMapCache[row.firma] || "#3b82f6";
                     const rgb = hexToRgb(hex);
                     const bg = i%2===0 ? `rgba(${rgb},0.18)` : `rgba(${rgb},0.07)`;
                     return `<tr>${COLUMNS.map(c => {
@@ -1781,7 +1781,7 @@ export default function App() {
                     </thead>
                     <tbody>
                       {filtered.map((row, i) => {
-                        const hex = firmaColorMap[row.firma] || "#3b82f6";
+                        const hex = firmaColorMapCache[row.firma] || "#3b82f6";
                         const rgb = hexToRgb(hex);
                         const bg = i % 2 === 0 ? `rgba(${rgb},0.18)` : `rgba(${rgb},0.07)`;
                         return (
