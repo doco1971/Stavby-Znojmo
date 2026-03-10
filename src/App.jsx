@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0036
+// BUILD: 2026_03_10_build0037
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -15,6 +15,7 @@ import * as XLSX from "xlsx";
 //   - CSV, Excel (.xlsx), Barevný Excel (.xls), PDF tisk, Export logu
 //   - Barevný XLS: zbarvení podle firmy, varování při otevření = OK
 //   - Záloha: kompletní data jako Excel (jen admin)
+//   - XLSX export: používá HTML blob (.xls) — NE import("xlsx"), to nefunguje v bundlu
 //
 // TABULKA:
 //   - Sloupce Faktura 2 (cislo_faktury_2, bez_dph_2, splatna_2): hidden:true
@@ -29,16 +30,80 @@ import * as XLSX from "xlsx";
 // MOBIL: tabulka není optimalizována pro mobil (25 sloupců)
 //   → do budoucna zvážit mobilní zobrazení (kartičky)
 //
+// DB MIGRACE (nutné spustit v Supabase SQL editoru):
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS poznamka TEXT;
+//   CREATE POLICY "admin_read_all" ON log_aktivit FOR SELECT USING (true);
+//
+// ============================================================
+// HISTORY BUILDŮ
+// ============================================================
+//
 // BUILD0025 — nové funkce:
 //   🔔 NOTIFIKACE: Browser Notification API, žádá povolení po přihlášení,
 //      odesílá notifikaci pro každou stavbu s termínem do 7 dní,
 //      opakuje každých 60 min (jen pokud tab není aktivní)
-//   📊 GRAF: sloupcový graf nákladů (recharts BarChart), přepínač firma/měsíc,
-//      otevírá se tlačítkem "📊 Graf" ve filtrovací liště
+//   📊 GRAF: vlastní SVG sloupcový graf (BEZ recharts — není v package.json!),
+//      přepínač firma/měsíc, otevírá se tlačítkem "📊 Graf" ve filtrovací liště
 //   🔒 AUTO-LOGOUT: 15 min nečinnost → varování 60s countdown → odhlášení
 //      sleduje mousemove, keydown, click, scroll
 //   💬 POZNÁMKA: pole poznamka v editačním formuláři (textarea, ukládá do DB)
 //      zobrazuje se jako ikona 💬 v tabulce (tooltip s textem)
+//
+// BUILD0026 — opravy build chyb:
+//   🔧 FIX: recharts dynamický import odstraněn → čistý SVG graf
+//   🔧 FIX: duplicate key "height" v inline stylu
+//
+// BUILD0027 — bugfix + nápověda:
+//   🐛 FIX: ikona 💬 byla skrytá pro role user — přesunuta mimo editor guard
+//   📋 Nápověda: přidány sekce pro 💬 Poznámka, 📊 Graf, 🔔 Notifikace, ⏱️ Logout
+//
+// BUILD0028 — graf Kat. I / II:
+//   📊 Graf: třetí přepínač "📂 Kat. I / II"
+//      Kat. I  = ps_i + snk_i + bo_i
+//      Kat. II = ps_ii + bo_ii + poruch
+//      Sloupeček zbarvený barvou firmy, tabulka s řádkem CELKEM
+//
+// BUILD0029 — 🕐 Historie změn:
+//   Nová komponenta HistorieModal — fialové tlačítko 🕐 v levém sloupci akcí
+//   Při uložení se do log_aktivit.detail zapisuje JSON s diffem polí:
+//     { nazev: "...", zmeny: [{ pole: "vyfakturovano", stare: "0", nove: "720000" }] }
+//   FIELD_LABELS mapa pro překlad klíčů polí do čitelných názvů
+//   Záznamy před build0029 neobsahují diff (zobrazí se jen akce + čas)
+//
+// BUILD0030 — oprava syntax error:
+//   🔧 FIX: záznamy "Historie změn" a "Poznámka" v nápovědě sloučeny do 1 objektu
+//
+// BUILD0031 — oprava filtru historie:
+//   🐛 FIX: Historie zobrazovala záznamy jiných staveb
+//   Oprava: regex /^ID:\s*(\d+)[,\s]/ pro přesnou shodu ID na začátku detailu
+//
+// BUILD0032 — 📜 Log zakázek + exporty:
+//   Nové tlačítko 📜 Log v hlavičce (jen admin)
+//   LogModal: kompletní log Přidání/Editace/Smazání staveb
+//   Filtry: uživatel, akce, datum od/do + Reset
+//   Exporty z LogModal: 📊 Excel (.xls blob), 🎨 Barevný Excel, 🖨️ PDF tisk
+//   Exporty z HistorieModal: 🖨️ PDF tisk, 📊 Excel (.xls blob)
+//
+// BUILD0033 — tečka na historii + RLS warning:
+//   🔴 Červená svítivá tečka na 🕐 pokud stavba má záznamy v logu
+//   LogModal: žlutý RLS banner s SQL příkazem pokud vidíme jen 1 uživatele
+//
+// BUILD0034 — opravy runtime chyb:
+//   🔧 FIX: ReferenceError "ur" — isDemo použito před deklarací v useEffect
+//   🔧 FIX: import("xlsx") nefunguje v bundlu → nahrazeno HTML blob exportem
+//
+// BUILD0035 — tečka zjednodušena + nápověda:
+//   🔴 Tečka svítí permanentně pokud stavba má záznamy (bez localStorage)
+//   Nápověda: kompletní přepis, 16 sekcí, intro box, nové záznamy
+//
+// BUILD0036 — plovoucí nápověda + demo + RLS:
+//   ❓ Nápověda: plovoucí přetahovatelné okno (jako EditModal), tmavý styl
+//      helpPos state + onHelpDragStart handler
+//   🎮 Demo banner: lepší kontrast, boxíčky s velkým písmem
+//   📜 Log RLS warning: tlačítko 📋 Kopírovat SQL příkazu
+//
+// BUILD0037 — aktualizace hlavičky:
+//   📝 Doplněny poznámky o všech buildech 0025–0036 do hlavičky souboru
 // ============================================================
 // ============================================================
 // SUPABASE CONFIG
