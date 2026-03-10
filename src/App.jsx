@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0034
+// BUILD: 2026_03_10_build0035
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -1655,24 +1655,18 @@ export default function App() {
   const [showLog, setShowLog] = useState(false);
   // ── Historie změn ────────────────────────────────────────
   const [historieRow, setHistorieRow] = useState(null);
-  // ── Tečka nových změn v historii ─────────────────────────
+  // ── Tečka v historii — svítí permanentně pokud má stavba záznamy v logu ──
   const [historieNovinky, setHistorieNovinky] = useState({});
   useEffect(() => {
     if (!user || user.email === "demo") return;
-    const SEEN_KEY = `historie_seen_${user.email}`;
-    const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "{}");
     const checkNovinky = async () => {
       try {
-        const res = await sb(`log_aktivit?akce=eq.Editace stavby&order=cas.desc&limit=2000`);
+        const res = await sb(`log_aktivit?order=cas.desc&limit=5000`);
         const novinky = {};
         (res || []).forEach(r => {
+          // Editace/Smazání — ID na začátku detailu
           const match = r.detail?.match(/^ID:\s*(\d+)[,\s]/);
-          if (!match) return;
-          const id = match[1];
-          const seenCas = seen[id];
-          if (!seenCas || new Date(r.cas) > new Date(seenCas)) {
-            novinky[id] = true;
-          }
+          if (match) novinky[match[1]] = true;
         });
         setHistorieNovinky(novinky);
       } catch { /* tiché selhání */ }
@@ -2431,16 +2425,8 @@ export default function App() {
                   <td style={{ padding: "7px 11px", whiteSpace: "nowrap", border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>
                     {isAdmin && <button onClick={() => setDeleteConfirm({ id: row.id, step: 1 })} onMouseEnter={e => showTooltip(e, "Smazat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 5, color: "#f87171", cursor: "pointer", fontSize: 11, marginRight: 5 }}>🗑️</button>}
                     <button onClick={() => setEditRow(row)} onMouseEnter={e => showTooltip(e, "Editovat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11 }}>✏️</button>
-                    {!isDemo && <button onClick={() => {
-                      setHistorieRow(row);
-                      // Označit jako přečtené
-                      const SEEN_KEY = `historie_seen_${user?.email}`;
-                      const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "{}");
-                      seen[String(row.id)] = new Date().toISOString();
-                      localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
-                      setHistorieNovinky(prev => { const n = {...prev}; delete n[String(row.id)]; return n; });
-                    }} onMouseEnter={e => showTooltip(e, "Historie změn stavby")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 5, color: "#c084fc", cursor: "pointer", fontSize: 11, marginLeft: 5, position: "relative" }}>
-                      🕐{historieNovinky[String(row.id)] && <span style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: "#f97316", boxShadow: "0 0 6px #f97316, 0 0 12px rgba(249,115,22,0.6)", display: "block" }}/>}
+                    {!isDemo && <button onClick={() => setHistorieRow(row)} onMouseEnter={e => showTooltip(e, historieNovinky[String(row.id)] ? "Historie změn — obsahuje záznamy" : "Historie změn stavby")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 5, color: "#c084fc", cursor: "pointer", fontSize: 11, marginLeft: 5, position: "relative" }}>
+                      🕐{historieNovinky[String(row.id)] && <span style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: "#ef4444", boxShadow: "0 0 6px #ef4444, 0 0 12px rgba(239,68,68,0.7)", display: "block" }}/>}
                     </button>}
                   </td>
                 )}
@@ -2526,24 +2512,28 @@ export default function App() {
               <button onClick={() => setShowHelp(false)} style={{ background: "none", border: "none", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ overflowY: "auto", padding: "20px 24px", color: isDark ? "#e2e8f0" : "#1e293b", fontSize: 13, lineHeight: 1.7 }}>
+              {/* Intro */}
+              <div style={{ marginBottom: 20, padding: "12px 16px", background: isDark ? "rgba(37,99,235,0.12)" : "rgba(37,99,235,0.07)", border: `1px solid ${isDark ? "rgba(37,99,235,0.3)" : "rgba(37,99,235,0.2)"}`, borderRadius: 10, fontSize: 12, color: isDark ? "#93c5fd" : "#1d4ed8", lineHeight: 1.6 }}>
+                <strong>Stavby Znojmo</strong> je evidence stavebních zakázek pro kategorie I a II. Každá stavba může obsahovat informace o firmě, termínech, fakturaci, realizaci a interní poznámky. Změny jsou automaticky zaznamenávány v historii. Aplikace podporuje více uživatelských rolí s různými oprávněními.
+              </div>
               {[
-                { icon: "🏗️", title: "Přidání stavby", text: "Klikněte na zelené tlačítko + Přidat stavbu. Vyplňte název (povinný) a ostatní pole. Enter přeskočí na další pole. Uložte tlačítkem Uložit." },
-                { icon: "✏️", title: "Editace stavby", text: "Klikněte na modré tlačítko ✏️ v řádku stavby. Otevře se stejný formulář s předvyplněnými hodnotami." },
-                { icon: "🗑️", title: "Smazání stavby", text: "Klikněte na červené tlačítko 🗑️. Systém požádá o potvrzení – musíte kliknout dvakrát pro jistotu." },
-                { icon: "🎨", title: "Barevné řádky", text: "Každá firma má svou barvu. Řádek se zbarví výrazně zeleně pokud má stavba vyplněné číslo faktury, částku bez DPH a datum splatnosti zároveň." },
-                { icon: "⚠️", title: "Červené termíny", text: "Pole Ukončení se zobrazí červeně s ikonou ⚠️ pokud je termín dokončení v minulosti. Tlačítko Termíny v hlavičce upozorní na stavby s termínem dokončení do 30 dní." },
-                { icon: "🔍", title: "Filtry", text: "Vyhledávejte podle názvu nebo čísla stavby. Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Filtry lze kombinovat." },
-                { icon: "📤", title: "Export", text: "CSV – tabulka pro Excel. Excel – standardní .xlsx. Barevný Excel – .xls se zbarvením firem (při otevření potvrďte varování). PDF – tisk přehledu." },
-                { icon: "💾", title: "Záloha", text: "Tlačítko Záloha stáhne kompletní zálohu všech staveb jako Excel soubor. Doporučujeme zálohovat pravidelně." },
-                { icon: "⚙️", title: "Nastavení", text: "Správa firem (včetně barev), číselníků objednatelů a stavbyvedoucích. Administrátor může spravovat uživatele a měnit jim hesla a role." },
-                { icon: "🌙", title: "Tmavý / světlý režim", text: "Přepínejte mezi 🌞 světlým a 🌙 tmavým režimem tlačítky v pravém horním rohu. Po najetí kurzorem se zobrazí název režimu." },
-                { icon: "↔️", title: "Šířky sloupců", text: "Táhněte ikonu ⟺ v záhlaví sloupce pro změnu šířky. Superadmin může resetovat šířky v Nastavení → Aplikace." },
-                { icon: "👥", title: "Role uživatelů", text: "USER – pouze zobrazení. USER EDITOR – může přidávat a editovat. ADMIN – plný přístup + správa uživatelů. SUPERADMIN – navíc nastavení aplikace." },
-                { icon: "🕐", title: "Historie změn", text: "Tlačítko 🕐 v levém sloupci akcí otevře historii změn stavby. Zobrazí kdo a kdy editoval záznam, a přesně která pole se změnila (původní → nová hodnota). Historie se zapisuje automaticky od build0029." },
-                { icon: "💬", title: "Poznámka ke stavbě", text: "V editačním formuláři (sekce Poznámka) lze zapsat libovolný komentář. Pokud stavba poznámku má, zobrazí se ikona 💬 vedle názvu stavby v tabulce. Najeďte myší na ikonu pro zobrazení textu." },
-                { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře sloupcový graf. Přepínač Firma / Měsíc mění způsob zobrazení. Graf zobrazuje Nabídku, Vyfakturováno a Zrealizováno – vždy jen pro aktuálně vyfiltrovaná data." },
-                { icon: "🔔", title: "Notifikace v prohlížeči", text: "Aplikace může zobrazovat upozornění na blížící se termíny i mimo otevřenou záložku. Po přihlášení prohlížeč zobrazí dialog – klikněte Povolit. Notifikace se odešlou pro stavby s termínem do 7 pracovních dní. Opakují se každých 60 minut, ale pouze pokud záložka není aktivní." },
-                { icon: "⏱️", title: "Automatické odhlášení", text: "Po 15 minutách nečinnosti (bez pohybu myši, klikání nebo psaní) se zobrazí varování s odpočítáváním 60 sekund. Klikněte na tlačítko Jsem tady pro pokračování, jinak dojde k automatickému odhlášení." },
+                { icon: "🏗️", title: "Přidání stavby", text: "Klikněte na zelené tlačítko + Přidat stavbu v hlavičce. Vyplňte název stavby (povinný) a ostatní pole dle potřeby. Klávesa Enter přeskočí na další pole ve formuláři. Uložte tlačítkem Uložit — stavba se okamžitě zobrazí v tabulce." },
+                { icon: "✏️", title: "Editace stavby", text: "Klikněte na modré tlačítko ✏️ v levém sloupci u řádku stavby. Otevře se formulář s předvyplněnými hodnotami — změňte co potřebujete a uložte. Všechny změny se automaticky zaznamená do Historie změn." },
+                { icon: "🗑️", title: "Smazání stavby", text: "Klikněte na červené tlačítko 🗑️ v levém sloupci. Systém požádá o potvrzení — musíte kliknout dvakrát (ochrana proti náhodnému smazání). Smazanou stavbu nelze obnovit." },
+                { icon: "🕐", title: "Historie změn stavby", text: "Fialové tlačítko 🕐 v levém sloupci otevře kompletní historii změn konkrétní stavby — kdo, kdy a která pole změnil (původní hodnota → nová hodnota). Červená tečka 🔴 na ikoně znamená, že stavba má v historii záznamy. Z modalu lze exportovat historii jako Excel nebo vytisknout PDF." },
+                { icon: "📜", title: "Log zakázek", text: "Tlačítko 📜 Log v hlavičce (pouze admin) otevře kompletní přehled všech akcí na zakázkách — přidání, editace i smazání. Záznamy lze filtrovat podle uživatele, typu akce a datumového rozsahu. Dostupný export: Excel, Barevný Excel a PDF tisk. Pokud vidíte jen vlastní záznamy, je nutné v Supabase nastavit RLS policy (viz changelog)." },
+                { icon: "💬", title: "Poznámka ke stavbě", text: "V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA — zapište libovolný komentář, upozornění nebo interní poznámku. Ikona 💬 se zobrazí vedle názvu stavby v tabulce pokud poznámka existuje. Najeďte myší na ikonu pro zobrazení textu bez otevírání formuláře." },
+                { icon: "🎨", title: "Barevné řádky", text: "Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). Zelené zbarvení celého řádku signalizuje, že stavba má vyplněné číslo faktury, částku bez DPH a datum splatnosti — tedy je kompletně vyfakturována." },
+                { icon: "⚠️", title: "Termíny ukončení", text: "Pole Ukončení se zobrazí červeně s ikonou ⚠️ pokud je termín v minulosti a stavba ještě nemá fakturu (není zelená). Tlačítko ⏰ Termíny v hlavičce zobrazí přehled všech staveb s termínem do 30 dní — včetně počtu zbývajících pracovních dní." },
+                { icon: "🔍", title: "Filtry a vyhledávání", text: "Vyhledávejte podle názvu nebo čísla stavby (pole Hledat). Filtrujte podle firmy, objednatele nebo stavbyvedoucího z rozbalovacích seznamů. Všechny filtry lze kombinovat. Graf 📊 a export vždy pracují jen s aktuálně vyfiltrovanými daty." },
+                { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře interaktivní sloupcový graf. Tři přepínače: 🏢 Firma (náklady dle dodavatele), 📅 Měsíc (časový vývoj), 📂 Kat. I / II (Plánované stavby + SNK + Běžné opravy vs. Plánované stavby II + Běžné opravy II + Poruchy). Graf vždy odráží aktuální filtr." },
+                { icon: "📤", title: "Export dat", text: "CSV — prostá tabulka vhodná pro import do jiných systémů. Excel (.xlsx) — standardní tabulka s daty. Barevný Excel (.xls) — tabulka se zbarvením podle firem (při otevření potvrďte varování Excelu). PDF — tisk přehledu na A4 landscape. Všechny exporty pracují s aktuálně vyfiltrovanými daty." },
+                { icon: "💾", title: "Záloha dat", text: "Tlačítko Záloha (pouze admin) stáhne kompletní zálohu VŠECH staveb jako Excel soubor — bez ohledu na aktivní filtry. Doporučujeme zálohovat pravidelně, ideálně před hromadnými změnami." },
+                { icon: "⚙️", title: "Nastavení", text: "Správa firem (název + přiřazená barva řádku), číselníků objednatelů a stavbyvedoucích. Administrátor může spravovat uživatelské účty — přidávat, měnit hesla a role. Role: USER (jen čtení), USER EDITOR (editace), ADMIN (plný přístup), SUPERADMIN (+ nastavení aplikace)." },
+                { icon: "🔔", title: "Notifikace v prohlížeči", text: "Aplikace umí zobrazovat upozornění na blížící se termíny i mimo otevřenou záložku. Po přihlášení prohlížeč zobrazí dialog — klikněte Povolit. Notifikace se odešlou pro všechny stavby s termínem ukončení do 7 pracovních dní. Opakují se každých 60 minut, ale pouze pokud záložka není právě aktivní." },
+                { icon: "⏱️", title: "Automatické odhlášení", text: "Z bezpečnostních důvodů se aplikace automaticky odhlásí po 15 minutách nečinnosti (bez pohybu myši, klikání nebo psaní). Před odhlášením se zobrazí varování s odpočítáváním 60 sekund — klikněte Jsem tady pro pokračování práce. Funkce není aktivní v demo režimu." },
+                { icon: "🌙", title: "Tmavý / světlý režim", text: "Přepínejte mezi 🌞 světlým a 🌙 tmavým režimem tlačítky v pravém horním rohu hlavičky. Preference se uloží v prohlížeči a zachová se i po obnovení stránky." },
+                { icon: "↔️", title: "Šířky sloupců", text: "Táhněte ikonu ⟺ v záhlaví sloupce pro změnu šířky. Nastavení šířek se uloží v prohlížeči. Superadmin může resetovat šířky všech sloupců na výchozí hodnoty v Nastavení → Aplikace." },
               ].map(({ icon, title, text }) => (
                 <div key={title} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}` }}>
                   <div style={{ fontWeight: 700, marginBottom: 3, color: isDark ? "#60a5fa" : "#2563eb" }}>{icon} {title}</div>
