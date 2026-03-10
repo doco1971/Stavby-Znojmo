@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0035
+// BUILD: 2026_03_10_build0036
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -485,10 +485,16 @@ function LogModal({ isDark, firmy, onClose }) {
         {!loading && totalLoaded > 0 && zaznamy.length > 0 && (() => {
           const uniqueUsers = new Set(zaznamy.map(r => r.uzivatel).filter(Boolean));
           if (uniqueUsers.size <= 1) return (
-            <div style={{ margin: "0 22px 0", padding: "8px 14px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 8, fontSize: 11, color: "#fbbf24", display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 14 }}>⚠️</span>
-              <span>Zobrazují se jen záznamy jednoho uživatele — pravděpodobně je v Supabase zapnuté RLS na tabulce <strong>log_aktivit</strong>. Přidejte policy:<br/>
-              <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 6px", borderRadius: 4, fontFamily: "monospace", fontSize: 10 }}>CREATE POLICY "admin_read_all" ON log_aktivit FOR SELECT USING (true);</code></span>
+            <div style={{ margin: "10px 22px 0", padding: "10px 14px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 8, fontSize: 11, color: "#fbbf24", display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>Vidíte jen záznamy jednoho uživatele — pravděpodobně blokuje RLS v Supabase.</div>
+                <div style={{ color: "rgba(251,191,36,0.8)", marginBottom: 6 }}>Spusťte v Supabase Dashboard → SQL Editor:</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <code style={{ background: "rgba(0,0,0,0.3)", padding: "4px 10px", borderRadius: 5, fontFamily: "monospace", fontSize: 10, color: "#fff", flex: 1 }}>CREATE POLICY "admin_read_all" ON log_aktivit FOR SELECT USING (true);</code>
+                  <button onClick={() => { navigator.clipboard.writeText('CREATE POLICY "admin_read_all" ON log_aktivit FOR SELECT USING (true);'); }} style={{ padding: "4px 10px", background: "rgba(251,191,36,0.2)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 5, color: "#fbbf24", cursor: "pointer", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>📋 Kopírovat</button>
+                </div>
+              </div>
             </div>
           );
           return null;
@@ -840,13 +846,19 @@ function Login({ onLogin, users, onLogAction }) {
         <div style={{ marginTop: 16, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
           Zapomenuté heslo? Kontaktuj administrátora.
         </div>
-        <div style={{ marginTop: 16, padding: "14px 18px", background: "rgba(251,191,36,0.12)", border: "2px solid rgba(251,191,36,0.5)", borderRadius: 10, textAlign: "center" }}>
-          <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 800, marginBottom: 6, letterSpacing: 0.5 }}>🎮 DEMO PŘÍSTUP</div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
-            <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>email: </span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>demo</span></div>
-            <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>heslo: </span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>demo</span></div>
+        <div style={{ marginTop: 16, padding: "16px 18px", background: "rgba(251,191,36,0.18)", border: "2px solid rgba(251,191,36,0.7)", borderRadius: 10, textAlign: "center" }}>
+          <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>🎮 DEMO PŘÍSTUP</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 20 }}>
+            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 7, padding: "5px 14px" }}>
+              <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, display: "block", marginBottom: 1 }}>email</span>
+              <span style={{ color: "#fff", fontSize: 15, fontWeight: 800, letterSpacing: 1 }}>demo</span>
+            </div>
+            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 7, padding: "5px 14px" }}>
+              <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, display: "block", marginBottom: 1 }}>heslo</span>
+              <span style={{ color: "#fff", fontSize: 15, fontWeight: 800, letterSpacing: 1 }}>demo</span>
+            </div>
           </div>
-          <div style={{ color: "rgba(251,191,36,0.6)", fontSize: 11, marginTop: 6 }}>Data se neukládají · Max 5 staveb</div>
+          <div style={{ color: "#fde68a", fontSize: 11, marginTop: 8, fontWeight: 600 }}>Data se neukládají · Max 5 staveb · Jen v paměti</div>
         </div>
 
       </div>
@@ -1648,6 +1660,16 @@ export default function App() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [helpPos, setHelpPos] = useState({ x: Math.max(20, window.innerWidth/2 - 350), y: 60 });
+  const helpDragRef = useRef(null);
+  const onHelpDragStart = (e) => {
+    e.preventDefault();
+    const startX = e.clientX - helpPos.x, startY = e.clientY - helpPos.y;
+    const onMove = (ev) => setHelpPos({ x: Math.max(0, Math.min(window.innerWidth-100, ev.clientX-startX)), y: Math.max(0, Math.min(window.innerHeight-60, ev.clientY-startY)) });
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   // ── Graf ──────────────────────────────────────────────────
   const [showGraf, setShowGraf] = useState(false);
@@ -2505,43 +2527,48 @@ export default function App() {
 
       {/* HELP MODAL */}
       {showHelp && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1400, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
-          <div style={{ background: isDark ? "#1e293b" : "#fff", borderRadius: 16, width: "min(700px,95vw)", maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
-            <div style={{ padding: "18px 24px", borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, color: isDark ? "#fff" : "#1e293b", fontSize: 17 }}>❓ Nápověda – Stavby Znojmo</h3>
-              <button onClick={() => setShowHelp(false)} style={{ background: "none", border: "none", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)", fontSize: 20, cursor: "pointer" }}>✕</button>
+        <div style={{ position: "fixed", inset: 0, zIndex: 1400, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
+          <div style={{ position: "fixed", left: helpPos.x, top: helpPos.y, pointerEvents: "all", background: "#1e293b", borderRadius: 16, width: "min(680px,95vw)", maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.18)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
+            {/* Header — táhlo */}
+            <div onMouseDown={onHelpDragStart} style={{ padding: "14px 22px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "grab", userSelect: "none", background: "rgba(255,255,255,0.03)" }}>
+              <div>
+                <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>❓ Nápověda – Stavby Znojmo</span>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", fontWeight: 400, marginLeft: 10 }}>⠿ přetáhnout</span>
+              </div>
+              <button onClick={() => setShowHelp(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 20, cursor: "pointer", pointerEvents: "all" }}>✕</button>
             </div>
-            <div style={{ overflowY: "auto", padding: "20px 24px", color: isDark ? "#e2e8f0" : "#1e293b", fontSize: 13, lineHeight: 1.7 }}>
+            {/* Obsah */}
+            <div style={{ overflowY: "auto", padding: "18px 22px", color: "#e2e8f0", fontSize: 13, lineHeight: 1.7 }}>
               {/* Intro */}
-              <div style={{ marginBottom: 20, padding: "12px 16px", background: isDark ? "rgba(37,99,235,0.12)" : "rgba(37,99,235,0.07)", border: `1px solid ${isDark ? "rgba(37,99,235,0.3)" : "rgba(37,99,235,0.2)"}`, borderRadius: 10, fontSize: 12, color: isDark ? "#93c5fd" : "#1d4ed8", lineHeight: 1.6 }}>
-                <strong>Stavby Znojmo</strong> je evidence stavebních zakázek pro kategorie I a II. Každá stavba může obsahovat informace o firmě, termínech, fakturaci, realizaci a interní poznámky. Změny jsou automaticky zaznamenávány v historii. Aplikace podporuje více uživatelských rolí s různými oprávněními.
+              <div style={{ marginBottom: 18, padding: "11px 15px", background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.35)", borderRadius: 10, fontSize: 12, color: "#93c5fd", lineHeight: 1.6 }}>
+                <strong style={{ color: "#60a5fa" }}>Stavby Znojmo</strong> — evidence stavebních zakázek pro kategorie I a II. Každá stavba obsahuje informace o firmě, termínech, fakturaci a realizaci. Změny se automaticky zaznamenávají v historii. Aplikace podporuje role USER, USER EDITOR, ADMIN a SUPERADMIN.
               </div>
               {[
                 { icon: "🏗️", title: "Přidání stavby", text: "Klikněte na zelené tlačítko + Přidat stavbu v hlavičce. Vyplňte název stavby (povinný) a ostatní pole dle potřeby. Klávesa Enter přeskočí na další pole ve formuláři. Uložte tlačítkem Uložit — stavba se okamžitě zobrazí v tabulce." },
-                { icon: "✏️", title: "Editace stavby", text: "Klikněte na modré tlačítko ✏️ v levém sloupci u řádku stavby. Otevře se formulář s předvyplněnými hodnotami — změňte co potřebujete a uložte. Všechny změny se automaticky zaznamená do Historie změn." },
+                { icon: "✏️", title: "Editace stavby", text: "Klikněte na modré tlačítko ✏️ v levém sloupci u řádku stavby. Otevře se formulář s předvyplněnými hodnotami — změňte co potřebujete a uložte. Všechny změny se automaticky zaznamenají do Historie změn." },
                 { icon: "🗑️", title: "Smazání stavby", text: "Klikněte na červené tlačítko 🗑️ v levém sloupci. Systém požádá o potvrzení — musíte kliknout dvakrát (ochrana proti náhodnému smazání). Smazanou stavbu nelze obnovit." },
                 { icon: "🕐", title: "Historie změn stavby", text: "Fialové tlačítko 🕐 v levém sloupci otevře kompletní historii změn konkrétní stavby — kdo, kdy a která pole změnil (původní hodnota → nová hodnota). Červená tečka 🔴 na ikoně znamená, že stavba má v historii záznamy. Z modalu lze exportovat historii jako Excel nebo vytisknout PDF." },
-                { icon: "📜", title: "Log zakázek", text: "Tlačítko 📜 Log v hlavičce (pouze admin) otevře kompletní přehled všech akcí na zakázkách — přidání, editace i smazání. Záznamy lze filtrovat podle uživatele, typu akce a datumového rozsahu. Dostupný export: Excel, Barevný Excel a PDF tisk. Pokud vidíte jen vlastní záznamy, je nutné v Supabase nastavit RLS policy (viz changelog)." },
-                { icon: "💬", title: "Poznámka ke stavbě", text: "V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA — zapište libovolný komentář, upozornění nebo interní poznámku. Ikona 💬 se zobrazí vedle názvu stavby v tabulce pokud poznámka existuje. Najeďte myší na ikonu pro zobrazení textu bez otevírání formuláře." },
+                { icon: "📜", title: "Log zakázek", text: "Tlačítko 📜 Log v hlavičce (pouze admin) otevře kompletní přehled všech akcí na zakázkách — přidání, editace i smazání. Záznamy lze filtrovat podle uživatele, typu akce a datumového rozsahu. Exporty: Excel, Barevný Excel a PDF tisk." },
+                { icon: "💬", title: "Poznámka ke stavbě", text: "V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA — zapište libovolný komentář nebo interní poznámku. Ikona 💬 se zobrazí vedle názvu stavby v tabulce pokud poznámka existuje. Najeďte myší na ikonu pro zobrazení textu." },
                 { icon: "🎨", title: "Barevné řádky", text: "Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). Zelené zbarvení celého řádku signalizuje, že stavba má vyplněné číslo faktury, částku bez DPH a datum splatnosti — tedy je kompletně vyfakturována." },
-                { icon: "⚠️", title: "Termíny ukončení", text: "Pole Ukončení se zobrazí červeně s ikonou ⚠️ pokud je termín v minulosti a stavba ještě nemá fakturu (není zelená). Tlačítko ⏰ Termíny v hlavičce zobrazí přehled všech staveb s termínem do 30 dní — včetně počtu zbývajících pracovních dní." },
-                { icon: "🔍", title: "Filtry a vyhledávání", text: "Vyhledávejte podle názvu nebo čísla stavby (pole Hledat). Filtrujte podle firmy, objednatele nebo stavbyvedoucího z rozbalovacích seznamů. Všechny filtry lze kombinovat. Graf 📊 a export vždy pracují jen s aktuálně vyfiltrovanými daty." },
-                { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře interaktivní sloupcový graf. Tři přepínače: 🏢 Firma (náklady dle dodavatele), 📅 Měsíc (časový vývoj), 📂 Kat. I / II (Plánované stavby + SNK + Běžné opravy vs. Plánované stavby II + Běžné opravy II + Poruchy). Graf vždy odráží aktuální filtr." },
-                { icon: "📤", title: "Export dat", text: "CSV — prostá tabulka vhodná pro import do jiných systémů. Excel (.xlsx) — standardní tabulka s daty. Barevný Excel (.xls) — tabulka se zbarvením podle firem (při otevření potvrďte varování Excelu). PDF — tisk přehledu na A4 landscape. Všechny exporty pracují s aktuálně vyfiltrovanými daty." },
-                { icon: "💾", title: "Záloha dat", text: "Tlačítko Záloha (pouze admin) stáhne kompletní zálohu VŠECH staveb jako Excel soubor — bez ohledu na aktivní filtry. Doporučujeme zálohovat pravidelně, ideálně před hromadnými změnami." },
-                { icon: "⚙️", title: "Nastavení", text: "Správa firem (název + přiřazená barva řádku), číselníků objednatelů a stavbyvedoucích. Administrátor může spravovat uživatelské účty — přidávat, měnit hesla a role. Role: USER (jen čtení), USER EDITOR (editace), ADMIN (plný přístup), SUPERADMIN (+ nastavení aplikace)." },
-                { icon: "🔔", title: "Notifikace v prohlížeči", text: "Aplikace umí zobrazovat upozornění na blížící se termíny i mimo otevřenou záložku. Po přihlášení prohlížeč zobrazí dialog — klikněte Povolit. Notifikace se odešlou pro všechny stavby s termínem ukončení do 7 pracovních dní. Opakují se každých 60 minut, ale pouze pokud záložka není právě aktivní." },
-                { icon: "⏱️", title: "Automatické odhlášení", text: "Z bezpečnostních důvodů se aplikace automaticky odhlásí po 15 minutách nečinnosti (bez pohybu myši, klikání nebo psaní). Před odhlášením se zobrazí varování s odpočítáváním 60 sekund — klikněte Jsem tady pro pokračování práce. Funkce není aktivní v demo režimu." },
-                { icon: "🌙", title: "Tmavý / světlý režim", text: "Přepínejte mezi 🌞 světlým a 🌙 tmavým režimem tlačítky v pravém horním rohu hlavičky. Preference se uloží v prohlížeči a zachová se i po obnovení stránky." },
-                { icon: "↔️", title: "Šířky sloupců", text: "Táhněte ikonu ⟺ v záhlaví sloupce pro změnu šířky. Nastavení šířek se uloží v prohlížeči. Superadmin může resetovat šířky všech sloupců na výchozí hodnoty v Nastavení → Aplikace." },
+                { icon: "⚠️", title: "Termíny ukončení", text: "Pole Ukončení se zobrazí červeně s ikonou ⚠️ pokud je termín v minulosti a stavba nemá fakturu. Tlačítko ⏰ Termíny v hlavičce zobrazí přehled staveb s termínem do 30 dní — včetně počtu zbývajících pracovních dní." },
+                { icon: "🔍", title: "Filtry a vyhledávání", text: "Vyhledávejte podle názvu nebo čísla stavby (pole Hledat). Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Filtry lze kombinovat. Graf 📊 a export vždy pracují jen s aktuálně vyfiltrovanými daty." },
+                { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře interaktivní sloupcový graf. Tři přepínače: 🏢 Firma, 📅 Měsíc, 📂 Kat. I / II (Plán.+SNK+Běžné op. vs. Plán.+Běžné op.+Poruchy). Graf vždy odráží aktuální filtr." },
+                { icon: "📤", title: "Export dat", text: "CSV — prostá tabulka. Excel (.xlsx) — standardní formát. Barevný Excel (.xls) — se zbarvením firem (potvrďte varování Excelu). PDF — tisk na A4 landscape. Vše pracuje s aktuálním filtrem." },
+                { icon: "💾", title: "Záloha dat", text: "Tlačítko Záloha (pouze admin) stáhne kompletní zálohu VŠECH staveb jako Excel — bez ohledu na filtry. Doporučujeme zálohovat pravidelně, zvláště před hromadnými změnami." },
+                { icon: "⚙️", title: "Nastavení", text: "Správa firem (název + barva řádku), číselníků objednatelů a stavbyvedoucích. Admin spravuje uživatele — přidává, mění hesla a role. Role: USER (čtení), USER EDITOR (editace), ADMIN (plný přístup), SUPERADMIN (+ nastavení aplikace)." },
+                { icon: "🔔", title: "Notifikace v prohlížeči", text: "Aplikace zobrazuje upozornění na blížící se termíny i mimo otevřenou záložku. Po přihlášení prohlížeč zobrazí dialog — klikněte Povolit. Notifikace se odešlou pro stavby s termínem do 7 pracovních dní, opakují každých 60 min pokud záložka není aktivní." },
+                { icon: "⏱️", title: "Automatické odhlášení", text: "Aplikace se automaticky odhlásí po 15 minutách nečinnosti. Před odhlášením se zobrazí varování s odpočítáváním 60 sekund — klikněte Jsem tady pro pokračování. Neaktivní v demo režimu." },
+                { icon: "🌙", title: "Tmavý / světlý režim", text: "Přepínejte mezi 🌞 světlým a 🌙 tmavým režimem tlačítky v pravém horním rohu. Preference se uloží v prohlížeči." },
+                { icon: "↔️", title: "Šířky sloupců", text: "Táhněte ikonu ⟺ v záhlaví sloupce pro změnu šířky. Nastavení se uloží v prohlížeči. Superadmin může resetovat šířky na výchozí v Nastavení → Aplikace." },
               ].map(({ icon, title, text }) => (
-                <div key={title} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}` }}>
-                  <div style={{ fontWeight: 700, marginBottom: 3, color: isDark ? "#60a5fa" : "#2563eb" }}>{icon} {title}</div>
-                  <div style={{ color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }}>{text}</div>
+                <div key={title} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ fontWeight: 700, marginBottom: 3, color: "#60a5fa" }}>{icon} {title}</div>
+                  <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 12 }}>{text}</div>
                 </div>
               ))}
             </div>
-            <div style={{ padding: "12px 24px", borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, textAlign: "right" }}>
+            <div style={{ padding: "11px 22px", borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "right", background: "rgba(255,255,255,0.02)" }}>
               <button onClick={() => setShowHelp(false)} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Zavřít</button>
             </div>
           </div>
