@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_09_build0024
+// BUILD: 2026_03_10_build0025
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -28,6 +28,17 @@ import * as XLSX from "xlsx";
 //
 // MOBIL: tabulka není optimalizována pro mobil (25 sloupců)
 //   → do budoucna zvážit mobilní zobrazení (kartičky)
+//
+// BUILD0025 — nové funkce:
+//   🔔 NOTIFIKACE: Browser Notification API, žádá povolení po přihlášení,
+//      odesílá notifikaci pro každou stavbu s termínem do 7 dní,
+//      opakuje každých 60 min (jen pokud tab není aktivní)
+//   📊 GRAF: sloupcový graf nákladů (recharts BarChart), přepínač firma/měsíc,
+//      otevírá se tlačítkem "📊 Graf" ve filtrovací liště
+//   🔒 AUTO-LOGOUT: 15 min nečinnost → varování 60s countdown → odhlášení
+//      sleduje mousemove, keydown, click, scroll
+//   💬 POZNÁMKA: pole poznamka v editačním formuláři (textarea, ukládá do DB)
+//      zobrazuje se jako ikona 💬 v tabulce (tooltip s textem)
 // ============================================================
 // ============================================================
 // SUPABASE CONFIG
@@ -111,6 +122,7 @@ const inputSx = { width: "100%", padding: "9px 11px", background: "#0f172a", bor
 // ── Globální sdílené konstanty ─────────────────────────────
 const NUM_FIELDS = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph"];
 const DATE_FIELDS = ["ukonceni","splatna","ze_dne"];
+const TEXT_FIELDS_EXTRA = ["poznamka"]; // textarea pole – nepatří do NUM ani DATE
 const FIRMA_COLOR_FALLBACK = ["#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899"];
 const hexToRgb = hex => { const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : "59,130,246"; };
 const hexToRgbaGlobal = (hex, alpha) => `rgba(${hexToRgb(hex)},${alpha})`;
@@ -169,6 +181,184 @@ function NativeSelect({ value, onChange, options, style, isDark = true }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// GRAF MODAL
+// ============================================================
+function GrafModal({ data, firmy, isDark, onClose }) {
+  const [mode, setMode] = useState("firma"); // "firma" | "mesic"
+
+  const firmaColorMap = Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#3b82f6"]));
+
+  const grafData = useMemo(() => {
+    if (mode === "firma") {
+      const map = {};
+      data.forEach(r => {
+        const key = r.firma || "Bez firmy";
+        if (!map[key]) map[key] = { name: key, nabidka: 0, vyfakturovano: 0, zrealizovano: 0 };
+        map[key].nabidka += Number(r.nabidka) || 0;
+        map[key].vyfakturovano += Number(r.vyfakturovano) || 0;
+        map[key].zrealizovano += Number(r.zrealizovano) || 0;
+      });
+      return Object.values(map);
+    } else {
+      const map = {};
+      data.forEach(r => {
+        if (!r.ze_dne) return;
+        const parts = r.ze_dne.trim().split(".");
+        if (parts.length < 3) return;
+        const key = `${parts[2]}-${parts[1].padStart(2,"0")}`;
+        const label = `${parts[1]}/${parts[2]}`;
+        if (!map[key]) map[key] = { name: label, _sort: key, nabidka: 0, vyfakturovano: 0, zrealizovano: 0 };
+        map[key].nabidka += Number(r.nabidka) || 0;
+        map[key].vyfakturovano += Number(r.vyfakturovano) || 0;
+        map[key].zrealizovano += Number(r.zrealizovano) || 0;
+      });
+      return Object.values(map).sort((a, b) => a._sort.localeCompare(b._sort));
+    }
+  }, [data, mode]);
+
+  const fmtTick = (v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v);
+
+  const modalBg = isDark ? "#1e293b" : "#fff";
+  const textC = isDark ? "#e2e8f0" : "#1e293b";
+  const mutedC = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)";
+  const gridC = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+
+  // Dynamický import recharts – fallback na vlastní SVG pokud nedostupný
+  const [Recharts, setRecharts] = useState(null);
+  useEffect(() => {
+    try {
+      import("recharts").then(m => setRecharts(m)).catch(() => setRecharts(null));
+    } catch { setRecharts(null); }
+  }, []);
+
+  const renderBars = () => {
+    if (!Recharts) {
+      // Fallback – vlastní jednoduchý SVG sloupcový graf
+      const maxVal = Math.max(...grafData.map(d => Math.max(d.nabidka, d.vyfakturovano, d.zrealizovano)), 1);
+      const W = 680, H = 280, PAD_L = 60, PAD_B = 60, PAD_T = 20, PAD_R = 20;
+      const chartW = W - PAD_L - PAD_R;
+      const chartH = H - PAD_T - PAD_B;
+      const groupW = chartW / Math.max(grafData.length, 1);
+      const barW = Math.min(Math.max(8, groupW / 4 - 2), 30);
+      const scaleY = v => chartH - (v / maxVal) * chartH;
+      const COLORS = ["#60a5fa","#4ade80","#fbbf24"];
+      const KEYS = ["nabidka","vyfakturovano","zrealizovano"];
+      const LABELS = ["Nabídka","Vyfakturováno","Zrealizováno"];
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 280 }}>
+          {/* grid */}
+          {[0,0.25,0.5,0.75,1].map(p => {
+            const y = PAD_T + p * chartH;
+            return <g key={p}>
+              <line x1={PAD_L} x2={W-PAD_R} y1={y} y2={y} stroke={gridC} strokeWidth={1}/>
+              <text x={PAD_L-6} y={y+4} textAnchor="end" fill={mutedC} fontSize={9}>{fmtTick(maxVal*(1-p))}</text>
+            </g>;
+          })}
+          {/* bars */}
+          {grafData.map((d, gi) => {
+            const cx = PAD_L + gi * groupW + groupW / 2;
+            return KEYS.map((k, ki) => {
+              const bx = cx + (ki - 1) * (barW + 2);
+              const bh = Math.max(1, (d[k] / maxVal) * chartH);
+              const by = PAD_T + scaleY(d[k]);
+              return <rect key={k} x={bx - barW/2} y={by} width={barW} height={bh} fill={mode==="firma" ? (firmaColorMap[d.name]||COLORS[ki]) : COLORS[ki]} rx={2} opacity={0.9}/>;
+            });
+          })}
+          {/* x labels */}
+          {grafData.map((d, gi) => {
+            const cx = PAD_L + gi * groupW + groupW / 2;
+            const lbl = d.name.length > 10 ? d.name.slice(0,9)+"…" : d.name;
+            return <text key={gi} x={cx} y={H-PAD_B+16} textAnchor="middle" fill={mutedC} fontSize={9}>{lbl}</text>;
+          })}
+          {/* legend */}
+          {LABELS.map((l, i) => <g key={l} transform={`translate(${PAD_L + i * 130}, ${H-14})`}>
+            <rect width={10} height={10} fill={COLORS[i]} rx={2}/>
+            <text x={14} y={9} fill={mutedC} fontSize={10}>{l}</text>
+          </g>)}
+        </svg>
+      );
+    }
+
+    const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip: RTooltip, Legend, ResponsiveContainer } = Recharts;
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={grafData} margin={{ top: 10, right: 20, left: 10, bottom: 60 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={gridC} />
+          <XAxis dataKey="name" tick={{ fill: mutedC, fontSize: 11 }} angle={-30} textAnchor="end" interval={0} />
+          <YAxis tickFormatter={fmtTick} tick={{ fill: mutedC, fontSize: 10 }} />
+          <RTooltip
+            formatter={(v, name) => [Number(v).toLocaleString("cs-CZ", { minimumFractionDigits: 0 }) + " Kč", name]}
+            contentStyle={{ background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, fontSize: 12, color: textC }}
+          />
+          <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12, color: mutedC }} />
+          <Bar dataKey="nabidka" name="Nabídka" fill={mode === "firma" ? undefined : "#60a5fa"} radius={[3,3,0,0]}
+            {...(mode === "firma" ? { fill: "#60a5fa" } : {})} />
+          <Bar dataKey="vyfakturovano" name="Vyfakturováno" fill="#4ade80" radius={[3,3,0,0]} />
+          <Bar dataKey="zrealizovano" name="Zrealizováno" fill="#fbbf24" radius={[3,3,0,0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+      <div style={{ background: modalBg, borderRadius: 18, width: "min(780px,95vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
+        {/* header */}
+        <div style={{ padding: "18px 24px", borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h3 style={{ color: textC, margin: 0, fontSize: 17 }}>📊 Graf nákladů</h3>
+            <div style={{ color: mutedC, fontSize: 12, marginTop: 3 }}>Nabídka · Vyfakturováno · Zrealizováno</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* přepínač */}
+            <div style={{ display: "flex", background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, overflow: "hidden" }}>
+              {[["firma","🏢 Firma"],["mesic","📅 Měsíc"]].map(([val, lbl]) => (
+                <button key={val} onClick={() => setMode(val)} style={{ padding: "6px 14px", background: mode === val ? (isDark ? "rgba(37,99,235,0.4)" : "rgba(37,99,235,0.15)") : "transparent", border: "none", color: mode === val ? "#60a5fa" : mutedC, cursor: "pointer", fontSize: 13, fontWeight: mode === val ? 700 : 400, transition: "all 0.15s" }}>{lbl}</button>
+              ))}
+            </div>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: mutedC, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>✕</button>
+          </div>
+        </div>
+        {/* graf */}
+        <div style={{ padding: "24px 24px 12px", flex: 1, overflowY: "auto" }}>
+          {grafData.length === 0
+            ? <div style={{ textAlign: "center", color: mutedC, padding: 48 }}>Žádná data k zobrazení</div>
+            : renderBars()
+          }
+        </div>
+        {/* tabulka souhrnu */}
+        <div style={{ padding: "0 24px 20px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" }}>
+                {[mode === "firma" ? "Firma" : "Měsíc", "Nabídka", "Vyfakturováno", "Zrealizováno"].map(h => (
+                  <th key={h} style={{ padding: "7px 12px", textAlign: h === (mode === "firma" ? "Firma" : "Měsíc") ? "left" : "right", color: mutedC, fontWeight: 700, fontSize: 11, borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {grafData.map((d, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}` }}>
+                  <td style={{ padding: "6px 12px", color: textC, fontWeight: 600 }}>
+                    {mode === "firma" && <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: firmaColorMap[d.name] || "#3b82f6", marginRight: 7, verticalAlign: "middle" }}/>}
+                    {d.name}
+                  </td>
+                  {["nabidka","vyfakturovano","zrealizovano"].map(k => (
+                    <td key={k} style={{ padding: "6px 12px", textAlign: "right", color: isDark ? "#93c5fd" : "#2563eb", fontFamily: "monospace", fontSize: 12 }}>
+                      {Number(d[k]).toLocaleString("cs-CZ", { minimumFractionDigits: 0 })}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -513,6 +703,20 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             {/* Faktura 2 */}
 
 
+          </div>
+        </div>
+
+        {/* Poznámka */}
+        <div style={{ padding: "0 24px 12px" }}>
+          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 10, borderLeft: "3px solid #a78bfa", paddingLeft: 8 }}>💬 POZNÁMKA</div>
+            <textarea
+              value={form["poznamka"] || ""}
+              onChange={e => set("poznamka", e.target.value)}
+              placeholder="Volný komentář ke stavbě..."
+              rows={3}
+              style={{ width: "100%", padding: "9px 11px", background: "#0f172a", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 7, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit" }}
+            />
           </div>
         </div>
 
@@ -1023,6 +1227,18 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  // ── Graf ──────────────────────────────────────────────────
+  const [showGraf, setShowGraf] = useState(false);
+  // ── Auto-logout ──────────────────────────────────────────
+  const [autoLogoutWarning, setAutoLogoutWarning] = useState(false);
+  const [autoLogoutCountdown, setAutoLogoutCountdown] = useState(60);
+  const autoLogoutTimer = useRef(null);
+  const autoLogoutCountdownTimer = useRef(null);
+  const AUTO_LOGOUT_MINUTES = 15;
+  // ── Browser notifikace ───────────────────────────────────
+  const notifPermission = useRef(null);
+  const notifSentRef = useRef(false);
+  const notifIntervalRef = useRef(null);
   const [tooltip, setTooltip] = useState({ visible: false, text: "", x: 0, y: 0 });
   const tooltipTimer = useRef(null);
   const showTooltip = (e, text) => {
@@ -1275,6 +1491,79 @@ export default function App() {
     document.body.style.background = dark ? "#0f172a" : "#f1f5f9";
     document.body.style.color = dark ? "#e2e8f0" : "#1e293b";
   }, [theme]);
+
+  // ── Auto-logout: 15 min nečinnost ────────────────────────
+  useEffect(() => {
+    if (!user || isDemo) return;
+    const resetTimer = () => {
+      if (autoLogoutWarning) return; // neresetuj když countdown běží
+      clearTimeout(autoLogoutTimer.current);
+      autoLogoutTimer.current = setTimeout(() => {
+        setAutoLogoutWarning(true);
+        setAutoLogoutCountdown(60);
+      }, AUTO_LOGOUT_MINUTES * 60 * 1000);
+    };
+    const events = ["mousemove","keydown","click","scroll","touchstart"];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      clearTimeout(autoLogoutTimer.current);
+    };
+  }, [user, isDemo, autoLogoutWarning]);
+
+  useEffect(() => {
+    if (!autoLogoutWarning) { clearInterval(autoLogoutCountdownTimer.current); return; }
+    autoLogoutCountdownTimer.current = setInterval(() => {
+      setAutoLogoutCountdown(c => {
+        if (c <= 1) {
+          clearInterval(autoLogoutCountdownTimer.current);
+          setAutoLogoutWarning(false);
+          setUser(null);
+          return 60;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(autoLogoutCountdownTimer.current);
+  }, [autoLogoutWarning]);
+
+  // ── Browser notifikace ───────────────────────────────────
+  const sendDeadlineNotifications = useCallback((warnings) => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    const urgent = warnings.filter(r => r.dniDo <= 7);
+    urgent.forEach(r => {
+      new Notification("⚠️ Blížící se termín stavby", {
+        body: `${r.cislo_stavby} – ${r.nazev_stavby}\nTermín: ${r.ukonceni} (${r.dniDo} pracovních dní)`,
+        icon: "/favicon.ico",
+        tag: `stavba-${r.id}`,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!user || isDemo || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().then(p => { notifPermission.current = p; });
+    } else {
+      notifPermission.current = Notification.permission;
+    }
+  }, [user, isDemo]);
+
+  useEffect(() => {
+    if (!user || isDemo || deadlineWarnings.length === 0) return;
+    if (!notifSentRef.current) {
+      notifSentRef.current = true;
+      sendDeadlineNotifications(deadlineWarnings);
+    }
+    // Opakovat každých 60 minut pouze pokud tab není aktivní
+    clearInterval(notifIntervalRef.current);
+    notifIntervalRef.current = setInterval(() => {
+      if (document.hidden) sendDeadlineNotifications(deadlineWarnings);
+    }, 60 * 60 * 1000);
+    return () => clearInterval(notifIntervalRef.current);
+  }, [deadlineWarnings, user, isDemo, sendDeadlineNotifications]);
 
   // ── CRUD stavby ────────────────────────────────────────────
   const handleSave = async (updated) => {
@@ -1533,7 +1822,7 @@ export default function App() {
   };
 
   const nextId = data.length > 0 ? data.reduce((max, r) => Math.max(max, r.id), 0) + 1 : 1;
-  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "" };
+  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "", poznamka: "" };
 
   const getFirmaColor = (firmaName) => firmaColorCache[firmaName] || { bg: isDark ? "#1a2744" : "#e2e8f0", badge: "rgba(59,130,246,0.25)", badgeBorder: "rgba(59,130,246,0.6)", text: "#3b82f6", hex: "#3b82f6" };
 
@@ -1598,6 +1887,7 @@ export default function App() {
         <NativeSelect value={filterSV} onChange={setFilterSV} options={["Všichni stavbyvedoucí", ...stavbyvedouci]} isDark={isDark} style={{ width: 170 }} />
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <span style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, padding: "4px 12px", color: T.text, fontSize: 13, fontWeight: 600 }}>{filtered.length} záznamů</span>
+          <button onClick={() => setShowGraf(true)} onMouseEnter={e => showTooltip(e, "Sloupcový graf nákladů")} onMouseLeave={hideTooltip} style={{ padding: "7px 14px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12 }}>📊 Graf</button>
           <div style={{ position: "relative" }} onMouseEnter={() => setShowExport(true)} onMouseLeave={() => setTimeout(() => setShowExport(false), 360)}>
             <button onMouseEnter={e => showTooltip(e, "Exportovat data (CSV, Excel, PDF)")} onMouseLeave={hideTooltip} style={{ padding: "7px 14px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12 }}>⬇ Export ▾</button>
             {showExport && (
@@ -1728,6 +2018,7 @@ export default function App() {
                   <td style={{ padding: "7px 11px", whiteSpace: "nowrap", border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>
                     <button onClick={() => setEditRow(row)} onMouseEnter={e => showTooltip(e, "Editovat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11, marginRight: isAdmin ? 5 : 0 }}>✏️ Editovat</button>
                     {isAdmin && <button onClick={() => setDeleteConfirm({ id: row.id, step: 1 })} onMouseEnter={e => showTooltip(e, "Smazat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 5, color: "#f87171", cursor: "pointer", fontSize: 11 }}>🗑️</button>}
+                    {row.poznamka && row.poznamka.trim() !== "" && <span onMouseEnter={e => showTooltip(e, row.poznamka)} onMouseLeave={hideTooltip} style={{ marginLeft: 6, cursor: "help", fontSize: 13 }}>💬</span>}
                   </td>
                 )}
               </tr>
@@ -2165,6 +2456,43 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* GRAF MODAL */}
+      {showGraf && <GrafModal data={filtered} firmy={firmy} isDark={isDark} onClose={() => setShowGraf(false)} />}
+
+      {/* AUTO-LOGOUT VAROVÁNÍ */}
+      {autoLogoutWarning && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+          <div style={{ background: isDark ? "#1e293b" : "#fff", borderRadius: 16, padding: "32px 36px", width: 360, textAlign: "center", border: "1px solid rgba(239,68,68,0.4)", boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>⏱️</div>
+            <h3 style={{ color: isDark ? "#fff" : "#1e293b", margin: "0 0 8px", fontSize: 18 }}>Automatické odhlášení</h3>
+            <p style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", margin: "0 0 6px", fontSize: 14 }}>
+              Detekována nečinnost ({AUTO_LOGOUT_MINUTES} minut).
+            </p>
+            <div style={{ fontSize: 48, fontWeight: 800, color: autoLogoutCountdown <= 10 ? "#f87171" : "#fbbf24", margin: "16px 0", fontVariantNumeric: "tabular-nums" }}>
+              {autoLogoutCountdown}
+            </div>
+            <p style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.4)", margin: "0 0 24px", fontSize: 13 }}>
+              Budete odhlášeni za <strong>{autoLogoutCountdown}</strong> {autoLogoutCountdown === 1 ? "sekundu" : autoLogoutCountdown < 5 ? "sekundy" : "sekund"}.
+            </p>
+            <button
+              onClick={() => {
+                setAutoLogoutWarning(false);
+                clearInterval(autoLogoutCountdownTimer.current);
+                clearTimeout(autoLogoutTimer.current);
+                autoLogoutTimer.current = setTimeout(() => {
+                  setAutoLogoutWarning(true);
+                  setAutoLogoutCountdown(60);
+                }, AUTO_LOGOUT_MINUTES * 60 * 1000);
+              }}
+              style={{ padding: "11px 28px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700 }}
+            >
+              ✅ Jsem tady – pokračovat
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
