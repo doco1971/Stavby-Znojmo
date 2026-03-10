@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0031
+// BUILD: 2026_03_10_build0032
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -316,7 +316,234 @@ function HistorieModal({ row, isDark, onClose }) {
           })}
         </div>
 
-        <div style={{ padding: "12px 22px", borderTop: `1px solid ${borderC}`, textAlign: "right" }}>
+        <div style={{ padding: "12px 22px", borderTop: `1px solid ${borderC}`, display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            {/* PDF export */}
+            <button onClick={() => {
+              const rows = zaznamy.map((z, i) => {
+                const diff = (() => { try { const s = z.detail?.indexOf("{"); return s >= 0 ? JSON.parse(z.detail.slice(s)) : null; } catch { return null; } })();
+                const cas = z.cas ? new Date(z.cas).toLocaleString("cs-CZ") : "";
+                const akceColor = z.akce === "Přidání stavby" ? "#166534" : z.akce === "Editace stavby" ? "#854D0E" : z.akce === "Smazání stavby" ? "#991B1B" : "#1e293b";
+                const akceBg    = z.akce === "Přidání stavby" ? "#dcfce7" : z.akce === "Editace stavby" ? "#fef9c3" : z.akce === "Smazání stavby" ? "#fee2e2" : "#f8fafc";
+                const zmenyHtml = diff?.zmeny?.length ? `<table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:10px"><thead><tr><th style="background:#e2e8f0;padding:3px 6px;text-align:left">Pole</th><th style="background:#e2e8f0;padding:3px 6px;text-align:left;color:#991b1b">Původní</th><th style="background:#e2e8f0;padding:3px 6px;text-align:left;color:#166534">Nová</th></tr></thead><tbody>${diff.zmeny.map(z2 => `<tr><td style="padding:3px 6px;border-bottom:1px solid #e2e8f0">${FIELD_LABELS[z2.pole]||z2.pole}</td><td style="padding:3px 6px;border-bottom:1px solid #e2e8f0;color:#991b1b">${z2.stare??""}</td><td style="padding:3px 6px;border-bottom:1px solid #e2e8f0;color:#166534">${z2.nove??""}</td></tr>`).join("")}</tbody></table>` : "";
+                return `<tr><td style="padding:8px 10px;background:${akceBg};border:1px solid #e2e8f0;vertical-align:top;white-space:nowrap;font-size:11px;color:${akceColor};font-weight:700">${z.akce||""}</td><td style="padding:8px 10px;background:${i%2===0?"#f8fafc":"#fff"};border:1px solid #e2e8f0;vertical-align:top;white-space:nowrap;font-size:11px">${cas}</td><td style="padding:8px 10px;background:${i%2===0?"#f8fafc":"#fff"};border:1px solid #e2e8f0;vertical-align:top;font-size:11px">${z.uzivatel||""}</td><td style="padding:8px 10px;background:${i%2===0?"#f8fafc":"#fff"};border:1px solid #e2e8f0;vertical-align:top;font-size:11px">${zmenyHtml || (z.detail||"")}</td></tr>`;
+              }).join("");
+              const w = window.open("","_blank");
+              w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Historie – ${row.nazev_stavby}</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}h2{margin:0 0 2px;font-size:14px}p{margin:0 0 10px;color:#64748b;font-size:10px}table{width:100%;border-collapse:collapse}th{background:#1e3a8a;color:#fff;padding:7px 10px;text-align:left;font-size:11px}@media print{button{display:none}}</style></head><body><h2>🕐 Historie změn – ${row.cislo_stavby||""} ${row.nazev_stavby||""}</h2><p>Vygenerováno: ${new Date().toLocaleDateString("cs-CZ")} | ${zaznamy.length} záznamů</p><table><thead><tr><th>Akce</th><th>Datum a čas</th><th>Uživatel</th><th>Detail změn</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print();window.onafterprint=function(){window.close()}}<\/script></body></html>`);
+              w.document.close();
+            }} style={{ padding: "7px 14px", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🖨️ PDF tisk</button>
+
+            {/* XLSX export */}
+            <button onClick={() => {
+              const wsData = [["Akce","Datum a čas","Uživatel","Detail"]];
+              zaznamy.forEach(z => {
+                const cas = z.cas ? new Date(z.cas).toLocaleString("cs-CZ") : "";
+                wsData.push([z.akce||"", cas, z.uzivatel||"", z.detail||""]);
+              });
+              import("xlsx").then(XLSX => {
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                XLSX.utils.book_append_sheet(wb, ws, "Historie");
+                XLSX.writeFile(wb, `historie_${row.cislo_stavby||row.id}_${new Date().toISOString().slice(0,10)}.xlsx`);
+              }).catch(() => alert("XLSX export není dostupný"));
+            }} style={{ padding: "7px 14px", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 7, color: "#4ade80", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📊 XLSX</button>
+          </div>
+          <button onClick={onClose} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Zavřít</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// LOG MODAL (kompletní log zakázek pro admina)
+// ============================================================
+function LogModal({ isDark, firmy, onClose }) {
+  const [zaznamy, setZaznamy] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterUser, setFilterUser]   = useState("");
+  const [filterAkce, setFilterAkce]   = useState("");
+  const [filterOd,   setFilterOd]     = useState("");
+  const [filterDo,   setFilterDo]     = useState("");
+
+  const AKCE_ZAKÁZKY = ["Přidání stavby","Editace stavby","Smazání stavby"];
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await sb(`log_aktivit?order=cas.desc&limit=5000`);
+        // Jen záznamy týkající se zakázek
+        setZaznamy((res||[]).filter(r => AKCE_ZAKÁZKY.includes(r.akce)));
+      } catch { setZaznamy([]); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, []);
+
+  const users  = [...new Set(zaznamy.map(r => r.uzivatel).filter(Boolean))];
+  const akceList = [...new Set(zaznamy.map(r => r.akce).filter(Boolean))];
+
+  const filtered = zaznamy.filter(r => {
+    if (filterUser && r.uzivatel !== filterUser) return false;
+    if (filterAkce && r.akce !== filterAkce) return false;
+    if (filterOd) {
+      const d = new Date(r.cas); const od = new Date(filterOd);
+      if (d < od) return false;
+    }
+    if (filterDo) {
+      const d = new Date(r.cas); const doo = new Date(filterDo); doo.setHours(23,59,59);
+      if (d > doo) return false;
+    }
+    return true;
+  });
+
+  const fmtCas = (cas) => cas ? new Date(cas).toLocaleString("cs-CZ", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "";
+
+  const parseDetail = (detail) => {
+    if (!detail) return null;
+    try { const s = detail.indexOf("{"); return s >= 0 ? JSON.parse(detail.slice(s)) : null; } catch { return null; }
+  };
+
+  const AKCE_STYLE = {
+    "Přidání stavby":  { bg: "rgba(34,197,94,0.12)",  border: "rgba(34,197,94,0.35)",  color: "#4ade80",  pdfBg: "#dcfce7", pdfColor: "#166534" },
+    "Editace stavby":  { bg: "rgba(251,191,36,0.1)",   border: "rgba(251,191,36,0.35)", color: "#fbbf24",  pdfBg: "#fef9c3", pdfColor: "#854D0E" },
+    "Smazání stavby":  { bg: "rgba(239,68,68,0.1)",    border: "rgba(239,68,68,0.35)",  color: "#f87171",  pdfBg: "#fee2e2", pdfColor: "#991B1B" },
+  };
+
+  const modalBg = isDark ? "#1e293b" : "#fff";
+  const textC   = isDark ? "#e2e8f0" : "#1e293b";
+  const mutedC  = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.45)";
+  const borderC = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const inputS  = { padding: "6px 10px", background: isDark ? "#0f172a" : "#f8fafc", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: textC, fontSize: 12, outline: "none" };
+
+  // ── exporty ──────────────────────────────────────────────
+  const doXLSX = () => {
+    const wsData = [["Akce","Datum a čas","Uživatel","Č. stavby / Název","Detail změn"]];
+    filtered.forEach(z => {
+      const diff = parseDetail(z.detail);
+      const zmenyText = diff?.zmeny?.map(x => `${FIELD_LABELS[x.pole]||x.pole}: ${x.stare} → ${x.nove}`).join("; ") || z.detail || "";
+      const nazev = diff?.nazev || z.detail?.replace(/^ID:\s*\d+,\s*/,"").split(" {")[0] || "";
+      wsData.push([z.akce||"", fmtCas(z.cas), z.uzivatel||"", nazev, zmenyText]);
+    });
+    import("xlsx").then(XLSX => {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws["!cols"] = [14,18,16,30,60].map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, ws, "Log zakázek");
+      XLSX.writeFile(wb, `log_zakazek_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }).catch(() => alert("XLSX export není dostupný"));
+  };
+
+  const doXLSColor = () => {
+    const headers = `<tr><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Akce</th><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Datum a čas</th><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Uživatel</th><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Název stavby</th><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Detail změn</th></tr>`;
+    const rows = filtered.map((z, i) => {
+      const st = AKCE_STYLE[z.akce] || {};
+      const diff = parseDetail(z.detail);
+      const zmenyText = diff?.zmeny?.map(x => `${FIELD_LABELS[x.pole]||x.pole}: ${x.stare} → ${x.nove}`).join("; ") || z.detail || "";
+      const nazev = diff?.nazev || z.detail?.replace(/^ID:\s*\d+,\s*/,"").split(" {")[0] || "";
+      const rowBg = i%2===0 ? "#f8fafc" : "#fff";
+      return `<tr><td style="padding:5px 10px;background:${st.pdfBg||rowBg};color:${st.pdfColor||"#1e293b"};font-weight:700;border:1px solid #E2E8F0;white-space:nowrap;font-size:10px">${z.akce||""}</td><td style="padding:5px 10px;background:${rowBg};border:1px solid #E2E8F0;white-space:nowrap;font-size:10px">${fmtCas(z.cas)}</td><td style="padding:5px 10px;background:${rowBg};border:1px solid #E2E8F0;font-size:10px">${z.uzivatel||""}</td><td style="padding:5px 10px;background:${rowBg};border:1px solid #E2E8F0;font-size:10px">${nazev}</td><td style="padding:5px 10px;background:${rowBg};border:1px solid #E2E8F0;font-size:10px">${zmenyText}</td></tr>`;
+    }).join("");
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"></head><body><table><thead>${headers}</thead><tbody>${rows}</tbody></table></body></html>`;
+    const ts = new Date().toISOString().slice(0,10);
+    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `log_zakazek_barevny_${ts}.xls`; a.click();
+  };
+
+  const doPDF = () => {
+    const rows = filtered.map((z, i) => {
+      const st = AKCE_STYLE[z.akce] || {};
+      const diff = parseDetail(z.detail);
+      const zmenyHtml = diff?.zmeny?.length
+        ? `<div style="margin-top:4px;font-size:9px">${diff.zmeny.map(x => `<span style="color:#64748b">${FIELD_LABELS[x.pole]||x.pole}:</span> <span style="color:#991b1b">${x.stare}</span> → <span style="color:#166534">${x.nove}</span>`).join(" &nbsp;|&nbsp; ")}</div>`
+        : `<div style="color:#64748b;font-size:9px">${z.detail||""}</div>`;
+      const nazev = diff?.nazev || z.detail?.replace(/^ID:\s*\d+,\s*/,"").split(" {")[0] || "";
+      const rowBg = i%2===0 ? "#f8fafc" : "#fff";
+      return `<tr><td style="padding:6px 8px;background:${st.pdfBg||rowBg};color:${st.pdfColor||"#1e293b"};font-weight:700;border:1px solid #e2e8f0;white-space:nowrap;font-size:10px;vertical-align:top">${z.akce||""}</td><td style="padding:6px 8px;background:${rowBg};border:1px solid #e2e8f0;white-space:nowrap;font-size:10px;vertical-align:top">${fmtCas(z.cas)}</td><td style="padding:6px 8px;background:${rowBg};border:1px solid #e2e8f0;font-size:10px;vertical-align:top">${z.uzivatel||""}</td><td style="padding:6px 8px;background:${rowBg};border:1px solid #e2e8f0;font-size:10px;vertical-align:top"><div style="font-weight:600">${nazev}</div>${zmenyHtml}</td></tr>`;
+    }).join("");
+    const w = window.open("","_blank");
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Log zakázek</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}h2{margin:0 0 2px;font-size:14px}p{margin:0 0 10px;color:#64748b;font-size:10px}table{width:100%;border-collapse:collapse}th{background:#1e3a8a;color:#fff;padding:7px 10px;text-align:left;font-size:10px}@media print{button{display:none}}</style></head><body><h2>📜 Log zakázek – Stavby Znojmo</h2><p>Vygenerováno: ${new Date().toLocaleDateString("cs-CZ")} | ${filtered.length} záznamů${filterUser?" | Uživatel: "+filterUser:""}${filterAkce?" | Akce: "+filterAkce:""}</p><table><thead><tr><th>Akce</th><th>Datum a čas</th><th>Uživatel</th><th>Název stavby / Detail</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print();window.onafterprint=function(){window.close()}}<\/script></body></html>`);
+    w.document.close();
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 1250, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+      <div style={{ background: modalBg, borderRadius: 18, width: "min(900px,97vw)", maxHeight: "92vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.65)" }}>
+
+        {/* header */}
+        <div style={{ padding: "16px 22px", borderBottom: `1px solid ${borderC}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h3 style={{ color: textC, margin: 0, fontSize: 16 }}>📜 Log zakázek</h3>
+            <div style={{ color: mutedC, fontSize: 12, marginTop: 2 }}>Přidání · Editace · Smazání staveb</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: mutedC, fontSize: 20, cursor: "pointer" }}>✕</button>
+        </div>
+
+        {/* filtry */}
+        <div style={{ padding: "10px 22px", borderBottom: `1px solid ${borderC}`, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={filterUser} onChange={e => setFilterUser(e.target.value)} style={inputS}>
+            <option value="">Všichni uživatelé</option>
+            {users.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+          <select value={filterAkce} onChange={e => setFilterAkce(e.target.value)} style={inputS}>
+            <option value="">Všechny akce</option>
+            {akceList.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: mutedC, fontSize: 12 }}>Od:</span>
+            <input type="date" value={filterOd} onChange={e => setFilterOd(e.target.value)} style={inputS} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: mutedC, fontSize: 12 }}>Do:</span>
+            <input type="date" value={filterDo} onChange={e => setFilterDo(e.target.value)} style={inputS} />
+          </div>
+          {(filterUser||filterAkce||filterOd||filterDo) && (
+            <button onClick={() => { setFilterUser(""); setFilterAkce(""); setFilterOd(""); setFilterDo(""); }} style={{ padding: "6px 12px", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12 }}>✕ Reset</button>
+          )}
+          <span style={{ marginLeft: "auto", color: mutedC, fontSize: 12, fontWeight: 600 }}>{filtered.length} záznamů</span>
+        </div>
+
+        {/* seznam */}
+        <div style={{ overflowY: "auto", flex: 1, padding: "12px 22px" }}>
+          {loading && <div style={{ textAlign: "center", color: mutedC, padding: 40 }}>Načítám log...</div>}
+          {!loading && filtered.length === 0 && <div style={{ textAlign: "center", color: mutedC, padding: 48 }}>Žádné záznamy</div>}
+          {!loading && filtered.map((z, i) => {
+            const st   = AKCE_STYLE[z.akce] || { bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.2)", color: "#94a3b8" };
+            const diff = parseDetail(z.detail);
+            const nazev = diff?.nazev || z.detail?.replace(/^ID:\s*\d+,\s*/,"").split(" {")[0] || "";
+            return (
+              <div key={i} style={{ marginBottom: 8, padding: "10px 14px", background: st.bg, border: `1px solid ${st.border}`, borderRadius: 9 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ color: st.color, fontWeight: 700, fontSize: 12 }}>{z.akce}</span>
+                    {nazev && <span style={{ color: textC, fontSize: 12, fontWeight: 600 }}>· {nazev}</span>}
+                    <span style={{ color: mutedC, fontSize: 11 }}>— {z.uzivatel}</span>
+                  </div>
+                  <span style={{ color: mutedC, fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }}>{fmtCas(z.cas)}</span>
+                </div>
+                {diff?.zmeny?.length > 0 && (
+                  <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+                    {diff.zmeny.map((x, j) => (
+                      <span key={j} style={{ fontSize: 11, color: mutedC }}>
+                        <span style={{ fontWeight: 600, color: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)" }}>{FIELD_LABELS[x.pole]||x.pole}:</span>{" "}
+                        <span style={{ color: "#f87171" }}>{String(x.stare||"–")}</span>{" → "}
+                        <span style={{ color: "#4ade80" }}>{String(x.nove||"–")}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* footer — exporty */}
+        <div style={{ padding: "12px 22px", borderTop: `1px solid ${borderC}`, display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={doXLSX}     style={{ padding: "7px 14px", background: "rgba(34,197,94,0.12)",  border: "1px solid rgba(34,197,94,0.3)",  borderRadius: 7, color: "#4ade80", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📊 XLSX</button>
+            <button onClick={doXLSColor} style={{ padding: "7px 14px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🎨 Barevný Excel</button>
+            <button onClick={doPDF}      style={{ padding: "7px 14px", background: "rgba(239,68,68,0.12)",  border: "1px solid rgba(239,68,68,0.3)",  borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🖨️ PDF tisk</button>
+          </div>
           <button onClick={onClose} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Zavřít</button>
         </div>
       </div>
@@ -1409,6 +1636,8 @@ export default function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   // ── Graf ──────────────────────────────────────────────────
   const [showGraf, setShowGraf] = useState(false);
+  // ── Log zakázek ──────────────────────────────────────────
+  const [showLog, setShowLog] = useState(false);
   // ── Historie změn ────────────────────────────────────────
   const [historieRow, setHistorieRow] = useState(null);
   // ── Auto-logout ──────────────────────────────────────────
@@ -2055,6 +2284,7 @@ export default function App() {
           <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
           <button onClick={() => setShowHelp(true)} onMouseEnter={e => showTooltip(e, "Nápověda k aplikaci")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
           {isAdmin && <button onClick={() => { setShowSettings(true); loadLog(); }} onMouseEnter={e => showTooltip(e, "Nastavení: číselníky, uživatelé, log aktivit")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
+          {isAdmin && <button onClick={() => setShowLog(true)} onMouseEnter={e => showTooltip(e, "Log všech akcí na zakázkách")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
           <div style={{ display: "flex", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 8, overflow: "hidden" }}>
             {[["🌞","light","Světlý"],["🌙","dark","Tmavý"]].map(([icon, val, label]) => (
               <button key={val} onClick={() => changeTheme(val)} onMouseEnter={e => showTooltip(e, label + " režim")} onMouseLeave={hideTooltip} style={{ padding: "5px 9px", background: theme === val ? (isDark ? "rgba(37,99,235,0.3)" : "rgba(37,99,235,0.15)") : "transparent", border: "none", color: theme === val ? "#60a5fa" : T.textMuted, cursor: "pointer", fontSize: 13 }}>{icon}</button>
@@ -2653,6 +2883,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* LOG MODAL */}
+      {showLog && <LogModal isDark={isDark} firmy={firmy} onClose={() => setShowLog(false)} />}
 
       {/* HISTORIE MODAL */}
       {historieRow && <HistorieModal row={historieRow} isDark={isDark} onClose={() => setHistorieRow(null)} />}
