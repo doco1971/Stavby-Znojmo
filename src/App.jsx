@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0030
+// BUILD: 2026_03_10_build0031
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -205,15 +205,17 @@ function HistorieModal({ row, isDark, onClose }) {
   useEffect(() => {
     const load = async () => {
       try {
-        // Načteme log pro tuto stavbu — hledáme podle ID i názvu v detailu
-        const res = await sb(`log_aktivit?order=cas.desc&limit=200`);
-        const filtered = (res || []).filter(r =>
-          r.detail && (
-            r.detail.includes(`ID: ${row.id},`) ||
-            r.detail.includes(`ID: ${row.id}`) ||
-            r.detail.startsWith(row.nazev_stavby || "___NOMATCH___")
-          )
-        );
+        // Filtrujeme přesně: detail musí začínat "ID: {row.id}," nebo "ID: {row.id} "
+        const res = await sb(`log_aktivit?order=cas.desc&limit=500`);
+        const idStr = String(row.id);
+        const filtered = (res || []).filter(r => {
+          if (!r.detail) return false;
+          // Přidání stavby — detail je jen název stavby, ne ID
+          if (r.akce === "Přidání stavby" && r.detail === (row.nazev_stavby || "")) return true;
+          // Editace / Smazání — detail začíná "ID: {id},"
+          const match = r.detail.match(/^ID:\s*(\d+)[,\s]/);
+          return match && match[1] === idStr;
+        });
         setZaznamy(filtered);
       } catch { setZaznamy([]); }
       finally { setLoading(false); }
