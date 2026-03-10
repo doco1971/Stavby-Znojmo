@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0025
+// BUILD: 2026_03_10_build0026
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -228,80 +228,56 @@ function GrafModal({ data, firmy, isDark, onClose }) {
   const mutedC = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)";
   const gridC = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
 
-  // Dynamický import recharts – fallback na vlastní SVG pokud nedostupný
-  const [Recharts, setRecharts] = useState(null);
-  useEffect(() => {
-    try {
-      import("recharts").then(m => setRecharts(m)).catch(() => setRecharts(null));
-    } catch { setRecharts(null); }
-  }, []);
-
   const renderBars = () => {
-    if (!Recharts) {
-      // Fallback – vlastní jednoduchý SVG sloupcový graf
-      const maxVal = Math.max(...grafData.map(d => Math.max(d.nabidka, d.vyfakturovano, d.zrealizovano)), 1);
-      const W = 680, H = 280, PAD_L = 60, PAD_B = 60, PAD_T = 20, PAD_R = 20;
-      const chartW = W - PAD_L - PAD_R;
-      const chartH = H - PAD_T - PAD_B;
-      const groupW = chartW / Math.max(grafData.length, 1);
-      const barW = Math.min(Math.max(8, groupW / 4 - 2), 30);
-      const scaleY = v => chartH - (v / maxVal) * chartH;
-      const COLORS = ["#60a5fa","#4ade80","#fbbf24"];
-      const KEYS = ["nabidka","vyfakturovano","zrealizovano"];
-      const LABELS = ["Nabídka","Vyfakturováno","Zrealizováno"];
-      return (
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 280 }}>
-          {/* grid */}
-          {[0,0.25,0.5,0.75,1].map(p => {
-            const y = PAD_T + p * chartH;
-            return <g key={p}>
-              <line x1={PAD_L} x2={W-PAD_R} y1={y} y2={y} stroke={gridC} strokeWidth={1}/>
-              <text x={PAD_L-6} y={y+4} textAnchor="end" fill={mutedC} fontSize={9}>{fmtTick(maxVal*(1-p))}</text>
-            </g>;
-          })}
-          {/* bars */}
-          {grafData.map((d, gi) => {
-            const cx = PAD_L + gi * groupW + groupW / 2;
-            return KEYS.map((k, ki) => {
-              const bx = cx + (ki - 1) * (barW + 2);
-              const bh = Math.max(1, (d[k] / maxVal) * chartH);
-              const by = PAD_T + scaleY(d[k]);
-              return <rect key={k} x={bx - barW/2} y={by} width={barW} height={bh} fill={mode==="firma" ? (firmaColorMap[d.name]||COLORS[ki]) : COLORS[ki]} rx={2} opacity={0.9}/>;
-            });
-          })}
-          {/* x labels */}
-          {grafData.map((d, gi) => {
-            const cx = PAD_L + gi * groupW + groupW / 2;
-            const lbl = d.name.length > 10 ? d.name.slice(0,9)+"…" : d.name;
-            return <text key={gi} x={cx} y={H-PAD_B+16} textAnchor="middle" fill={mutedC} fontSize={9}>{lbl}</text>;
-          })}
-          {/* legend */}
-          {LABELS.map((l, i) => <g key={l} transform={`translate(${PAD_L + i * 130}, ${H-14})`}>
-            <rect width={10} height={10} fill={COLORS[i]} rx={2}/>
-            <text x={14} y={9} fill={mutedC} fontSize={10}>{l}</text>
-          </g>)}
-        </svg>
-      );
-    }
-
-    const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip: RTooltip, Legend, ResponsiveContainer } = Recharts;
+    // Vlastní SVG sloupcový graf (bez recharts – není v package.json)
+    const maxVal = Math.max(...grafData.map(d => Math.max(d.nabidka, d.vyfakturovano, d.zrealizovano)), 1);
+    const W = 700, H = 300, PAD_L = 68, PAD_B = 64, PAD_T = 20, PAD_R = 20;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+    const groupW = chartW / Math.max(grafData.length, 1);
+    const barW = Math.min(Math.max(8, groupW / 4 - 2), 28);
+    const scaleY = v => PAD_T + chartH - (v / maxVal) * chartH;
+    const BAR_COLORS = ["#60a5fa","#4ade80","#fbbf24"];
+    const KEYS = ["nabidka","vyfakturovano","zrealizovano"];
+    const LABELS = ["Nabídka","Vyfakturováno","Zrealizováno"];
     return (
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={grafData} margin={{ top: 10, right: 20, left: 10, bottom: 60 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={gridC} />
-          <XAxis dataKey="name" tick={{ fill: mutedC, fontSize: 11 }} angle={-30} textAnchor="end" interval={0} />
-          <YAxis tickFormatter={fmtTick} tick={{ fill: mutedC, fontSize: 10 }} />
-          <RTooltip
-            formatter={(v, name) => [Number(v).toLocaleString("cs-CZ", { minimumFractionDigits: 0 }) + " Kč", name]}
-            contentStyle={{ background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, fontSize: 12, color: textC }}
-          />
-          <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12, color: mutedC }} />
-          <Bar dataKey="nabidka" name="Nabídka" fill={mode === "firma" ? undefined : "#60a5fa"} radius={[3,3,0,0]}
-            {...(mode === "firma" ? { fill: "#60a5fa" } : {})} />
-          <Bar dataKey="vyfakturovano" name="Vyfakturováno" fill="#4ade80" radius={[3,3,0,0]} />
-          <Bar dataKey="zrealizovano" name="Zrealizováno" fill="#fbbf24" radius={[3,3,0,0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 300 }}>
+        {/* grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map(p => {
+          const y = PAD_T + p * chartH;
+          return <g key={p}>
+            <line x1={PAD_L} x2={W - PAD_R} y1={y} y2={y} stroke={gridC} strokeWidth={1}/>
+            <text x={PAD_L - 6} y={y + 4} textAnchor="end" fill={mutedC} fontSize={9}>{fmtTick(maxVal * (1 - p))}</text>
+          </g>;
+        })}
+        {/* baseline */}
+        <line x1={PAD_L} x2={W - PAD_R} y1={PAD_T + chartH} y2={PAD_T + chartH} stroke={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"} strokeWidth={1}/>
+        {/* bars */}
+        {grafData.map((d, gi) => {
+          const cx = PAD_L + gi * groupW + groupW / 2;
+          return KEYS.map((k, ki) => {
+            const bx = cx + (ki - 1) * (barW + 3);
+            const val = d[k] || 0;
+            const bh = Math.max(1, (val / maxVal) * chartH);
+            const by = scaleY(val);
+            const fill = mode === "firma" && ki === 0 ? (firmaColorMap[d.name] || BAR_COLORS[ki]) : BAR_COLORS[ki];
+            return <rect key={k} x={bx - barW / 2} y={by} width={barW} height={bh} fill={fill} rx={3} opacity={0.88}/>;
+          });
+        })}
+        {/* x labels */}
+        {grafData.map((d, gi) => {
+          const cx = PAD_L + gi * groupW + groupW / 2;
+          const lbl = d.name.length > 12 ? d.name.slice(0, 11) + "…" : d.name;
+          return <text key={gi} x={cx} y={H - PAD_B + 18} textAnchor="middle" fill={mutedC} fontSize={9} transform={`rotate(-20, ${cx}, ${H - PAD_B + 18})`}>{lbl}</text>;
+        })}
+        {/* legend */}
+        {LABELS.map((l, i) => (
+          <g key={l} transform={`translate(${PAD_L + i * 140}, ${H - 12})`}>
+            <rect width={10} height={10} fill={BAR_COLORS[i]} rx={2}/>
+            <text x={14} y={9} fill={mutedC} fontSize={10}>{l}</text>
+          </g>
+        ))}
+      </svg>
     );
   };
 
@@ -1834,7 +1810,7 @@ export default function App() {
   const rowBg = (firma) => getFirmaColor(firma).bg;
 
   return (
-    <div style={{ height: "100vh", height: "100dvh", maxHeight: "100dvh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ height: "100dvh", maxHeight: "100dvh", background: T.appBg, fontFamily: "'Segoe UI',Tahoma,sans-serif", color: T.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`html,body{overflow:hidden;height:100%;margin:0;padding:0} .table-wrapper{-webkit-overflow-scrolling:touch;} * { -webkit-tap-highlight-color: transparent; } @keyframes spin{to{transform:rotate(360deg)}} ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}`}</style>
       {toast && (
         <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, padding: "12px 20px", borderRadius: 10, background: toast.type === "error" ? "#dc2626" : "#16a34a", color: "#fff", fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxWidth: 360 }}>
