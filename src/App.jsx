@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0039
+// BUILD: 2026_03_10_build0040
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -102,12 +102,11 @@ import * as XLSX from "xlsx";
 //   🎮 Demo banner: lepší kontrast, boxíčky s velkým písmem
 //   📜 Log RLS warning: tlačítko 📋 Kopírovat SQL příkazu
 //
-// BUILD0039 — demo logy + tečka ihned:
-//   🎮 Demo: HistorieModal a LogModal dostávají prop isDemo → při isDemo=true
-//      se nevolá sb() (Supabase) → žádná ostrá data v demo
-//      Prázdný stav zobrazí info "Demo režim — log se neukládá"
-//   🔴 Tečka: setHistorieNovinky ihned v handleSave (před await)
-//      → rozsvítí se okamžitě po uložení, funguje i v demo
+// BUILD0040 — blokování ostrých dat v demo (Nastavení log):
+//   SettingsModal dostává prop isDemo
+//   handleLoadLog: if (isDemo) return → žádné sb() volání
+//   Tlačítko ⚙️ Nastavení: loadLog() se nevolá při isDemo
+//   Tab "log" v Nastavení: žlutý banner "Demo režim — log se neukládá"
 // ============================================================
 // ============================================================
 // SUPABASE CONFIG
@@ -1375,7 +1374,7 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   );
 }
 
-function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths }) {
+function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, isDemo }) {
   const [tab, setTab] = useState("ciselniky");
   const [f, setF] = useState([...firmy]);
   const [o, setO] = useState([...objednatele]);
@@ -1417,6 +1416,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const removeUser = (id) => setUList(uList.filter(u => u.id !== id));
 
   const handleLoadLog = async () => {
+    if (isDemo) { setLocalLogData([]); return; }
     try {
       const res = await onLoadLog();
       setLocalLogData(Array.isArray(res) ? res : []);
@@ -1579,6 +1579,12 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
           {tab === "log" && (
             <div>
+              {isDemo && (
+                <div style={{ marginBottom: 14, padding: "12px 16px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 8, color: "#fbbf24", fontSize: 12, display: "flex", gap: 10, alignItems: "center" }}>
+                  <span style={{ fontSize: 18 }}>🎮</span>
+                  <div><strong>Demo režim</strong> — log aktivit se neukládá do databáze. V ostré verzi se zde zobrazí přihlášení, editace, smazání a veškeré akce všech uživatelů.</div>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {/* Filtr uživatel */}
@@ -2435,7 +2441,7 @@ export default function App() {
           <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
           <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
           <button onClick={() => setShowHelp(true)} onMouseEnter={e => showTooltip(e, "Nápověda k aplikaci")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
-          {isAdmin && <button onClick={() => { setShowSettings(true); loadLog(); }} onMouseEnter={e => showTooltip(e, "Nastavení: číselníky, uživatelé, log aktivit")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
+          {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(); }} onMouseEnter={e => showTooltip(e, "Nastavení: číselníky, uživatelé, log aktivit")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
           {isAdmin && <button onClick={() => setShowLog(true)} onMouseEnter={e => showTooltip(e, "Log všech akcí na zakázkách")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
           <div style={{ display: "flex", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 8, overflow: "hidden" }}>
             {[["🌞","light","Světlý"],["🌙","dark","Tmavý"]].map(([icon, val, label]) => (
@@ -2869,7 +2875,7 @@ export default function App() {
       )}
       {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={handleAdd} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={handleSave} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
-      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} />}
+      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} isDemo={isDemo} />}
 
       {showOrphanWarning && (() => {
         const firmyNames = firmy.map(f => f.hodnota);
