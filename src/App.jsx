@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0042
+// BUILD: 2026_03_10_build0043
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -108,11 +108,17 @@ import * as XLSX from "xlsx";
 //   Tlačítko ⚙️ Nastavení: loadLog() se nevolá při isDemo
 //   Tab "log" v Nastavení: žlutý banner "Demo režim — log se neukládá"
 //
-// BUILD0042 — Záloha DB (superadmin):
-//   zalohaExcel() rozšířena na 3 listy: Stavby + Ciselniky + Uzivatele (bez hesel)
-//   Ciselniky a Uzivatele se načítají živě z DB (sb())
-//   Tlačítko: isAdmin → isSuperAdmin, label "💾 Záloha DB"
-//   Soubor: zaloha_DB_DATUM.xlsx
+// BUILD0043 — 📥 Import staveb (superadmin):
+//   Tlačítko 📥 Import vedle 💾 Záloha DB — jen pro superadmin
+//   Podporuje 2 formáty:
+//     a) Původní tabulka Excel (List1, řádek 4=hlavička, data od řádku 5)
+//        Mapování: col1=firma, col9=č.stavby, col10=název, col3-8=čísla,
+//        col14=ukončení, col15=zreal., col16=SOD, col17=ze_dne,
+//        col18=objednatel, col19=stavbyvedoucí, col20=nab.cena,
+//        col21=č.faktury, col22=č.bez_dph, col23=splatná
+//     b) Záloha DB (list "Stavby" — export z aplikace)
+//   Po importu: DELETE stavby?id=gt.0 + POST nové po 50 kusech
+//   importLog state → modal s výsledkem (ok/chyby)
 // ============================================================
 // ============================================================
 // SUPABASE CONFIG
@@ -2365,7 +2371,129 @@ export default function App() {
     logAkce(user?.email, "Záloha", `${data.length} staveb + ciselniky + uzivatele`);
   };
 
-  // ── isDark + useMemo hooky MUSÍ být před každým early return ──
+  // ── Import původní tabulky (superadmin) ──────────────────────
+  const importRef = useRef(null);
+  const [importLog, setImportLog] = useState(null); // { ok, chyby, zprava }
+
+  const fmtDateFromXls = (v) => {
+    if (!v) return "";
+    if (v instanceof Date) {
+      const d = v.getDate().toString().padStart(2,"0");
+      const m = (v.getMonth()+1).toString().padStart(2,"0");
+      return `${d}.${m}.${v.getFullYear()}`;
+    }
+    return String(v);
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = ""; // reset aby šel znovu vybrat stejný soubor
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: "array", cellDates: true });
+
+        // ── Detekce listu: buď "Stavby" (záloha DB) nebo první list (původní tabulka) ──
+        const isZaloha = wb.SheetNames.includes("Stavby");
+        const ws = isZaloha ? wb.Sheets["Stavby"] : wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false, cellDates: true });
+
+        let stavbyRows = [];
+        let ok = 0, chyby = [];
+
+        if (isZaloha) {
+          // Záložní formát — první řádek jsou záhlaví z aplikace
+          const headers = raw[0];
+          const colIdx = (label) => headers.findIndex(h => h === label);
+          const FIELD_MAP = [
+            ["Firma", "firma"], ["Číslo stavby", "cislo_stavby"], ["Název stavby", "nazev_stavby"],
+            ["PS Kat.I", "ps_i"], ["SNK", "snk_i"], ["BO Kat.I", "bo_i"],
+            ["PS Kat.II", "ps_ii"], ["BO Kat.II", "bo_ii"], ["Poruchy", "poruch"],
+            ["Nabídka", "nabidkova_cena"], ["Vyfakturováno", "vyfakturovano"],
+            ["Zrealizováno", "zrealizovano"], ["SOD", "sod"], ["Ze dne", "ze_dne"],
+            ["Objednatel", "objednatel"], ["Stavbyvedoucí", "stavbyvedouci"],
+            ["Ukončení", "ukonceni"], ["Č.faktury", "cislo_faktury"],
+            ["Částka bez DPH", "castka_bez_dph"], ["Splatná", "splatna"],
+            ["Poznámka", "poznamka"],
+          ];
+          for (const row of raw.slice(1)) {
+            if (!row[colIdx("Název stavby")]) continue;
+            const fields = {};
+            FIELD_MAP.forEach(([label, key]) => { fields[key] = row[colIdx(label)] ?? ""; });
+            stavbyRows.push(fields);
+          }
+        } else {
+          // Původní tabulka — pevné pozice sloupců (řádek 4 = hlavička, data od řádku 5)
+          // Col: 0=region,1=firma,2=porč,3=ps_i,4=snk_i,5=bo_i,6=ps_ii,7=bo_ii,8=poruch,
+          //      9=č.stavby,10=název,14=ukončení,15=zreal.,16=sod,17=ze_dne,
+          //      18=objednatel,19=stavbyved.,20=nab.cena,21=č.fakt.,22=č.bez_dph,23=splatná
+          const dataRows = raw.slice(4); // přeskočit řádky 1-4 (hlavička)
+          for (const row of dataRows) {
+            const nazev = row[10];
+            if (!nazev) continue; // přeskočit prázdné řádky
+            const numVal = (v) => {
+              if (v === null || v === undefined || v === "") return 0;
+              const n = parseFloat(String(v).replace(/\s/g,"").replace(",","."));
+              return isNaN(n) ? 0 : n;
+            };
+            stavbyRows.push({
+              firma:          String(row[1] || ""),
+              cislo_stavby:   String(row[9] || row[2] || ""),
+              nazev_stavby:   String(nazev),
+              ps_i:           numVal(row[3]),
+              snk_i:          numVal(row[4]),
+              bo_i:           numVal(row[5]),
+              ps_ii:          numVal(row[6]),
+              bo_ii:          numVal(row[7]),
+              poruch:         numVal(row[8]),
+              nabidkova_cena: numVal(row[20]),
+              vyfakturovano:  numVal(row[13]),
+              zrealizovano:   numVal(row[15]),
+              sod:            String(row[16] || ""),
+              ze_dne:         fmtDateFromXls(row[17]),
+              objednatel:     String(row[18] || ""),
+              stavbyvedouci:  String(row[19] || ""),
+              ukonceni:       fmtDateFromXls(row[14]),
+              cislo_faktury:  String(row[21] || ""),
+              castka_bez_dph: numVal(row[22]),
+              splatna:        fmtDateFromXls(row[23]),
+              poznamka:       "",
+            });
+          }
+        }
+
+        if (stavbyRows.length === 0) {
+          setImportLog({ ok: 0, chyby: ["Nenalezena žádná data ke importu."] });
+          return;
+        }
+
+        // ── Uložit do DB — DELETE vše + POST nové ──
+        await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
+        const NUM = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","nabidkova_cena","vyfakturovano","zrealizovano","castka_bez_dph"];
+        const cleaned = stavbyRows.map(r => {
+          const c = { ...r };
+          NUM.forEach(k => { c[k] = Number(c[k]) || 0; });
+          return c;
+        });
+        // Vkládej po 50 kusech (Supabase limit)
+        for (let i = 0; i < cleaned.length; i += 50) {
+          const chunk = cleaned.slice(i, i+50);
+          try {
+            await sb("stavby", { method: "POST", body: JSON.stringify(chunk), prefer: "return=minimal" });
+            ok += chunk.length;
+          } catch(e) { chyby.push(`Řádky ${i+1}-${i+chunk.length}: ${e.message}`); }
+        }
+
+        await loadAll();
+        logAkce(user?.email, "Import", `${ok} staveb importováno z ${file.name}`);
+        setImportLog({ ok, chyby, zprava: `Importováno ${ok} staveb z "${file.name}"` });
+      } catch(e) {
+        setImportLog({ ok: 0, chyby: ["Chyba čtení souboru: " + e.message] });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
   const isDark = isDarkComputed(theme);
 
   // ── Cache barev firem – useMemo, přepočítá se jen při změně firem/tématu ──
@@ -2518,6 +2646,10 @@ export default function App() {
             )}
           </div>
           {isSuperAdmin && <button onClick={zalohaExcel} onMouseEnter={e => showTooltip(e, "Záloha celé DB: stavby + číselníky + uživatelé (Excel, 3 listy)")} onMouseLeave={hideTooltip} style={{ padding: "7px 14px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12 }}>💾 Záloha DB</button>}
+          {isSuperAdmin && <>
+            <input ref={importRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: "none" }} />
+            <button onClick={() => importRef.current?.click()} onMouseEnter={e => showTooltip(e, "Import staveb z původní tabulky nebo zálohy DB (Excel)")} onMouseLeave={hideTooltip} style={{ padding: "7px 14px", background: isDark ? "rgba(251,191,36,0.1)" : "rgba(251,191,36,0.15)", border: `1px solid ${isDark ? "rgba(251,191,36,0.3)" : "rgba(251,191,36,0.5)"}`, borderRadius: 7, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Import</button>
+          </>}
           {isEditor && (
             <button
               onMouseEnter={e => showTooltip(e, "Přidat novou stavbu")} onMouseLeave={hideTooltip}
@@ -2670,6 +2802,27 @@ export default function App() {
       </div>
 
       {/* HELP MODAL */}
+      {/* IMPORT RESULT MODAL */}
+      {importLog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1600, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+          <div style={{ background: "#1e293b", borderRadius: 16, width: "min(480px,92vw)", padding: "28px 32px", border: "1px solid rgba(255,255,255,0.15)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
+            <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>{importLog.chyby?.length > 0 ? "⚠️" : "✅"}</div>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, textAlign: "center", marginBottom: 8 }}>
+              {importLog.chyby?.length > 0 ? "Import dokončen s chybami" : "Import úspěšný"}
+            </div>
+            {importLog.zprava && <div style={{ color: "#86efac", fontSize: 13, textAlign: "center", marginBottom: 12 }}>{importLog.zprava}</div>}
+            {importLog.chyby?.length > 0 && (
+              <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                {importLog.chyby.map((c, i) => <div key={i} style={{ color: "#fca5a5", fontSize: 12, marginBottom: 4 }}>• {c}</div>)}
+              </div>
+            )}
+            <div style={{ textAlign: "center", marginTop: 8 }}>
+              <button onClick={() => setImportLog(null)} style={{ padding: "9px 28px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Zavřít</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showHelp && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1400, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
           <div style={{ position: "fixed", left: helpPos.x, top: helpPos.y, pointerEvents: "all", background: "#1e293b", borderRadius: 16, width: "min(680px,95vw)", maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.18)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
