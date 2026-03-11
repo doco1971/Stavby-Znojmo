@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0040
+// BUILD: 2026_03_10_build0041
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -107,6 +107,15 @@ import * as XLSX from "xlsx";
 //   handleLoadLog: if (isDemo) return → žádné sb() volání
 //   Tlačítko ⚙️ Nastavení: loadLog() se nevolá při isDemo
 //   Tab "log" v Nastavení: žlutý banner "Demo režim — log se neukládá"
+//
+// BUILD0041 — KRITICKÁ OPRAVA: demo nesmí zapisovat do ostré DB:
+//   logAkce(): if (uzivatel==="demo") return — globální blokování
+//   saveSettings(): isDemo → jen lokální setState, žádné sb() DELETE/POST
+//   saveUsers(): isDemo → jen lokální setState, žádné sb() DELETE/POST
+//   saveAppInfo(): isDemo → jen setState, žádné sb()
+//   saveColWidths(): isDemo → return, žádné sb()
+//   nastavení useEffect (col_widths): přidán guard !isDemo
+//   PŘÍČINA CHYBY: demo uživatelé a ciselniky se zapsaly do ostré Supabase
 // ============================================================
 // ============================================================
 // SUPABASE CONFIG
@@ -131,6 +140,7 @@ const sb = async (path, options = {}) => {
 };
 
 const logAkce = async (uzivatel, akce, detail = "") => {
+  if (uzivatel === "demo") return; // demo — nepsat do DB
   try {
     await sb("log_aktivit", { method: "POST", body: JSON.stringify({ uzivatel, akce, detail }), prefer: "return=minimal" });
   } catch (e) { console.warn("Log chyba:", e); }
@@ -1885,6 +1895,7 @@ export default function App() {
   }, []);
 
   const saveAppInfo = async (verze, datum) => {
+    if (isDemo) { setAppVerze(verze); setAppDatum(datum); return; }
     try {
       await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "app_info", hodnota: JSON.stringify({ verze, datum }) }), prefer: "resolution=merge-duplicates,return=minimal" });
       setAppVerze(verze);
@@ -1894,15 +1905,16 @@ export default function App() {
   const dragInfo = useRef(null);
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!isSuperAdmin || isDemo) return;
     sb("nastaveni?klic=eq.col_widths").then(res => {
       if (res && res[0]) {
         try { setColWidths(JSON.parse(res[0].hodnota)); } catch {}
       }
     }).catch(() => {});
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, isDemo]);
 
   const saveColWidths = async (widths) => {
+    if (isDemo) return; // demo — neukládat šířky do DB
     try {
       await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "col_widths", hodnota: JSON.stringify(widths) }), prefer: "resolution=merge-duplicates,return=minimal" });
     } catch {}
@@ -2195,6 +2207,14 @@ export default function App() {
 
   // ── CRUD číselníky ─────────────────────────────────────────
   const saveSettings = async (nFirmy, nObjed, nSv) => {
+    if (isDemo) {
+      // V demo jen aktualizuj lokální state, nepsat do DB
+      setFirmy(nFirmy);
+      setObjednatele(nObjed);
+      setStavbyvedouci(nSv);
+      showToast("Demo: změny uloženy jen lokálně", "ok");
+      return;
+    }
     try {
       await sb("ciselniky?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
       const items = [
@@ -2209,6 +2229,12 @@ export default function App() {
 
   // ── CRUD uživatelé ─────────────────────────────────────────
   const saveUsers = async (uList) => {
+    if (isDemo) {
+      // V demo jen aktualizuj lokální state, nepsat do DB
+      setUsers(uList);
+      showToast("Demo: změny uloženy jen lokálně", "ok");
+      return;
+    }
     try {
       await sb("uzivatele?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
       const items = uList.map(u => ({ jmeno: u.name, email: u.email, heslo: u.password, role: u.role }));
