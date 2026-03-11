@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0045
+// BUILD: 2026_03_11_build0046
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -26,7 +26,7 @@ import * as XLSX from "xlsx";
 //
 // TABULKA — sloupce:
 //   Faktura 2 (cislo_faktury_2, castka_bez_dph_2, splatna_2): hidden:true
-//   ale zobrazují se jako druhý řádek v buňkách faktury (šedě, menší)
+//   ale zobrazují se jako druhý řádek v buňkách faktury (stejný font, čára dashed)
 //   Zelený řádek (isFaktura): č.faktury + castka_bez_dph + splatna vyplněny
 //     → isOverdue = false
 //   Červené ukončení (isOverdue): termín v minulosti, jen pokud !isFaktura
@@ -97,6 +97,10 @@ import * as XLSX from "xlsx";
 //   Faktura 2 chyběla v COLUMNS/editaci/tabulce — obnovena kompletně
 //   FIX syntax error: chybějící </div> po sekci Faktura 2 v EditModal
 // BUILD0045 — Aktualizace hlavičky pro nové session (jen dokumentace)
+// BUILD0046 — FIX: Faktura 2 v buňce stejný font jako Faktura 1, skryté sloupce
+//   Č. FAKTURY 2 / Č. BEZ DPH 2 / SPLATNÁ 2 zmizely z hlavičky (hidden filter)
+//   colgroup + thead: přidán filtr !col.hidden (chyběl, data ho měly)
+//   Druhý řádek faktury: odstraněn fontSize:11 + color:textMuted → dědí styl buňky
 // ============================================================
 // ============================================================
 // SUPABASE CONFIG
@@ -2664,7 +2668,7 @@ export default function App() {
           <colgroup>
             <col style={{ width: 40 }} />
             {(isAdmin || isEditor) && <col style={{ width: 90 }} />}
-            {COLUMNS.filter(col => col.key !== "id").map(col => (
+            {COLUMNS.filter(col => col.key !== "id" && !col.hidden).map(col => (
               <col key={col.key} style={{ width: getColWidth(col) }} />
             ))}
             {(isAdmin || isEditor) && <col style={{ width: 120 }} />}
@@ -2673,7 +2677,7 @@ export default function App() {
             <tr style={{ background: T.theadBg }}>
               <th style={{ padding: "9px 11px", textAlign: "center", color: T.textMuted, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, whiteSpace: "nowrap", minWidth: 40, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}` }}>#</th>
               {(isAdmin || isEditor) && <th style={{ padding: "9px 11px", color: T.textMuted, fontWeight: 700, fontSize: 10.5, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>AKCE</th>}
-              {COLUMNS.filter(col => col.key !== "id").map(col => (
+              {COLUMNS.filter(col => col.key !== "id" && !col.hidden).map(col => (
                 <th key={col.key} style={{ padding: "9px 11px", textAlign: "center", color: T.textMuted, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, whiteSpace: "nowrap", width: getColWidth(col), minWidth: 40, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, userSelect: "none" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                     {col.label.toUpperCase()}
@@ -2764,13 +2768,13 @@ export default function App() {
                         </div>
                         {/* Druhý řádek pro fakturační sloupce */}
                         {col.key === "cislo_faktury" && row.cislo_faktury_2 && (
-                          <div style={{ fontSize: 11, color: T.textMuted, borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2 }}>{row.cislo_faktury_2}</div>
+                          <div style={{ borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2 }}>{row.cislo_faktury_2}</div>
                         )}
                         {col.key === "castka_bez_dph" && row.castka_bez_dph_2 > 0 && (
-                          <div style={{ fontSize: 11, color: T.textMuted, borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2 }}>{fmtN(row.castka_bez_dph_2)}</div>
+                          <div style={{ borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2 }}>{fmtN(row.castka_bez_dph_2)}</div>
                         )}
                         {col.key === "splatna" && row.splatna_2 && (
-                          <div style={{ fontSize: 11, color: T.textMuted, borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2 }}>{row.splatna_2}</div>
+                          <div style={{ borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2 }}>{row.splatna_2}</div>
                         )}
 
                       </div>
