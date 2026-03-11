@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_10_build0038
+// BUILD: 2026_03_10_build0039
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -102,13 +102,12 @@ import * as XLSX from "xlsx";
 //   🎮 Demo banner: lepší kontrast, boxíčky s velkým písmem
 //   📜 Log RLS warning: tlačítko 📋 Kopírovat SQL příkazu
 //
-// BUILD0038 — demo jako admin + tečka při přihlášení:
-//   🎮 DEMO_USER role změněna user → admin (plný přístup)
-//   DEMO_MAX_STAVBY: 5 → 15, přidány 4 firmy, 4 stavbyvedoucí, 4 objednatele
-//   8 demo staveb pokrývající všechny stavy (zelená, červená, blížící se termín, poznámka)
-//   DEMO_USERS: 4 demo účty (admin, editor, user, superadmin) — viditelné v Nastavení
-//   🔴 Tečka se načítá jen při user změně (přihlášení) — useEffect([user])
-//      → rozsvítí se až po odhlášení a přihlášení, ne ihned po uložení
+// BUILD0039 — demo logy + tečka ihned:
+//   🎮 Demo: HistorieModal a LogModal dostávají prop isDemo → při isDemo=true
+//      se nevolá sb() (Supabase) → žádná ostrá data v demo
+//      Prázdný stav zobrazí info "Demo režim — log se neukládá"
+//   🔴 Tečka: setHistorieNovinky ihned v handleSave (před await)
+//      → rozsvítí se okamžitě po uložení, funguje i v demo
 // ============================================================
 // ============================================================
 // SUPABASE CONFIG
@@ -276,21 +275,19 @@ const FIELD_LABELS = {
   splatna: "Splatná", poznamka: "Poznámka",
 };
 
-function HistorieModal({ row, isDark, onClose }) {
+function HistorieModal({ row, isDark, onClose, isDemo }) {
   const [zaznamy, setZaznamy] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemo) { setLoading(false); return; } // demo — žádná DB
     const load = async () => {
       try {
-        // Filtrujeme přesně: detail musí začínat "ID: {row.id}," nebo "ID: {row.id} "
         const res = await sb(`log_aktivit?order=cas.desc&limit=500`);
         const idStr = String(row.id);
         const filtered = (res || []).filter(r => {
           if (!r.detail) return false;
-          // Přidání stavby — detail je jen název stavby, ne ID
           if (r.akce === "Přidání stavby" && r.detail === (row.nazev_stavby || "")) return true;
-          // Editace / Smazání — detail začíná "ID: {id},"
           const match = r.detail.match(/^ID:\s*(\d+)[,\s]/);
           return match && match[1] === idStr;
         });
@@ -299,7 +296,7 @@ function HistorieModal({ row, isDark, onClose }) {
       finally { setLoading(false); }
     };
     load();
-  }, [row.id, row.nazev_stavby]);
+  }, [row.id, row.nazev_stavby, isDemo]);
 
   const fmtCas = (cas) => {
     if (!cas) return "";
@@ -346,7 +343,8 @@ function HistorieModal({ row, isDark, onClose }) {
           {!loading && zaznamy.length === 0 && (
             <div style={{ textAlign: "center", padding: 48 }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
-              <div style={{ color: mutedC, fontSize: 14 }}>Žádné záznamy v historii</div>
+              <div style={{ color: mutedC, fontSize: 14 }}>{isDemo ? "Demo režim — historie se neukládá" : "Žádné záznamy v historii"}</div>
+              {isDemo && <div style={{ color: mutedC, fontSize: 12, marginTop: 6 }}>V ostré verzi se zde zobrazí kompletní přehled změn.</div>}
               <div style={{ color: mutedC, fontSize: 12, marginTop: 6 }}>Historie se zapisuje od tohoto buildu.</div>
             </div>
           )}
@@ -438,7 +436,7 @@ function HistorieModal({ row, isDark, onClose }) {
 // ============================================================
 // LOG MODAL (kompletní log zakázek pro admina)
 // ============================================================
-function LogModal({ isDark, firmy, onClose }) {
+function LogModal({ isDark, firmy, onClose, isDemo }) {
   const [zaznamy, setZaznamy] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterUser, setFilterUser]   = useState("");
@@ -450,6 +448,7 @@ function LogModal({ isDark, firmy, onClose }) {
   const [totalLoaded, setTotalLoaded] = useState(0);
 
   useEffect(() => {
+    if (isDemo) { setLoading(false); return; } // demo — žádná DB
     const load = async () => {
       try {
         const res = await sb(`log_aktivit?order=cas.desc&limit=10000`);
@@ -460,7 +459,7 @@ function LogModal({ isDark, firmy, onClose }) {
       finally { setLoading(false); }
     };
     load();
-  }, []);
+  }, [isDemo]);
 
   const users  = [...new Set(zaznamy.map(r => r.uzivatel).filter(Boolean))];
   const akceList = [...new Set(zaznamy.map(r => r.akce).filter(Boolean))];
@@ -605,7 +604,13 @@ function LogModal({ isDark, firmy, onClose }) {
         {/* seznam */}
         <div style={{ overflowY: "auto", flex: 1, padding: "12px 22px" }}>
           {loading && <div style={{ textAlign: "center", color: mutedC, padding: 40 }}>Načítám log...</div>}
-          {!loading && filtered.length === 0 && <div style={{ textAlign: "center", color: mutedC, padding: 48 }}>Žádné záznamy</div>}
+          {!loading && filtered.length === 0 && (
+            <div style={{ textAlign: "center", padding: 48 }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>📭</div>
+              <div style={{ color: mutedC, fontSize: 14 }}>{isDemo ? "Demo režim — log se neukládá do databáze" : "Žádné záznamy"}</div>
+              {isDemo && <div style={{ color: mutedC, fontSize: 12, marginTop: 6 }}>V ostré verzi se zde zobrazí veškeré akce na zakázkách.</div>}
+            </div>
+          )}
           {!loading && filtered.map((z, i) => {
             const st   = AKCE_STYLE[z.akce] || { bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.2)", color: "#94a3b8" };
             const diff = parseDetail(z.detail);
@@ -2126,13 +2131,14 @@ export default function App() {
   const handleSave = async (updated) => {
     const { id, nabidka, rozdil, ...fields } = updated;
     NUM_FIELDS.forEach(k => { if (fields[k] === "" || fields[k] == null) fields[k] = 0; else fields[k] = Number(fields[k]) || 0; });
+    // Okamžitě rozsvítit tečku pro tuto stavbu
+    setHistorieNovinky(prev => ({ ...prev, [String(id)]: true }));
     if (isDemo) {
       setData(prev => prev.map(r => r.id === id ? computeRow({ ...r, ...fields }) : r));
       setEditRow(null);
       return;
     }
     try {
-      // Sestavit diff oproti aktuálním datům
       const staryRow = data.find(r => r.id === id) || {};
       const zmeny = Object.keys(fields)
         .filter(k => k !== "id" && String(staryRow[k] ?? "") !== String(fields[k] ?? ""))
@@ -3042,10 +3048,10 @@ export default function App() {
       )}
 
       {/* LOG MODAL */}
-      {showLog && <LogModal isDark={isDark} firmy={firmy} onClose={() => setShowLog(false)} />}
+      {showLog && <LogModal isDark={isDark} firmy={firmy} onClose={() => setShowLog(false)} isDemo={isDemo} />}
 
       {/* HISTORIE MODAL */}
-      {historieRow && <HistorieModal row={historieRow} isDark={isDark} onClose={() => setHistorieRow(null)} />}
+      {historieRow && <HistorieModal row={historieRow} isDark={isDark} onClose={() => setHistorieRow(null)} isDemo={isDemo} />}
 
       {/* GRAF MODAL */}
       {showGraf && <GrafModal data={filtered} firmy={firmy} isDark={isDark} onClose={() => setShowGraf(false)} />}
