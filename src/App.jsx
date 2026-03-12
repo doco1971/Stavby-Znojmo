@@ -2767,7 +2767,7 @@ export default function App() {
                           : col.type === "number" ? fmtN(row[col.key])
                           : col.truncate ? <span title={row[col.key] ?? ""} style={{ display: "inline-block", maxWidth: col.width - 22, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "middle" }}>{row[col.key] ?? ""}</span>
                           : isOverdue ? <span>⚠️ {row[col.key]}</span>
-                          : col.key === "cislo_faktury" && row[col.key] ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontWeight: 900, fontSize: 14, color: "#ef4444", lineHeight: 1, flexShrink: 0 }}>e</span>{row[col.key]}</span>
+                          : col.key === "cislo_faktury" && row[col.key] ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontWeight: 900, fontSize: 16, color: "#ef4444", lineHeight: 1, flexShrink: 0, textShadow: "0 0 4px rgba(239,68,68,0.5)" }}>e</span>{row[col.key]}</span>
                           : row[col.key] ?? ""}
                         </div>
                         {/* Druhý řádek pro fakturační sloupce */}
@@ -2864,7 +2864,7 @@ export default function App() {
                 { icon: "📜", title: "Log zakázek", text: "Tlačítko 📜 Log v hlavičce (pouze admin) otevře kompletní přehled všech akcí na zakázkách — přidání, editace i smazání. Záznamy lze filtrovat podle uživatele, typu akce a datumového rozsahu. Exporty: Excel, Barevný Excel a PDF tisk." },
                 { icon: "💬", title: "Poznámka ke stavbě", text: "V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA — zapište libovolný komentář nebo interní poznámku. Ikona 💬 se zobrazí vedle názvu stavby v tabulce pokud poznámka existuje. Najeďte myší na ikonu pro zobrazení textu." },
                 { icon: "🎨", title: "Barevné řádky", text: "Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). Zelené zbarvení celého řádku signalizuje, že stavba má vyplněné číslo faktury, částku bez DPH a datum splatnosti — tedy je kompletně vyfakturována." },
-                { icon: "🧾", title: "Označení faktur", text: "Ve sloupci Č. faktury se zobrazují dvě faktury. Faktura 1 je označena červeným písmenem e, Faktura 2 je označena žlutým písmenem S — pro rychlé vizuální rozlišení v tabulce." },
+                { icon: "🧾", title: "Označení faktur", text: "Ve sloupci Č. faktury se zobrazují dvě faktury. Faktura 1 je označena červeným písmenem e — E.ON. Faktura 2 je označena žlutým písmenem S — sdružení." },
                 { icon: "⚠️", title: "Termíny ukončení", text: "Pole Ukončení se zobrazí červeně s ikonou ⚠️ pokud je termín v minulosti a stavba nemá fakturu. Tlačítko ⏰ Termíny v hlavičce zobrazí přehled staveb s termínem do 30 dní — včetně počtu zbývajících pracovních dní." },
                 { icon: "🔍", title: "Filtry a vyhledávání", text: "Vyhledávejte podle názvu nebo čísla stavby (pole Hledat). Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Filtry lze kombinovat. Graf 📊 a export vždy pracují jen s aktuálně vyfiltrovanými daty." },
                 { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře interaktivní sloupcový graf. Tři přepínače: 🏢 Firma, 📅 Měsíc, 📂 Kat. I / II (Plán.+SNK+Běžné op. vs. Plán.+Běžné op.+Poruchy). Graf vždy odráží aktuální filtr." },
