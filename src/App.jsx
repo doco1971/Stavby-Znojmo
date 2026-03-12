@@ -1761,6 +1761,8 @@ export default function App() {
   const [filterCastkaOd, setFilterCastkaOd] = useState("");
   const [filterCastkaDo, setFilterCastkaDo] = useState("");
   const [filterProslé, setFilterProslé] = useState(false);
+  const [filterFakturace, setFilterFakturace] = useState("");
+  const [filterKat, setFilterKat] = useState("");
   const [editRow, setEditRow] = useState(null);
   const [adding, setAdding] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -2268,8 +2270,11 @@ export default function App() {
     if (filterCastkaOd !== "" && Number(r.nabidkova_cena) < Number(filterCastkaOd)) return false;
     if (filterCastkaDo !== "" && Number(r.nabidkova_cena) > Number(filterCastkaDo)) return false;
     if (filterProslé) { const dnes = new Date(); dnes.setHours(0,0,0,0); const isFak = r.cislo_faktury && r.cislo_faktury.trim() !== "" && r.castka_bez_dph && Number(r.castka_bez_dph) !== 0 && r.splatna && r.splatna.trim() !== ""; if (isFak || !r.ukonceni) return false; const [d,m,y] = r.ukonceni.split(".").map(Number); if (new Date(y,m-1,d) >= dnes) return false; }
+    if (filterFakturace) { const isFak = r.cislo_faktury && r.cislo_faktury.trim() !== "" && r.castka_bez_dph && Number(r.castka_bez_dph) !== 0 && r.splatna && r.splatna.trim() !== ""; if (filterFakturace === "ano" && !isFak) return false; if (filterFakturace === "ne" && isFak) return false; }
+    if (filterKat === "I" && !((Number(r.ps_i)||0)+(Number(r.snk_i)||0)+(Number(r.bo_i)||0) > 0)) return false;
+    if (filterKat === "II" && !((Number(r.ps_ii)||0)+(Number(r.bo_ii)||0) > 0)) return false;
     return true;
-  }), [data, filterFirma, filterText, filterObjed, filterSV, filterRok, filterCastkaOd, filterCastkaDo, filterProslé]);
+  }), [data, filterFirma, filterText, filterObjed, filterSV, filterRok, filterCastkaOd, filterCastkaDo, filterProslé, filterFakturace, filterKat]);
 
   const [tableHeight, setTableHeight] = useState(500);
 
@@ -2328,7 +2333,7 @@ export default function App() {
   });
 
   const [page, setPage] = useState(0);
-  useEffect(() => { setPage(0); }, [filterFirma, filterText, filterObjed, filterSV, filterRok, filterCastkaOd, filterCastkaDo, filterProslé]);
+  useEffect(() => { setPage(0); }, [filterFirma, filterText, filterObjed, filterSV, filterRok, filterCastkaOd, filterCastkaDo, filterProslé, filterFakturace, filterKat]);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -2658,7 +2663,7 @@ export default function App() {
         <input placeholder="🔍 Hledat stavbu / číslo..." onMouseEnter={e => showTooltip(e, "Hledat podle názvu nebo čísla stavby")} onMouseLeave={hideTooltip} value={filterText} onChange={e => setFilterText(e.target.value)} style={{ ...inputSx, width: 230, background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.text }} />
         <NativeSelect value={filterFirma} onChange={setFilterFirma} options={["Všechny firmy", ...firmy.map(f => f.hodnota)]} isDark={isDark} style={{ width: 170 }} />
         <NativeSelect value={filterObjed} onChange={setFilterObjed} options={["Všichni objednatelé", ...objednatele]} isDark={isDark} style={{ width: 190 }} />
-        <NativeSelect value={filterSV} onChange={setFilterSV} options={["Všichni stavbyvedoucí", ...stavbyvedouci]} isDark={isDark} style={{ width: 170 }} />
+        <NativeSelect value={filterSV} onChange={setFilterSV} options={["Všichni stavbyvedoucí", ...stavbyvedouci]} isDark={isDark} style={{ width: 210 }} />
         <button onClick={() => setShowAdvFilter(v => !v)} onMouseEnter={e => showTooltip(e, "Rozšířený filtr: rok, částka, prošlé termíny")} onMouseLeave={hideTooltip} style={{ padding: "7px 12px", background: showAdvFilter ? "rgba(37,99,235,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)"), border: `1px solid ${showAdvFilter ? "rgba(37,99,235,0.5)" : (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)")}`, borderRadius: 7, color: showAdvFilter ? "#60a5fa" : T.text, cursor: "pointer", fontSize: 12, fontWeight: showAdvFilter ? 700 : 400 }}>🔍 Filtr {showAdvFilter ? "▲" : "▼"}</button>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
@@ -2793,12 +2798,12 @@ export default function App() {
                           : col.type === "number" ? fmtN(row[col.key])
                           : col.truncate ? <span title={row[col.key] ?? ""} style={{ display: "inline-block", maxWidth: col.width - 22, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "middle" }}>{row[col.key] ?? ""}</span>
                           : isOverdue ? <span>⚠️ {row[col.key]}</span>
-                          : col.key === "cislo_faktury" && row[col.key] ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontWeight: 900, fontSize: 14, color: "#ef4444", lineHeight: 1, flexShrink: 0 }}>e</span>{row[col.key]}</span>
+                          : col.key === "cislo_faktury" && row[col.key] ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontWeight: 400, fontSize: 14, color: "#fca5a5", lineHeight: 1, flexShrink: 0 }}>e</span>{row[col.key]}</span>
                           : row[col.key] ?? ""}
                         </div>
                         {/* Druhý řádek pro fakturační sloupce */}
                         {col.key === "cislo_faktury" && row.cislo_faktury_2 && (
-                          <div style={{ borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2, display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontWeight: 900, fontSize: 14, color: "#facc15", lineHeight: 1, flexShrink: 0 }}>S</span>{row.cislo_faktury_2}</div>
+                          <div style={{ borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2, display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontWeight: 400, fontSize: 14, color: "#fde68a", lineHeight: 1, flexShrink: 0 }}>S</span>{row.cislo_faktury_2}</div>
                         )}
                         {col.key === "castka_bez_dph" && row.castka_bez_dph_2 > 0 && (
                           <div style={{ borderTop: `1px dashed ${T.cellBorder}`, marginTop: 2, paddingTop: 2 }}>{fmtN(row.castka_bez_dph_2)}</div>
@@ -3317,9 +3322,25 @@ export default function App() {
               <input type="checkbox" checked={filterProslé} onChange={e => setFilterProslé(e.target.checked)} style={{ width: 15, height: 15, cursor: "pointer", accentColor: "#ef4444", flexShrink: 0 }} />
               <span style={{ color: isDark ? "#e2e8f0" : "#1e293b", fontSize: 13 }}>⚠️ Jen prošlé termíny bez faktury</span>
             </label>
-            {(filterRok || filterCastkaOd || filterCastkaDo || filterProslé) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontSize: 12, width: 100, flexShrink: 0 }}>Fakturace:</span>
+              <select value={filterFakturace} onChange={e => setFilterFakturace(e.target.value)} style={{ ...inputSx, flex: 1, background: isDark ? "#0f172a" : "#f8fafc", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)"}`, color: isDark ? "#fff" : "#1e293b", padding: "7px 10px" }}>
+                <option value="">Vše</option>
+                <option value="ano">✅ Vyfakturováno</option>
+                <option value="ne">❌ Nevyfakturováno</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontSize: 12, width: 100, flexShrink: 0 }}>Kategorie:</span>
+              <select value={filterKat} onChange={e => setFilterKat(e.target.value)} style={{ ...inputSx, flex: 1, background: isDark ? "#0f172a" : "#f8fafc", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)"}`, color: isDark ? "#fff" : "#1e293b", padding: "7px 10px" }}>
+                <option value="">Vše</option>
+                <option value="I">Kategorie I</option>
+                <option value="II">Kategorie II</option>
+              </select>
+            </div>
+            {(filterRok || filterCastkaOd || filterCastkaDo || filterProslé || filterFakturace || filterKat) && (
               <div style={{ paddingTop: 8, borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}` }}>
-                <button onClick={() => { setFilterRok(""); setFilterCastkaOd(""); setFilterCastkaDo(""); setFilterProslé(false); }} style={{ padding: "6px 14px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12, width: "100%" }}>✕ Vymazat rozšířené filtry</button>
+                <button onClick={() => { setFilterRok(""); setFilterCastkaOd(""); setFilterCastkaDo(""); setFilterProslé(false); setFilterFakturace(""); setFilterKat(""); }} style={{ padding: "6px 14px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12, width: "100%" }}>✕ Vymazat rozšířené filtry</button>
               </div>
             )}
           </div>
