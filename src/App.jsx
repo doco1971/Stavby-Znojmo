@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
 // BUILD: 2026_03_12_build0048
-// ============================================================ 
+// ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
 // PRAVIDLO: Každá změna = dva soubory:
@@ -248,7 +248,7 @@ function NativeSelect({ value, onChange, options, style, isDark = true }) {
       onMouseEnter={openDropdown}
       onMouseLeave={() => setTimeout(() => setOpen(false), 480)}
     >
-      <button style={{ width: "100%", padding: "7px 22px 7px 10px", background: bg, border: `1px solid ${border}`, borderRadius: 7, color: textColor, cursor: "pointer", fontSize: 13, textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", position: "relative" }}>
+      <button style={{ width: "100%", padding: "7px 22px 7px 10px", background: bg, border: `1px solid ${border}`, borderRadius: 7, color: textColor, cursor: "pointer", fontSize: 13, textAlign: "left", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", position: "relative" }}>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", paddingRight: 4 }}>{value}</span>
         <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", fontSize: 9, color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)", flexShrink: 0, pointerEvents: "none" }}>▼</span>
       </button>
