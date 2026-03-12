@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_12_build0050
+// BUILD: 2026_03_12_build0051
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -112,6 +112,13 @@ import * as XLSX from "xlsx";
 //   Zkráceny popisky tlačítek (záz., Záloha) aby se vešlo na 1 řádek
 //   Aktualizována HISTORY + PENDING sekce v hlavičce
 // BUILD0050 — FIX blikání stránkování: řádky s Fakturou 2 jsou vyšší
+//   PAGE_SIZE se počítal z firstRow → přepočet → blikání
+//   Oprava: MIN výška, pak MAX výška, nakonec stableRowH ref — vše nestabilní
+// BUILD0051 — FIX posuvník a přetékání: správný výpočet PAGE_SIZE
+//   PAGE_SIZE změněn z useState na useMemo s přístupem k filtered datům
+//   Iterativní simulace stránkování: pro každou stránku spočítá výšku dle
+//   ROW_H_NORMAL=33px / ROW_H_FAT=56px (řádek s Fakturou 2)
+//   Výsledek = minimum přes všechny stránky → žádné přetečení, žádný posuvník
 //   PAGE_SIZE se počítal z firstRow → na str.5+ vyšší řádky → přepočet → blikání
 //   Oprava: použít MIN výšku ze všech viditelných řádků (ne firstRow)
 //   Odstraněn druhý useEffect bez deps (spouštěl se po každém renderu = smyčka)
@@ -2292,39 +2299,57 @@ export default function App() {
   const paginationRef = useRef(null);
   const footerRef = useRef(null);
 
-  const [PAGE_SIZE, setPageSize] = useState(10);
+  // Výšky řádků fixní z CSS paddingu:
+  //   normální řádek: padding 7+7=14 + text 18 + border 1 = 33px
+  //   s Fakturou 2:   +marginTop 2 + paddingTop 2 + border 1 + text 18 = +23px → 56px
+  const ROW_H_NORMAL = 33;
+  const ROW_H_FAT = 56;
+  const [availableH, setAvailableH] = useState(0);
   useEffect(() => {
     const calc = () => {
       if (!tableWrapRef.current) return;
       const wrap = tableWrapRef.current;
       const thead = wrap.querySelector("thead");
-      const theadH = thead ? thead.getBoundingClientRect().height : 35;
-      // Použij MINIMÁLNÍ výšku řádku ze všech viditelných řádků
-      // (řádky s fakturou 2 jsou vyšší — nesmíme je použít jako referenci)
-      const allRows = Array.from(wrap.querySelectorAll("tbody tr"));
-      const rowHeights = allRows.map(r => r.getBoundingClientRect().height).filter(h => h > 1);
-      const rowH = rowHeights.length > 0 ? Math.min(...rowHeights) : 32;
-      if (rowH < 1) return;
-      const scrollbarH = wrap.offsetHeight - wrap.clientHeight;
+      const theadH = thead ? thead.getBoundingClientRect().height : 37;
       const wrapH = wrap.clientHeight > 50 ? wrap.clientHeight : wrap.offsetHeight;
-      const available = wrapH - theadH - scrollbarH - 1;
-      const rows = Math.max(5, Math.floor(available / rowH));
-      setPageSize(prev => prev === rows ? prev : rows);
+      const avail = wrapH - theadH - 2;
+      setAvailableH(prev => prev === avail ? prev : avail);
     };
     const t1 = setTimeout(calc, 0);
-    const t2 = setTimeout(calc, 150);
-    const t3 = setTimeout(calc, 400);
+    const t2 = setTimeout(calc, 200);
     const ro = new ResizeObserver(calc);
     if (tableWrapRef.current) ro.observe(tableWrapRef.current);
     window.addEventListener("resize", calc);
     window.addEventListener("orientationchange", () => setTimeout(calc, 300));
     return () => {
-      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+      clearTimeout(t1); clearTimeout(t2);
       ro.disconnect();
       window.removeEventListener("resize", calc);
       window.removeEventListener("orientationchange", calc);
     };
   }, []);
+  // PAGE_SIZE = kolik řádků se vejde na nejhustší stránku (má přístup k filtered)
+  const PAGE_SIZE = useMemo(() => {
+    if (availableH <= 0) return 10;
+    // Simuluj stránkování — najdi minimum přes všechny stránky
+    let minSize = 9999;
+    let idx = 0;
+    while (idx < filtered.length) {
+      let used = 0, count = 0;
+      for (let i = idx; i < filtered.length; i++) {
+        const r = filtered[i];
+        const fat = !!(r.cislo_faktury_2 || r.castka_bez_dph_2 || r.splatna_2);
+        const h = fat ? ROW_H_FAT : ROW_H_NORMAL;
+        if (used + h > availableH && count > 0) break;
+        used += h;
+        count++;
+      }
+      count = Math.max(5, count);
+      if (count < minSize) minSize = count;
+      idx += count;
+    }
+    return minSize === 9999 ? Math.max(5, Math.floor(availableH / ROW_H_NORMAL)) : minSize;
+  }, [availableH, filtered]);
 
   const [page, setPage] = useState(0);
   useEffect(() => { setPage(0); }, [filterFirma, filterText, filterObjed, filterSV, filterRok, filterCastkaOd, filterCastkaDo, filterProslé, filterFakturace, filterKat]);
@@ -2735,10 +2760,11 @@ export default function App() {
             {paginated.map((row, i) => {
               const globalIndex = page * PAGE_SIZE + i;
               const isFaktura = row.cislo_faktury && row.cislo_faktury.trim() !== "" && row.castka_bez_dph && Number(row.castka_bez_dph) !== 0 && row.splatna && row.splatna.trim() !== "";
+              const isFaktura2 = !!(row.cislo_faktury_2 || row.castka_bez_dph_2 || row.splatna_2);
               const baseBg = isFaktura ? "rgba(22,163,74,0.45)" : rowBg(row.firma);
               return (
               <tr key={row.id}
-                style={{ background: baseBg, transition: "background 0.1s", color: T.text }}
+                style={{ background: baseBg, transition: "background 0.1s", color: T.text, minHeight: 34 }}
                 onMouseEnter={e => e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.60)" : T.hoverBg}
                 onMouseLeave={e => e.currentTarget.style.background = baseBg}
               >
