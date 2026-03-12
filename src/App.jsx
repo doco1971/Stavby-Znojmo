@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_12_build0062
+// BUILD: 2026_03_12_build0063
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -142,7 +142,10 @@ import * as XLSX from "xlsx";
 //   th: minWidth:0 + maxWidth:getColWidth, input max 2000px
 // BUILD0061 — Doplnění nápovědy o nové funkce (BUILD0043–0060)
 //   Přidány sekce: Dva pohledy, Rozšířený filtr, Import, Označení faktur e/S
-// BUILD0062 — 2 opravy
+// BUILD0062 — 2 opravy: td overflow:hidden pro truncate, reset shownDeadlineOnce
+// BUILD0063 — 2 opravy
+//   1. Resize sloupce: th maxWidth odstraněn (blokoval rozšíření)
+//   2. Nápověda: e červené + S žluté jako v tabulce (JSX node v text poli)
 //   1. Resize sloupce Objednatel/Stavbyvedoucí: td overflow:hidden + maxWidth
 //   2. Termíny se nezobrazí po přepnutí účtu: reset shownDeadlineOnce při změně user
 //   Přidáno: Dva pohledy, Rozšířený filtr, Import staveb, Označení faktur e/S
@@ -3030,7 +3033,7 @@ export default function App() {
                 { icon: "📋", title: "Dva pohledy — Stránky / Vše", text: "Přepínač 📋 Stránky / 📜 Vše v liště přepíná mezi stránkovaným zobrazením (tlačítka −/+ pro počet řádků na stránce) a plným výpisem všech záznamů s vertikálním scrollem." },
                 { icon: "🔍", title: "Rozšířený filtr", text: "Tlačítko Filtr ▾ otevře plovoucí panel s rozšířenými možnostmi: rok uvedení do provozu, rozsah nabídkové ceny (od/do), prošlé termíny bez faktury, stav fakturace a kategorie I / II. Panel lze přetáhnout myší kamkoliv na plochu." },
                 { icon: "📥", title: "Import staveb", text: "Tlačítko 📥 Import (pouze superadmin) načte stavby z Excelu — podporuje původní tabulkový formát i zálohu DB. Před importem systém zobrazí náhled a umožní potvrdit nebo zrušit. Existující záznamy se aktualizují, nové přidají." },
-                { icon: "🧾", title: "Označení faktur e / S", text: "Červené 'e' před číslem faktury označuje faktury E.ON (sdružená dodávka). Žluté 'S' před druhým číslem faktury označuje fakturu sdružení. Druhá faktura se zobrazuje jako druhý řádek v buňce (oddělený přerušovanou čarou)." },
+                { icon: "🧾", title: "Označení faktur", text: <span>Červené <span style={{fontWeight:700,color:"#ef4444",textShadow:"0 0 6px #ef4444"}}>e</span> před číslem faktury = E.ON (sdružená dodávka). Žluté <span style={{fontWeight:700,color:"#facc15",textShadow:"0 0 6px #facc15"}}>S</span> před druhým číslem faktury = faktura sdružení. Druhá faktura se zobrazí jako druhý řádek v buňce (přerušovaná čára).</span> },
               ].map(({ icon, title, text }) => (
                 <div key={title} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                   <div style={{ fontWeight: 700, marginBottom: 3, color: "#60a5fa" }}>{icon} {title}</div>
