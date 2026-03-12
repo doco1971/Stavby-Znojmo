@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_12_build0064
+// BUILD: 2026_03_12_build0065
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -144,7 +144,10 @@ import * as XLSX from "xlsx";
 //   Přidány sekce: Dva pohledy, Rozšířený filtr, Import, Označení faktur e/S
 // BUILD0062 — 2 opravy: td overflow:hidden pro truncate, reset shownDeadlineOnce
 // BUILD0063 — th maxWidth odstraněn, nápověda e/S s barvami
-// BUILD0064 — FIX: ikona ⟺ není vidět v úzkých sloupcích
+// BUILD0064 — FIX: ikona ⟺ flex space-between, objednatel/SV wider
+// BUILD0065 — 2 věci
+//   1. FIX stránkování: tlačítka −/+ vždy viditelná (přesunuta mimo totalPages>1)
+//   2. Nápověda: glow ikony — 🔴 tečka, ⚠️ červeně, 💬, zelený řádek, e/S
 //   th bez overflow/maxWidth, flex space-between (text ell. | ikona vždy viditelná)
 //   objednatel: 110→130px, stavbyvedoucí: 110→140px default
 //   1. Resize sloupce Objednatel/Stavbyvedoucí: td overflow:hidden + maxWidth
@@ -2962,12 +2965,12 @@ export default function App() {
           <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ padding: "4px 9px", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 6, color: T.textMuted, cursor: page === totalPages - 1 ? "default" : "pointer", opacity: page === totalPages - 1 ? 0.4 : 1, fontSize: 13 }}>›</button>
           <button onClick={() => setPage(totalPages - 1)} disabled={page === totalPages - 1} style={{ padding: "4px 9px", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 6, color: T.textMuted, cursor: page === totalPages - 1 ? "default" : "pointer", opacity: page === totalPages - 1 ? 0.4 : 1, fontSize: 13 }}>»</button>
           <span style={{ color: T.textMuted, fontSize: 12, marginLeft: 6 }}>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} z {filtered.length}</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 10, borderLeft: `1px solid ${T.cellBorder}`, paddingLeft: 10 }}>
-            <button onClick={() => setPageSize(s => Math.max(3, s - 1))} title="Méně řádků na stránce" style={{ padding: "2px 6px", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 5, color: T.textMuted, cursor: "pointer", fontSize: 12, lineHeight: 1 }}>−</button>
-            <span style={{ color: T.textMuted, fontSize: 11, minWidth: 28, textAlign: "center" }}>{PAGE_SIZE} řád.</span>
-            <button onClick={() => setPageSize(s => Math.min(50, s + 1))} title="Více řádků na stránce" style={{ padding: "2px 6px", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 5, color: T.textMuted, cursor: "pointer", fontSize: 12, lineHeight: 1 }}>+</button>
-          </span>
         </>}
+        <span style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: totalPages > 1 ? 10 : 0, borderLeft: totalPages > 1 ? `1px solid ${T.cellBorder}` : "none", paddingLeft: totalPages > 1 ? 10 : 0 }}>
+          <button onClick={() => setPageSize(s => Math.max(3, s - 1))} title="Méně řádků na stránce" style={{ padding: "2px 6px", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 5, color: T.textMuted, cursor: "pointer", fontSize: 12, lineHeight: 1 }}>−</button>
+          <span style={{ color: T.textMuted, fontSize: 11, minWidth: 28, textAlign: "center" }}>{PAGE_SIZE} řád.</span>
+          <button onClick={() => setPageSize(s => Math.min(50, s + 1))} title="Více řádků na stránce" style={{ padding: "2px 6px", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 5, color: T.textMuted, cursor: "pointer", fontSize: 12, lineHeight: 1 }}>+</button>
+        </span>
       </div>
 
       <div ref={footerRef} style={{ textAlign: "center", padding: "4px", borderTop: `1px solid ${T.cellBorder}`, color: T.textFaint, fontSize: 11, flexShrink: 0 }}>
@@ -3017,11 +3020,11 @@ export default function App() {
                 { icon: "🏗️", title: "Přidání stavby", text: "Klikněte na zelené tlačítko + Přidat stavbu v hlavičce. Vyplňte název stavby (povinný) a ostatní pole dle potřeby. Klávesa Enter přeskočí na další pole ve formuláři. Uložte tlačítkem Uložit — stavba se okamžitě zobrazí v tabulce." },
                 { icon: "✏️", title: "Editace stavby", text: "Klikněte na modré tlačítko ✏️ v levém sloupci u řádku stavby. Otevře se formulář s předvyplněnými hodnotami — změňte co potřebujete a uložte. Všechny změny se automaticky zaznamenají do Historie změn." },
                 { icon: "🗑️", title: "Smazání stavby", text: "Klikněte na červené tlačítko 🗑️ v levém sloupci. Systém požádá o potvrzení — musíte kliknout dvakrát (ochrana proti náhodnému smazání). Smazanou stavbu nelze obnovit." },
-                { icon: "🕐", title: "Historie změn stavby", text: "Fialové tlačítko 🕐 v levém sloupci otevře kompletní historii změn konkrétní stavby — kdo, kdy a která pole změnil (původní hodnota → nová hodnota). Červená tečka 🔴 na ikoně znamená, že stavba má v historii záznamy. Z modalu lze exportovat historii jako Excel nebo vytisknout PDF." },
+                { icon: "🕐", title: "Historie změn stavby", text: <span>Fialové tlačítko 🕐 v levém sloupci otevře historii změn. Kdo, kdy a která pole změnil. <span style={{display:"inline-flex",alignItems:"center",gap:2}}>Červená tečka <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#ef4444",boxShadow:"0 0 6px #ef4444, 0 0 12px rgba(239,68,68,0.7)",verticalAlign:"middle"}}/>  na ikoně</span> = stavba má záznamy v historii. Export jako Excel nebo PDF.</span> },
                 { icon: "📜", title: "Log zakázek", text: "Tlačítko 📜 Log v hlavičce (pouze admin) otevře kompletní přehled všech akcí na zakázkách — přidání, editace i smazání. Záznamy lze filtrovat podle uživatele, typu akce a datumového rozsahu. Exporty: Excel, Barevný Excel a PDF tisk." },
-                { icon: "💬", title: "Poznámka ke stavbě", text: "V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA — zapište libovolný komentář nebo interní poznámku. Ikona 💬 se zobrazí vedle názvu stavby v tabulce pokud poznámka existuje. Najeďte myší na ikonu pro zobrazení textu." },
-                { icon: "🎨", title: "Barevné řádky", text: "Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). Zelené zbarvení celého řádku signalizuje, že stavba má vyplněné číslo faktury, částku bez DPH a datum splatnosti — tedy je kompletně vyfakturována." },
-                { icon: "⚠️", title: "Termíny ukončení", text: "Pole Ukončení se zobrazí červeně s ikonou ⚠️ pokud je termín v minulosti a stavba nemá fakturu. Tlačítko ⏰ Termíny v hlavičce zobrazí přehled staveb s termínem do 30 dní — včetně počtu zbývajících pracovních dní." },
+                { icon: "💬", title: "Poznámka ke stavbě", text: <span>V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA. Ikona <span style={{fontSize:13}}>💬</span> se zobrazí vedle názvu stavby pokud poznámka existuje — najeďte myší pro zobrazení textu.</span> },
+                { icon: "🎨", title: "Barevné řádky", text: <span>Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). <span style={{background:"rgba(34,197,94,0.25)",color:"#4ade80",padding:"1px 5px",borderRadius:4,fontWeight:600}}>Zelený řádek</span> = stavba má fakturu, částku i datum splatnosti — kompletně vyfakturována.</span> },
+                { icon: "⚠️", title: "Termíny ukončení", text: <span>Pole Ukončení se zobrazí <span style={{color:"#f87171",fontWeight:700}}>červeně ⚠️</span> pokud je termín v minulosti a stavba nemá fakturu. Tlačítko <span style={{color:"#f87171",fontWeight:700}}>⚠️ Termíny</span> v hlavičce zobrazí přehled staveb s termínem do 30 dní — včetně zbývajících pracovních dní.</span> },
                 { icon: "🔍", title: "Filtry a vyhledávání", text: "Vyhledávejte podle názvu nebo čísla stavby (pole Hledat). Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Filtry lze kombinovat. Graf 📊 a export vždy pracují jen s aktuálně vyfiltrovanými daty." },
                 { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře interaktivní sloupcový graf. Tři přepínače: 🏢 Firma, 📅 Měsíc, 📂 Kat. I / II (Plán.+SNK+Běžné op. vs. Plán.+Běžné op.+Poruchy). Graf vždy odráží aktuální filtr." },
                 { icon: "📤", title: "Export dat", text: "CSV — prostá tabulka. Excel (.xlsx) — standardní formát. Barevný Excel (.xls) — se zbarvením firem (potvrďte varování Excelu). PDF — tisk na A4 landscape. Vše pracuje s aktuálním filtrem." },
