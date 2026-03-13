@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_13_build0082
+// BUILD: 2026_03_13_build0083
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -150,6 +150,11 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0083 — Nápověda aktualizována pro mobilní funkce
+//   📱 Mobilní zobrazení — kartičky: rozšířený popis (metriky, stavy, akce)
+//   ☰ Mobilní menu (hamburger): nová sekce
+//   ⋯ Mobilní filtr — rozbalovací řádek: nová sekce
+//   🔍 Filtry: doplněno o červené tlačítko při aktivním filtru
 // BUILD0082 — FIX: klávesnice iOS roztahuje login + modály; překrývání Export/Přidat
 //   Login: position:fixed místo minHeight:100vh → escape body overflow:hidden
 //   Deadline modál: WebkitOverflowScrolling:touch přidán
@@ -3347,8 +3352,10 @@ export default function App() {
                 { icon: "💬", title: "Poznámka ke stavbě", text: <span>V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA. Ikona <span style={{fontSize:13}}>💬</span> se zobrazí vedle názvu stavby pokud poznámka existuje — najeďte myší pro zobrazení textu.</span> },
                 { icon: "🎨", title: "Barevné řádky", text: <span>Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). <span style={{background:"rgba(34,197,94,0.25)",color:"#4ade80",padding:"1px 5px",borderRadius:4,fontWeight:600}}>Zelený řádek</span> = stavba má fakturu, částku i datum splatnosti — kompletně vyfakturována.</span> },
                 { icon: "⚠️", title: "Termíny ukončení", text: <span>Pole Ukončení se zobrazí <span style={{color:"#f87171",fontWeight:700}}>červeně ⚠️</span> pokud je termín v minulosti a stavba nemá fakturu. Tlačítko <span style={{color:"#f87171",fontWeight:700}}>⚠️ Termíny</span> v hlavičce zobrazí přehled staveb s termínem do 30 dní — včetně zbývajících pracovních dní.</span> },
-                { icon: "🔍", title: "Filtry a vyhledávání", text: "Vyhledávejte podle názvu nebo čísla stavby (pole Hledat). Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Filtry lze kombinovat. Graf 📊 a export vždy pracují jen s aktuálně vyfiltrovanými daty." },
-                { icon: "📱", title: "Mobilní kartičky", text: "Na mobilu se automaticky zobrazí kartičkový pohled. Tlačítko ▦/☰ v liště přepíná mezi kartičkami a tabulkou. Každá kartička zobrazuje firmu, číslo a název stavby, 3 finanční metriky, termín s barevným stavem, poznámku a faktury. Akce (editovat, kopie, smazat) jsou dostupné dle role." },
+                { icon: "🔍", title: "Filtry a vyhledávání", text: "Vyhledávejte podle názvu nebo čísla stavby (pole Hledat). Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Tlačítko Filtr▼ otevře rozšířený filtr: rok, rozsah částky, prošlé termíny, fakturace, kategorie. Když je filtr aktivní, tlačítko Filtr zčervená — je viditelné i po zavření panelu. Graf 📊 a export vždy pracují jen s aktuálně vyfiltrovanými daty." },
+                { icon: "📱", title: "Mobilní zobrazení — kartičky", text: "Na mobilu (šířka < 768px) se automaticky přepne do kartičkového pohledu. Tlačítko ▦/☰ v liště přepíná mezi kartičkami a tabulkou. Každá kartička zobrazuje: firmu (barevná tečka), číslo stavby, název, 3 finanční metriky (nabídka / vyfakturováno / rozdíl), termín s barevným stavem (žlutý = do 10 dní, červený = prošlý, zelený = vyfakturováno), poznámku a faktury. Akce (🕐 hist, 📋 kopie, ✏️ editovat, 🗑️ smazat) jsou dostupné dle role." },
+                { icon: "☰", title: "Mobilní menu (hamburger)", text: "Na mobilu jsou tlačítka hlavičky (Nastavení, Nápověda, Odhlásit...) skryta za tlačítkem ☰ vpravo nahoře. Kliknutím se rozbalí dropdown s: jménem a rolí uživatele, přepínačem tmavý/světlý režim, Nápovědou, Nastavením (admin), Logem (admin) a tlačítkem Odhlásit." },
+                { icon: "⋯", title: "Mobilní filtr — rozbalovací řádek", text: "Filtrovací lišta na mobilu má dva řádky. Řádek 1 (vždy viditelný): Hledat · Firmy · Filtr▼ · ▦ (kartičky) · ⋯. Kliknutím na ⋯ se zobrazí řádek 2: Objednatel · Stavbyvedoucí · Stránky/Vše · počet záznamů · 📊 Graf · ⬇ Export · + Přidat stavbu." },
                 { icon: "📋", title: "Kopírování stavby", text: "Tlačítko 📋 vedle editace otevře formulář s předvyplněnými daty dané stavby. Číslo stavby dostane příponu \" (kopie)\". Po uložení se vytvoří nový samostatný záznam — původní zůstane nezměněn. Funkce je dostupná pro editory i administrátory." },
                 { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře interaktivní sloupcový graf. Tři přepínače: 🏢 Firma, 📅 Měsíc, 📂 Kat. I / II (Plán.+SNK+Běžné op. vs. Plán.+Běžné op.+Poruchy). Graf vždy odráží aktuální filtr." },
                 { icon: "📤", title: "Export dat", text: "CSV — prostá tabulka. Excel (.xlsx) — standardní formát. Barevný Excel (.xls) — se zbarvením firem (potvrďte varování Excelu). PDF — tisk na A4 landscape. Vše pracuje s aktuálním filtrem." },
