@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_13_build0081
+// BUILD: 2026_03_13_build0082
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -150,6 +150,10 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0082 — FIX: klávesnice iOS roztahuje login + modály; překrývání Export/Přidat
+//   Login: position:fixed místo minHeight:100vh → escape body overflow:hidden
+//   Deadline modál: WebkitOverflowScrolling:touch přidán
+//   Přidat stavbu tlačítko: marginLeft:auto → odsunuto od Export, nepřekrývají se
 // BUILD0081 — FIX: login + deadline modál mimo obrazovku; filtr ⋯ rozbalovací
 //   Login: alignItems flex-start + overflowY auto → scrollovatelná na mobilu
 //   Deadline modál: overlay scrollovatelný (alignItems flex-start + overflowY auto)
@@ -1107,7 +1111,7 @@ function Login({ onLogin, users, onLogAction }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f2027 100%)", display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "clamp(16px,5vh,60px) 0", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f2027 100%)", display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "clamp(16px,5vh,60px) 0 24px", fontFamily: "'Segoe UI',sans-serif" }}>
       <div style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "clamp(24px,5vw,48px) clamp(18px,5vw,40px)", width: "min(380px, 94vw)", boxShadow: "0 32px 80px rgba(0,0,0,0.5)" }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <svg width="80" height="80" viewBox="0 0 80 80" fill="none" style={{ display: "block", margin: "0 auto 14px" }}>
@@ -3105,7 +3109,7 @@ export default function App() {
             <button onClick={() => setShowGraf(true)} style={{ padding: "0 8px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", flexShrink: 0 }}>📊</button>
             <NativeSelect value="⬇" onChange={v => { if (v === "📄 CSV (.csv)") exportCSV(); else if (v === "📊 Excel (.xlsx)") exportXLS(); else if (v === "🎨 Barevný Excel") exportXLSColor(); else if (v === "📜 Export logu") exportLog(); else if (v === "🖨️ PDF tisk") exportPDF(); }} options={["⬇", "📄 CSV (.csv)", "📊 Excel (.xlsx)", "🎨 Barevný Excel", ...(isAdmin ? ["📜 Export logu"] : []), "🖨️ PDF tisk"]} isDark={isDark} style={{ flexShrink: 0, width: 55 }} />
             {isEditor && (
-              <button onClick={() => { if (isDemo && data.length >= DEMO_MAX_STAVBY) { showToast(`Demo: max ${DEMO_MAX_STAVBY} staveb.`, "error"); return; } setAdding(true); }} style={{ padding: "0 10px", height: 28, background: isDemo && data.length >= DEMO_MAX_STAVBY ? "rgba(100,116,139,0.4)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", borderRadius: 7, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>+ Přidat</button>
+              <button onClick={() => { if (isDemo && data.length >= DEMO_MAX_STAVBY) { showToast(`Demo: max ${DEMO_MAX_STAVBY} staveb.`, "error"); return; } setAdding(true); }} style={{ marginLeft: "auto", padding: "0 12px", height: 28, background: isDemo && data.length >= DEMO_MAX_STAVBY ? "rgba(100,116,139,0.4)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", borderRadius: 7, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>+ Přidat</button>
             )}
           </div>
         )}
@@ -3657,7 +3661,7 @@ export default function App() {
       })()}
 
       {showDeadlines && deadlineWarnings.length > 0 && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 2000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "10px", overflowY: "auto", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 2000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "10px", overflowY: "auto", WebkitOverflowScrolling: "touch", fontFamily: "'Segoe UI',sans-serif" }}>
           <div style={{ background: isDark ? "#1e293b" : "#fff", borderRadius: 16, width: "min(820px, 96vw)", display: "flex", flexDirection: "column", border: "1px solid rgba(239,68,68,0.4)", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", flexShrink: 0 }}>
             {/* header */}
             <div style={{ padding: "14px 18px", borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(239,68,68,0.1)", borderRadius: "16px 16px 0 0", gap: 10 }}>
