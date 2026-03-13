@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_13_build0089
+// BUILD: 2026_03_13_build0090
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -156,6 +156,15 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0090 — 💎 Liquid Glass posuvník: auto-hide po nečinnosti 2s
+//   lgSliderVisible state (výchozí false) — slider se zobrazí jen po kliknutí na 💎
+//   lgSliderTimer ref — setTimeout 2000ms schová slider
+//   Nečinnost = ani myš nad sliderem, ani změna hodnoty
+//   toggleLiquidGlass: zapnutí → lgSliderVisible=true + spustí timer
+//                      vypnutí → lgSliderVisible=false okamžitě
+//   changeLgStrength: resetuje timer nečinnosti (pohyb posuvníkem)
+//   Slider div: onMouseEnter=reset timer, onMouseLeave=spustí timer znovu
+//   Desktop i mobilní menu: obě instance slideru synchronní
 // BUILD0089 — Nápověda: aktualizována sekce 💎 Liquid Glass
 //   Doplněn popis posuvníku síly (10–100%), animovaných orbů, iOS 26 stylu
 // BUILD0088 — 💎 Liquid Glass posuvník síly efektu
@@ -2308,9 +2317,22 @@ export default function App() {
   const [lgStrength, setLgStrength] = useState(() => {
     try { return parseInt(localStorage.getItem("lgStrength") || "60", 10); } catch { return 60; }
   });
+  const [lgSliderVisible, setLgSliderVisible] = useState(false);
+  const lgSliderTimer = useRef(null);
+
+  const lgSliderStartTimer = () => {
+    if (lgSliderTimer.current) clearTimeout(lgSliderTimer.current);
+    lgSliderTimer.current = setTimeout(() => setLgSliderVisible(false), 2000);
+  };
+  const lgSliderResetTimer = () => {
+    if (lgSliderTimer.current) clearTimeout(lgSliderTimer.current);
+    lgSliderTimer.current = setTimeout(() => setLgSliderVisible(false), 2000);
+  };
+
   const changeLgStrength = (v) => {
     setLgStrength(v);
     try { localStorage.setItem("lgStrength", String(v)); } catch {}
+    lgSliderResetTimer();
   };
   const [exportPreview, setExportPreview] = useState(null);
 
@@ -3007,6 +3029,16 @@ export default function App() {
   const toggleLiquidGlass = () => {
     setLiquidGlass(v => {
       try { localStorage.setItem("liquidGlass", v ? "0" : "1"); } catch {}
+      if (!v) {
+        // zapínáme — zobraz slider a spusť timer
+        setLgSliderVisible(true);
+        if (lgSliderTimer.current) clearTimeout(lgSliderTimer.current);
+        lgSliderTimer.current = setTimeout(() => setLgSliderVisible(false), 2000);
+      } else {
+        // vypínáme — schuj slider okamžitě
+        setLgSliderVisible(false);
+        if (lgSliderTimer.current) clearTimeout(lgSliderTimer.current);
+      }
       return !v;
     });
   };
@@ -3157,8 +3189,8 @@ export default function App() {
               ))}
             </div>
             <button onClick={toggleLiquidGlass} onMouseEnter={e => showTooltip(e, liquidGlass ? "Vypnout Liquid Glass" : "Zapnout Liquid Glass")} onMouseLeave={hideTooltip} style={{ padding: "5px 9px", background: liquidGlass ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.05)", border: `1px solid ${liquidGlass ? "rgba(139,92,246,0.6)" : "rgba(255,255,255,0.1)"}`, borderRadius: 8, color: liquidGlass ? "#a78bfa" : T.textMuted, cursor: "pointer", fontSize: 14, fontWeight: liquidGlass ? 700 : 400, boxShadow: liquidGlass ? "0 0 12px rgba(139,92,246,0.4)" : "none" }}>💎</button>
-            {liquidGlass && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 8, padding: "3px 8px" }} onMouseEnter={e => showTooltip(e, `Síla efektu: ${lgStrength}%`)} onMouseLeave={hideTooltip}>
+            {liquidGlass && lgSliderVisible && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 8, padding: "3px 8px" }} onMouseEnter={() => { if (lgSliderTimer.current) clearTimeout(lgSliderTimer.current); }} onMouseLeave={lgSliderStartTimer} title={`Síla efektu: ${lgStrength}%`}>
                 <span style={{ fontSize: 10, color: "#a78bfa", fontWeight: 700, minWidth: 26, textAlign: "right" }}>{lgStrength}%</span>
                 <input type="range" min="10" max="100" step="5" value={lgStrength} onChange={e => changeLgStrength(Number(e.target.value))} style={{ width: 70, accentColor: "#a78bfa", cursor: "pointer" }} />
               </div>
@@ -3187,8 +3219,8 @@ export default function App() {
               ))}
             </div>
             <button onClick={toggleLiquidGlass} style={{ padding: "6px 12px", background: liquidGlass ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.05)", border: `1px solid ${liquidGlass ? "rgba(139,92,246,0.6)" : "rgba(255,255,255,0.1)"}`, borderRadius: 8, color: liquidGlass ? "#a78bfa" : T.textMuted, cursor: "pointer", fontSize: 14, fontWeight: liquidGlass ? 700 : 400 }}>💎</button>
-            {liquidGlass && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 8, padding: "6px 10px" }}>
+            {liquidGlass && lgSliderVisible && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 8, padding: "6px 10px" }} onMouseEnter={() => { if (lgSliderTimer.current) clearTimeout(lgSliderTimer.current); }} onMouseLeave={lgSliderStartTimer} onTouchStart={() => { if (lgSliderTimer.current) clearTimeout(lgSliderTimer.current); }} onTouchEnd={lgSliderStartTimer}>
                 <span style={{ fontSize: 11, color: "#a78bfa", fontWeight: 700, minWidth: 30 }}>{lgStrength}%</span>
                 <input type="range" min="10" max="100" step="5" value={lgStrength} onChange={e => changeLgStrength(Number(e.target.value))} style={{ flex: 1, accentColor: "#a78bfa", cursor: "pointer" }} />
               </div>
