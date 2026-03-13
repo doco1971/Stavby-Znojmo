@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_12_build0071
+// BUILD: 2026_03_13_build0072
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -64,8 +64,8 @@ import * as XLSX from "xlsx";
 // ============================================================
 // PENDING FUNKCE (dohodnuté, zatím neimplementované)
 // ============================================================
-// [PENDING] 📋 Kopírovat stavbu — duplikovat řádek jako základ pro nový
-// [PENDING] 📱 Mobilní kartičky — přepínač tabulka ↔ kartičky (přidáno v BUILD0053 jako Scroll pohled)
+// [PENDING] 📱 Mobilní kartičky — přepínač tabulka ↔ kartičky pro mobilní zobrazení
+// [PENDING] 🎨 Layout / rozmístění na ploše — až po dokončení všech funkcí
 //
 // PRAVIDLA EXPORTU (platí od BUILD0052)
 // ============================================================
@@ -142,22 +142,21 @@ import * as XLSX from "xlsx";
 //   th: minWidth:0 + maxWidth:getColWidth, input max 2000px
 // BUILD0061 — Doplnění nápovědy o nové funkce (BUILD0043–0060)
 //   Přidány sekce: Dva pohledy, Rozšířený filtr, Import, Označení faktur e/S
-// BUILD0062 — 2 opravy: td overflow:hidden pro truncate, reset shownDeadlineOnce
-// BUILD0063 — th maxWidth odstraněn, nápověda e/S s barvami
-// BUILD0064 — FIX: ikona ⟺ flex space-between, objednatel/SV wider
-// BUILD0065 — strankovani −/+ vzdy viditelne, glow v napovede (tecka, e/S)
-// BUILD0066 — glow emoji v napovede (drop-shadow)
-// BUILD0067 — brightness(1.6)
-// BUILD0068 — brightness(2) + white glow (prilis agresivni)
-// BUILD0069 — nadpisova ikona brightness(1.4), ikony v textu bez filtru
-// BUILD0070 — vsechny ikony brightness(1.4)
-// BUILD0071 — ikony v textu fontSize:15 + saturate(1.3) — sjednoceni s nadpisovou
-//   1. FIX stránkování: tlačítka −/+ vždy viditelná (přesunuta mimo totalPages>1)
-//   2. Nápověda: glow ikony — 🔴 tečka, ⚠️ červeně, 💬, zelený řádek, e/S
-//   th bez overflow/maxWidth, flex space-between (text ell. | ikona vždy viditelná)
-//   objednatel: 110→130px, stavbyvedoucí: 110→140px default
-//   1. Resize sloupce Objednatel/Stavbyvedoucí: td overflow:hidden + maxWidth
-//   2. Termíny se nezobrazí po přepnutí účtu: reset shownDeadlineOnce při změně user
+// BUILD0062 — FIX: td overflow:hidden pro truncate sloupce, reset shownDeadlineOnce při změně usera
+// BUILD0063 — FIX: th maxWidth odstraněn (blokoval resize), nápověda e/S s barvami
+// BUILD0064 — FIX: ikona ⟺ vždy viditelná (flex space-between), objednatel 130px, SV 140px
+// BUILD0065 — FIX: tlačítka −/+ vždy viditelná (mimo blok totalPages>1), glow ikony v nápovědě
+// BUILD0066 — Nápověda: auto glow všech emoji přes Unicode regex + drop-shadow filter
+// BUILD0067 — FIX: drop-shadow → brightness(1.4) — čisté zesvětlení bez modrého nádechu
+// BUILD0068 — brightness(2) + bílý glow — příliš agresivní
+// BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
+// BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0072 — 📋 Kopírování stavby: tlačítko vedle editace (admin+editor)
+//   Otevře FormModal s daty původní stavby, č. stavby + " (kopie)", bez ID
+//   Demo: respektuje DEMO_MAX_STAVBY limit; ostrá DB: POST + logAkce "Kopírování stavby"
+//   Nápověda doplněna: sekce 📋 Kopírování stavby
+//   PENDING odstraněno: 📋 Kopírovat stavbu
+// BUILD0071 — ikony v textu fontSize:15 + saturate(1.3) pro sjednocení s nadpisovou ikonou
 //   Přidáno: Dva pohledy, Rozšířený filtr, Import staveb, Označení faktur e/S
 //   Upraveno: Šířky sloupců (max 2000px, zadání číslem)
 //   th: minWidth:0 + maxWidth:getColWidth → fixed layout respektuje col šířku
@@ -1938,6 +1937,7 @@ export default function App() {
   };
   const [editRow, setEditRow] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [copyRow, setCopyRow] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -2374,6 +2374,34 @@ export default function App() {
       await loadAll();
     } catch (e) { showToast("Chyba přidání: " + e.message, "error"); }
     setAdding(false);
+  };
+
+  const handleCopy = (row) => {
+    const { id, nabidka, rozdil, cislo_stavby, ...rest } = row;
+    setCopyRow({ ...rest, cislo_stavby: (cislo_stavby ? cislo_stavby + " (kopie)" : "(kopie)") });
+  };
+
+  const handleCopySave = async (newRow) => {
+    const { id, nabidka, rozdil, ...fields } = newRow;
+    NUM_FIELDS.forEach(k => { if (fields[k] === "" || fields[k] == null) fields[k] = 0; else fields[k] = Number(fields[k]) || 0; });
+    if (isDemo) {
+      if (data.length >= DEMO_MAX_STAVBY) {
+        showToast(`Demo verze: maximum ${DEMO_MAX_STAVBY} staveb.`, "error");
+        return;
+      }
+      const demoId = data.length > 0 ? data.reduce((m, r) => Math.max(m, r.id), 0) + 1 : 1;
+      setData(prev => [...prev, computeRow({ ...fields, id: demoId })]);
+      setCopyRow(null);
+      showToast("Kopie stavby uložena (demo).", "ok");
+      return;
+    }
+    try {
+      await sb("stavby", { method: "POST", body: JSON.stringify(fields) });
+      await logAkce(user?.email, "Kopírování stavby", fields.nazev_stavby + (fields.cislo_stavby ? ` (${fields.cislo_stavby})` : ""));
+      await loadAll();
+      showToast("Kopie stavby byla úspěšně uložena.", "ok");
+    } catch (e) { showToast("Chyba kopírování: " + e.message, "error"); }
+    setCopyRow(null);
   };
 
   const handleDelete = async (id) => {
@@ -2949,7 +2977,8 @@ export default function App() {
                 {/* AKCE vpravo */}
                 {(isAdmin || isEditor) && (
                   <td style={{ padding: "7px 11px", whiteSpace: "nowrap", border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>
-                    <button onClick={() => setEditRow(row)} onMouseEnter={e => showTooltip(e, "Editovat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11, marginRight: isAdmin ? 5 : 0 }}>✏️ Editovat</button>
+                    <button onClick={() => setEditRow(row)} onMouseEnter={e => showTooltip(e, "Editovat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 5, color: "#60a5fa", cursor: "pointer", fontSize: 11, marginRight: 5 }}>✏️ Editovat</button>
+                    <button onClick={() => handleCopy(row)} onMouseEnter={e => showTooltip(e, "Kopírovat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 5, color: "#34d399", cursor: "pointer", fontSize: 11, marginRight: isAdmin ? 5 : 0 }}>📋</button>
                     {isAdmin && <button onClick={() => setDeleteConfirm({ id: row.id, step: 1 })} onMouseEnter={e => showTooltip(e, "Smazat stavbu")} onMouseLeave={hideTooltip} style={{ padding: "3px 9px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 5, color: "#f87171", cursor: "pointer", fontSize: 11 }}>🗑️</button>}
                   </td>
                 )}
@@ -3032,6 +3061,7 @@ export default function App() {
                 { icon: "🎨", title: "Barevné řádky", text: <span>Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). <span style={{background:"rgba(34,197,94,0.25)",color:"#4ade80",padding:"1px 5px",borderRadius:4,fontWeight:600}}>Zelený řádek</span> = stavba má fakturu, částku i datum splatnosti — kompletně vyfakturována.</span> },
                 { icon: "⚠️", title: "Termíny ukončení", text: <span>Pole Ukončení se zobrazí <span style={{color:"#f87171",fontWeight:700}}>červeně ⚠️</span> pokud je termín v minulosti a stavba nemá fakturu. Tlačítko <span style={{color:"#f87171",fontWeight:700}}>⚠️ Termíny</span> v hlavičce zobrazí přehled staveb s termínem do 30 dní — včetně zbývajících pracovních dní.</span> },
                 { icon: "🔍", title: "Filtry a vyhledávání", text: "Vyhledávejte podle názvu nebo čísla stavby (pole Hledat). Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Filtry lze kombinovat. Graf 📊 a export vždy pracují jen s aktuálně vyfiltrovanými daty." },
+                { icon: "📋", title: "Kopírování stavby", text: "Tlačítko 📋 vedle editace otevře formulář s předvyplněnými daty dané stavby. Číslo stavby dostane příponu \" (kopie)\". Po uložení se vytvoří nový samostatný záznam — původní zůstane nezměněn. Funkce je dostupná pro editory i administrátory." },
                 { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře interaktivní sloupcový graf. Tři přepínače: 🏢 Firma, 📅 Měsíc, 📂 Kat. I / II (Plán.+SNK+Běžné op. vs. Plán.+Běžné op.+Poruchy). Graf vždy odráží aktuální filtr." },
                 { icon: "📤", title: "Export dat", text: "CSV — prostá tabulka. Excel (.xlsx) — standardní formát. Barevný Excel (.xls) — se zbarvením firem (potvrďte varování Excelu). PDF — tisk na A4 landscape. Vše pracuje s aktuálním filtrem." },
                 { icon: "💾", title: "Záloha DB", text: "Tlačítko Záloha DB (pouze superadmin) stáhne kompletní zálohu celé databáze jako Excel se třemi listy: Stavby, Ciselniky, Uzivatele. Doporučujeme zálohovat pravidelně, zvláště před hromadnými změnami nebo aktualizací aplikace." },
@@ -3278,6 +3308,7 @@ export default function App() {
       )}
       {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={handleAdd} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={handleSave} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
+      {copyRow && <FormModal title="📋 Kopírovat stavbu" initial={copyRow} onSave={handleCopySave} onClose={() => setCopyRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} isDemo={isDemo} />}
 
       {showOrphanWarning && (() => {
