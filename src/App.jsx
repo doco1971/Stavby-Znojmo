@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_13_build0093
+// BUILD: 2026_03_13_build0094
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -155,6 +155,10 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0094 — FIX: drag & drop sloupců omezen pouze na superadmin
+//   Ikona ⠿ a draggable atribut zobrazeny jen pokud isSuperAdmin
+//   Ostatní role (user, user_e, admin) nemohou přehazovat sloupce
+//   Resize ⟺ zůstává beze změny (jen superadmin — tak jak bylo)
 // BUILD0093 — ↔️ Drag & drop přehazování sloupců tabulky myší
 //   colOrder state — pole klíčů sloupců v aktuálním pořadí
 //   Uloženo v localStorage (per-browser, bez DB)
@@ -3494,16 +3498,18 @@ export default function App() {
               {(isAdmin || isEditor) && <th style={{ padding: "9px 11px", color: T.textMuted, fontWeight: 700, fontSize: 10.5, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>AKCE</th>}
               {orderedCols.map(col => (
                 <th key={col.key}
-                  draggable
-                  onDragStart={e => handleColDragStart(e, col.key)}
-                  onDragOver={e => handleColDragOver(e, col.key)}
-                  onDragLeave={handleColDragLeave}
-                  onDrop={e => handleColDrop(e, col.key)}
-                  onDragEnd={handleColDragEnd}
-                  style={{ padding: "6px 4px 6px 8px", textAlign: "center", color: T.textMuted, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, width: getColWidth(col), minWidth: 0, position: "sticky", top: 0, background: dragOverState === col.key ? (isDark ? "rgba(37,99,235,0.25)" : "rgba(37,99,235,0.12)") : T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, borderLeft: dragOverState === col.key ? "2px solid #3b82f6" : `1px solid ${T.cellBorder}`, userSelect: "none", cursor: "grab", transition: "background 0.1s, border-left 0.1s" }}
+                  draggable={isSuperAdmin}
+                  onDragStart={isSuperAdmin ? e => handleColDragStart(e, col.key) : undefined}
+                  onDragOver={isSuperAdmin ? e => handleColDragOver(e, col.key) : undefined}
+                  onDragLeave={isSuperAdmin ? handleColDragLeave : undefined}
+                  onDrop={isSuperAdmin ? e => handleColDrop(e, col.key) : undefined}
+                  onDragEnd={isSuperAdmin ? handleColDragEnd : undefined}
+                  style={{ padding: "6px 4px 6px 8px", textAlign: "center", color: T.textMuted, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, width: getColWidth(col), minWidth: 0, position: "sticky", top: 0, background: dragOverState === col.key ? (isDark ? "rgba(37,99,235,0.25)" : "rgba(37,99,235,0.12)") : T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, borderLeft: dragOverState === col.key ? "2px solid #3b82f6" : `1px solid ${T.cellBorder}`, userSelect: "none", cursor: isSuperAdmin ? "grab" : "default", transition: "background 0.1s, border-left 0.1s" }}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, width: "100%", minWidth: 0 }}>
-                    <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", fontSize: 11, flexShrink: 0, cursor: "grab", lineHeight: 1 }} title="Táhni pro přesun sloupce">⠿</span>
+                    {isSuperAdmin && (
+                      <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", fontSize: 11, flexShrink: 0, cursor: "grab", lineHeight: 1 }} title="Táhni pro přesun sloupce">⠿</span>
+                    )}
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "center", minWidth: 0 }}>{col.label.toUpperCase()}</span>
                     {isSuperAdmin && (
                       editingColWidth === col.key
