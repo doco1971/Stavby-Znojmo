@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_13_build0086
+// BUILD: 2026_03_13_build0087
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -156,6 +156,11 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0087 — FIX: 💎 tlačítko nešlo vypnout Liquid Glass
+//   Příčina: .lg-shimmer měl position:absolute inset:0 z-index:3 přímo na headeru
+//            → překrýval obsah a blokoval klikání na tlačítka
+//   Oprava: shimmer jako inline child div s pointer-events:none
+//           z-index pseudo-elementů snížen na 0 (pod obsah)
 // BUILD0086 — 💎 Liquid Glass iOS 26 upgrade
 //   Animované orby na pozadí (4x tmavý / 3x světlý, blur + CSS animace)
 //   SVG filtry: feTurbulence + feDisplacementMap (simulace lomu světla)
@@ -3053,10 +3058,9 @@ export default function App() {
         @keyframes lgOrb3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(50px,40px) scale(1.1)}}
         @keyframes lgShimmer{0%{opacity:0.4;transform:translateX(-100%) skewX(-15deg)}100%{opacity:0;transform:translateX(300%) skewX(-15deg)}}
         .lg-panel{position:relative;overflow:hidden}
-        .lg-panel::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0.04) 50%,rgba(255,255,255,0.08) 100%);pointer-events:none;z-index:1}
-        .lg-panel::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent);pointer-events:none;z-index:2}
-        .lg-shimmer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3}
-        .lg-shimmer::after{content:'';position:absolute;top:0;left:0;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);animation:lgShimmer 4s ease-in-out infinite}
+        .lg-panel::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0.04) 50%,rgba(255,255,255,0.08) 100%);pointer-events:none;z-index:0}
+        .lg-panel::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent);pointer-events:none;z-index:0}
+        .lg-shimmer-bar{content:'';position:absolute;top:0;left:0;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);animation:lgShimmer 4s ease-in-out infinite;pointer-events:none;z-index:0}
         ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}
       `}</style>
 
@@ -3101,7 +3105,8 @@ export default function App() {
       )}
 
       {/* HEADER */}
-      <div ref={headerRef} className={liquidGlass ? "lg-panel lg-shimmer" : ""} style={{ background: T.headerBg, borderBottom: `1px solid ${T.headerBorder}`, padding: isMobile ? "8px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, backdropFilter: T.backdropFilter, WebkitBackdropFilter: T.backdropFilter, boxShadow: T.boxShadow, position: "relative", zIndex: 10 }}>
+      <div ref={headerRef} className={liquidGlass ? "lg-panel" : ""} style={{ background: T.headerBg, borderBottom: `1px solid ${T.headerBorder}`, padding: isMobile ? "8px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, backdropFilter: T.backdropFilter, WebkitBackdropFilter: T.backdropFilter, boxShadow: T.boxShadow, position: "relative", zIndex: 10 }}>
+        {liquidGlass && <div className="lg-shimmer-bar" style={{ position: "absolute", top: 0, left: 0, width: "40%", height: "100%", pointerEvents: "none" }} />}
         {/* Levá část: logo */}
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14 }}>
           <svg width={isMobile ? 32 : 46} height={isMobile ? 32 : 46} viewBox="0 0 80 80" fill="none">
