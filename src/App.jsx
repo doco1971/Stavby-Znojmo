@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_13_build0100
+// BUILD: 2026_03_14_build0102
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -155,6 +155,8 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0102 — Sjednocení fontFamily: všude 'Segoe UI',Tahoma,sans-serif
+// BUILD0101 — Oprava data exportu: 2026_03_13 → 2026_03_14 (aktuální datum)
 // BUILD0100 — UX: klik 🌞/🌙 při aktivním 💎 → vypne LG + zobrazí theme slider
 // BUILD0099 — FIX: NativeSelect dropdown portál do body (přes overflow:hidden + stacking context)
 // BUILD0098 — FIX: NativeSelect hover otevírá + spolehlivé zavírání (relatedTarget)
@@ -625,7 +627,7 @@ function HistorieModal({ row, isDark, onClose, isDemo }) {
   const borderC  = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1300, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1300, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: modalBg, borderRadius: 16, width: "min(680px,96vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
         {/* header — táhlo */}
         <div onMouseDown={onDragStart} style={dragHeaderStyle()}>
@@ -846,7 +848,7 @@ function LogModal({ isDark, firmy, onClose, isDemo }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1250, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1250, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: modalBg, borderRadius: 16, width: "min(900px,97vw)", maxHeight: "92vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.65)" }}>
 
         {/* header — táhlo */}
@@ -1230,7 +1232,7 @@ function GrafModal({ data, firmy, isDark, onClose }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1200, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1200, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: modalBg, borderRadius: 16, width: "min(1100px,97vw)", maxHeight: "95vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
         {/* header — táhlo */}
         <div onMouseDown={onDragStart} style={dragHeaderStyle({ flexWrap: "wrap", gap: 10 })}>
@@ -1288,7 +1290,7 @@ function Login({ onLogin, users, onLogAction }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f2027 100%)", display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "clamp(16px,5vh,60px) 0 24px", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f2027 100%)", display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "clamp(16px,5vh,60px) 0 24px", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "clamp(24px,5vw,48px) clamp(18px,5vw,40px)", width: "min(380px, 94vw)", boxShadow: "0 32px 80px rgba(0,0,0,0.5)" }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <svg width="80" height="80" viewBox="0 0 80 80" fill="none" style={{ display: "block", margin: "0 auto 14px" }}>
@@ -1538,7 +1540,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
   const modalRef = useRef(null);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div ref={modalRef} style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: "#1e293b", borderRadius: 16, width: "min(1100px, 97vw)", maxHeight: "95vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
 
         {/* Header — táhlo */}
@@ -1865,7 +1867,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const { pos, onMouseDown: onDragStart } = useDraggable(780, 560);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1100, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1100, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: modalBg, borderRadius: 16, width: 780, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column", border: `1px solid ${modalBorder}`, boxShadow: "0 32px 80px rgba(0,0,0,0.7)" }}>
 
         {/* header — táhlo */}
@@ -2125,7 +2127,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
       {/* Varování – nevyplněná položka */}
       {pendingWarn && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1400, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1400, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ background: isDark ? "#1e293b" : "#fff", borderRadius: 14, padding: "28px 32px", width: 380, border: `1px solid ${isDark ? "rgba(255,165,0,0.3)" : "rgba(255,165,0,0.4)"}`, boxShadow: "0 24px 60px rgba(0,0,0,0.5)", textAlign: "center" }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
             <div style={{ color: isDark ? "#f8fafc" : "#1e293b", fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Nevyplněná položka</div>
@@ -2194,7 +2196,7 @@ function StavbaCard({ row, isEditor, isAdmin, isDark, firmy, onEdit, onCopy, onD
   const dividerC = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
 
   return (
-    <div style={{ background: cardBg, borderRadius: 14, border: `1px solid ${borderC}`, fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ background: cardBg, borderRadius: 14, border: `1px solid ${borderC}`, fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
 
       {/* header */}
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", borderBottom: `1px solid ${dividerC}` }}>
@@ -3177,7 +3179,7 @@ export default function App() {
   const firmaColorMapCache = useMemo(() => Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#3b82f6"])), [firmy]);
 
     if (loading) return (
-    <div style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ width: 48, height: 48, border: "3px solid rgba(37,99,235,0.3)", borderTop: "3px solid #2563eb", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Načítám data...</div>
@@ -3186,7 +3188,7 @@ export default function App() {
   );
 
   if (dbError) return (
-    <div style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ background: "#1e293b", borderRadius: 16, padding: 32, maxWidth: 480, textAlign: "center", border: "1px solid rgba(239,68,68,0.3)" }}>
         <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
         <h3 style={{ color: "#f87171", margin: "0 0 8px" }}>Chyba připojení</h3>
@@ -3715,7 +3717,7 @@ export default function App() {
       {/* HELP MODAL */}
       {/* IMPORT RESULT MODAL */}
       {importLog && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1600, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1600, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ background: "#1e293b", borderRadius: 16, width: "min(480px,92vw)", padding: "28px 32px", border: "1px solid rgba(255,255,255,0.15)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
             <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>{importLog.chyby?.length > 0 ? "⚠️" : "✅"}</div>
             <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, textAlign: "center", marginBottom: 8 }}>
@@ -3735,7 +3737,7 @@ export default function App() {
       )}
 
       {showHelp && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1400, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 1400, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ position: "fixed", left: helpPos.x, top: helpPos.y, pointerEvents: "all", background: "#1e293b", borderRadius: 16, width: "min(680px,95vw)", maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.18)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
             {/* Header — táhlo */}
             <div onMouseDown={onHelpDragStart} style={dragHeaderStyle()}>
@@ -3876,7 +3878,7 @@ export default function App() {
 
       {/* POTVRZOVACÍ DIALOG */}
       {confirmExport && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1300, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1300, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ background: isDark ? "#1e293b" : "#fff", borderRadius: 14, padding: "28px 32px", width: 380, border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, boxShadow: "0 24px 60px rgba(0,0,0,0.5)", textAlign: "center" }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>📤</div>
             <div style={{ color: isDark ? "#f8fafc" : "#1e293b", fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Exportovat data?</div>
@@ -3896,7 +3898,7 @@ export default function App() {
 
       {/* EXPORT PREVIEW - sdílená tabulka pro CSV a XLS */}
       {(exportPreview?.type === "csv" || exportPreview?.type === "xls") && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ background: "#1e293b", borderRadius: 16, width: "95vw", maxHeight: "90vh", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 32px 80px rgba(0,0,0,0.7)" }}>
             <div style={{ padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>
@@ -3963,7 +3965,7 @@ export default function App() {
       )}
 
       {exportPreview?.type === "pdf" && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ background: "#1e293b", borderRadius: 16, width: "95vw", maxHeight: "90vh", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 32px 80px rgba(0,0,0,0.7)" }}>
             <div style={{ padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>🖨️ Náhled pro tisk / PDF</h3>
@@ -4055,7 +4057,7 @@ export default function App() {
         const firmyNames = firmy.map(f => f.hodnota);
         const orphans = data.filter(s => s.firma && !firmyNames.includes(s.firma));
         return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 2100, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 2100, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
             <div style={{ background: isDark ? "#1e293b" : "#fff", borderRadius: 16, width: 500, maxHeight: "80vh", display: "flex", flexDirection: "column", border: "1px solid rgba(251,191,36,0.4)", boxShadow: "0 32px 80px rgba(0,0,0,0.7)" }}>
               <div style={{ padding: "18px 24px", borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(251,191,36,0.08)", borderRadius: "16px 16px 0 0" }}>
                 <h3 style={{ color: "#fbbf24", margin: 0, fontSize: 17 }}>🏚️ Stavby bez firmy</h3>
@@ -4113,7 +4115,7 @@ export default function App() {
       })()}
 
       {showDeadlines && deadlineWarnings.length > 0 && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 2000, pointerEvents: "none", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 2000, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ position: "fixed", left: deadlinesPos.x, top: deadlinesPos.y, pointerEvents: "all", background: isDark ? "#1e293b" : "#fff", borderRadius: 16, width: "min(820px, 96vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", border: "1px solid rgba(239,68,68,0.4)", boxShadow: "0 32px 80px rgba(0,0,0,0.7)" }}>
             {/* header — táhlo */}
             <div onMouseDown={onDeadlinesDragStart} style={{ padding: "14px 18px", borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(239,68,68,0.1)", borderRadius: "16px 16px 0 0", gap: 10, cursor: "grab", userSelect: "none" }}>
@@ -4229,7 +4231,7 @@ export default function App() {
 
       {/* ROZŠÍŘENÝ FILTR — plovoucí overlay */}
       {showAdvFilter && (
-        <div style={{ position: "fixed", left: advFilterPos.x, top: advFilterPos.y, zIndex: 500, background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.35)", width: 340, fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", left: advFilterPos.x, top: advFilterPos.y, zIndex: 500, background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.35)", width: 340, fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div onMouseDown={onAdvFilterDragStart} style={{ padding: "10px 16px", borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "grab", userSelect: "none", borderRadius: "12px 12px 0 0", background: isDark ? "rgba(37,99,235,0.15)" : "rgba(37,99,235,0.08)" }}>
             <span style={{ color: isDark ? "#60a5fa" : "#2563eb", fontWeight: 700, fontSize: 13 }}>🔍 Rozšířený filtr</span>
             <button onClick={() => setShowAdvFilter(false)} onMouseDown={e => e.stopPropagation()} style={{ background: "none", border: "none", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)", fontSize: 16, cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
@@ -4287,7 +4289,7 @@ export default function App() {
 
       {/* AUTO-LOGOUT VAROVÁNÍ */}
       {autoLogoutWarning && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ background: isDark ? "#1e293b" : "#fff", borderRadius: 16, padding: "32px 36px", width: 360, textAlign: "center", border: "1px solid rgba(239,68,68,0.4)", boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>⏱️</div>
             <h3 style={{ color: isDark ? "#fff" : "#1e293b", margin: "0 0 8px", fontSize: 18 }}>Automatické odhlášení</h3>
