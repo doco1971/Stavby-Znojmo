@@ -36,10 +36,10 @@ jobs:
           fi
 
       # Uncomment this block if you have a separate staging Supabase project:
-      # - name: Ping staging Supabase
-      #   run: |
-      #     STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-      #       "${{ secrets.VITE_SB_URL_STAGING }}/rest/v1/" \
-      #       -H "apikey: ${{ secrets.VITE_SB_KEY_STAGING }}" \
-      #       -H "Authorization: Bearer ${{ secrets.VITE_SB_KEY_STAGING }}")
-      #     echo "Staging Supabase status: $STATUS"
+      - name: Ping staging Supabase
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.VITE_SB_URL_STAGING }}/rest/v1/" \
+            -H "apikey: ${{ secrets.VITE_SB_KEY_STAGING }}" \
+            -H "Authorization: Bearer ${{ secrets.VITE_SB_KEY_STAGING }}")
+          echo "Staging Supabase status: $STATUS"
