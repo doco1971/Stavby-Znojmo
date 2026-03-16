@@ -1,0 +1,45 @@
+name: Supabase Heartbeat
+
+# Keeps the Supabase Free tier project alive by pinging it every Monday and Thursday.
+# Free tier pauses after 7 days of inactivity — this prevents that.
+#
+# SETUP (do this for every fork / instance):
+#   GitHub repo → Settings → Secrets and variables → Actions → New repository secret
+#   Add two secrets:
+#     VITE_SB_URL  — your Supabase project URL (e.g. https://xxxx.supabase.co)
+#     VITE_SB_KEY  — your Supabase anon key
+#
+# For STAGING instance: add separate secrets VITE_SB_URL_STAGING + VITE_SB_KEY_STAGING
+# and uncomment the staging ping step below.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1,4'   # Every Monday and Thursday at 09:00 UTC (10:00 CZ winter / 11:00 CZ summer)
+  workflow_dispatch:          # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  heartbeat:
+    name: Ping Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping production Supabase
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.VITE_SB_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.VITE_SB_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.VITE_SB_KEY }}")
+          echo "Production Supabase status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "WARNING: Unexpected status code $STATUS"
+          fi
+
+      # Uncomment this block if you have a separate staging Supabase project:
+      # - name: Ping staging Supabase
+      #   run: |
+      #     STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+      #       "${{ secrets.VITE_SB_URL_STAGING }}/rest/v1/" \
+      #       -H "apikey: ${{ secrets.VITE_SB_KEY_STAGING }}" \
+      #       -H "Authorization: Bearer ${{ secrets.VITE_SB_KEY_STAGING }}")
+      #     echo "Staging Supabase status: $STATUS"
