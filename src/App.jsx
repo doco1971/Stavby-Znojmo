@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 // BUILD: 2026_03_17_build0116
 // ============================================================
-// POZNÁMKY PRO CLAUDE (čti na začátku každé session)
+// POZNÁMKY PRO CLAUDE (čti na začátku každé session) 
 // ============================================================
 // PRAVIDLO: Každá změna = dva soubory:
 //   stavby-app_DATUM_buildXXXX.jsx
