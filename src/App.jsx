@@ -3242,6 +3242,10 @@ export default function App() {
           const c = { ...r };
           delete c.id; // nechat DB generovat nové ID
           delete c.created_at;
+          delete c.nabidka;  // computed field
+          delete c.rozdil;   // computed field
+          // Přejmenuj bez_dph_2 → castka_bez_dph_2 (starší zálohy)
+          if ("bez_dph_2" in c) { c.castka_bez_dph_2 = c.bez_dph_2; delete c.bez_dph_2; }
           NUM_FIELDS_IMPORT.forEach(k => { c[k] = Number(c[k]) || 0; });
           Object.keys(c).forEach(k => {
             if (!NUM_FIELDS_IMPORT.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = "";
