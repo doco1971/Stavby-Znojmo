@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_17_build0116
+// BUILD: 2026_03_17_build0117
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -262,6 +262,9 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0117 — FIX: fallback starých názvů sloupců při importu JSON
+//   bez_dph_2 → castka_bez_dph_2, bez_dph → castka_bez_dph
+//   Zálohy z před migrace se importují správně
 // BUILD0116 — FIX: detekce prostředí v importu/záloze JSON — hostname místo SB_URL
 //   prostrediAktualni + prostredi v záloze: hostname.includes("staging/preview/localhost")
 //   Příčina bugu: SB_URL nemusí obsahovat "znojmo-staging" → vždy vrátilo PRODUKCE
@@ -3306,6 +3309,9 @@ export default function App() {
         const c = { ...r };
         delete c.id; // nechat DB generovat nové ID
         delete c.created_at;
+        // Fallback: staré názvy sloupců → nové
+        if ("bez_dph_2" in c && !("castka_bez_dph_2" in c)) { c.castka_bez_dph_2 = c.bez_dph_2; delete c.bez_dph_2; }
+        if ("bez_dph" in c && !("castka_bez_dph" in c)) { c.castka_bez_dph = c.bez_dph; delete c.bez_dph; }
         NUM_FIELDS_IMPORT.forEach(k => { c[k] = Number(c[k]) || 0; });
         Object.keys(c).forEach(k => {
           if (!NUM_FIELDS_IMPORT.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = "";
