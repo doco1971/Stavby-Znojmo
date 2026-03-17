@@ -3303,6 +3303,10 @@ export default function App() {
         const cleaned = stavbyRows.map(r => {
           const c = { ...r };
           NUM.forEach(k => { c[k] = Number(c[k]) || 0; });
+          Object.keys(c).forEach(k => {
+            if (!NUM.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = "";
+            if (typeof c[k] === "number" && isNaN(c[k])) c[k] = 0;
+          });
           return c;
         });
         // Vkládej po 50 kusech (Supabase limit)
