@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_17_build0119
+// BUILD: 2026_03_17_build0121
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -262,6 +262,14 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0121 — Mazání záznamů logu (admin + superadmin)
+//   LogModal: tlačítko 🗑 na každém záznamu (jen admin/superadmin, ne demo)
+//   Potvrzovací dialog před smazáním
+//   DELETE na log_aktivit?id=eq.{id}, okamžité odebrání ze state
+// BUILD0120 — Build badge v hlavičce pro superadmina
+//   Zobrazí "build0120" badge hned za role badge SUPERADMIN
+//   Viditelný jen pro superadmina, tooltip "Číslo buildu aplikace"
+//   Každý nový build = aktualizovat text badge
 // BUILD0119 — FIX: záloha exportuje vše, import filtruje dynamicky podle chyb DB
 //   zalohaJSON: vrácen na export celé DB (žádný VALID_FIELDS filtr) — plná záloha
 //   doImportJSON: ALWAYS_SKIP (id, created_at, nabidka, rozdil, bez_dph_2, bez_dph)
@@ -916,7 +924,7 @@ function HistorieModal({ row, isDark, onClose, isDemo }) {
 // ============================================================
 // LOG MODAL (kompletní log zakázek pro admina)
 // ============================================================
-function LogModal({ isDark, firmy, onClose, isDemo }) {
+function LogModal({ isDark, firmy, onClose, isDemo, isAdmin }) {
   const [zaznamy, setZaznamy] = useState([]);
   const [loading, setLoading] = useState(true);
   const { pos, onMouseDown: onDragStart } = useDraggable(900, 580);
@@ -924,6 +932,8 @@ function LogModal({ isDark, firmy, onClose, isDemo }) {
   const [filterAkce, setFilterAkce]   = useState("");
   const [filterOd,   setFilterOd]     = useState("");
   const [filterDo,   setFilterDo]     = useState("");
+  const [deleteId, setDeleteId]       = useState(null); // id záznamu k smazání
+  const [deleting, setDeleting]       = useState(false);
 
   const AKCE_ZAKÁZKY = ["Přidání stavby","Editace stavby","Smazání stavby"];
   const [totalLoaded, setTotalLoaded] = useState(0);
@@ -1026,6 +1036,16 @@ function LogModal({ isDark, firmy, onClose, isDemo }) {
     w.document.close();
   };
 
+  const handleDeleteLog = async (id) => {
+    if (isDemo) return;
+    setDeleting(true);
+    try {
+      await sb(`log_aktivit?id=eq.${id}`, { method: "DELETE", prefer: "return=minimal" });
+      setZaznamy(prev => prev.filter(r => r.id !== id));
+    } catch(e) { console.warn("Chyba mazání logu:", e); }
+    finally { setDeleting(false); setDeleteId(null); }
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1250, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: modalBg, borderRadius: 16, width: "min(900px,97vw)", maxHeight: "92vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.65)" }}>
@@ -1097,14 +1117,22 @@ function LogModal({ isDark, firmy, onClose, isDemo }) {
             const diff = parseDetail(z.detail);
             const nazev = diff?.nazev || z.detail?.replace(/^ID:\s*\d+,\s*/,"").split(" {")[0] || "";
             return (
-              <div key={i} style={{ marginBottom: 8, padding: "10px 14px", background: st.bg, border: `1px solid ${st.border}`, borderRadius: 9 }}>
+              <div key={i} style={{ marginBottom: 8, padding: "10px 14px", background: st.bg, border: `1px solid ${st.border}`, borderRadius: 9, position: "relative" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ color: st.color, fontWeight: 700, fontSize: 12 }}>{z.akce}</span>
                     {nazev && <span style={{ color: textC, fontSize: 12, fontWeight: 600 }}>· {nazev}</span>}
                     <span style={{ color: mutedC, fontSize: 11 }}>— {z.uzivatel}</span>
                   </div>
-                  <span style={{ color: mutedC, fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }}>{fmtCas(z.cas)}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <span style={{ color: mutedC, fontSize: 11, whiteSpace: "nowrap" }}>{fmtCas(z.cas)}</span>
+                    {isAdmin && !isDemo && (
+                      <button onClick={() => setDeleteId(z.id)} title="Smazat záznam" style={{ background: "none", border: "none", color: "rgba(239,68,68,0.4)", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, transition: "color 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
+                        onMouseLeave={e => e.currentTarget.style.color = "rgba(239,68,68,0.4)"}
+                      >🗑</button>
+                    )}
+                  </div>
                 </div>
                 {diff?.zmeny?.length > 0 && (
                   <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
@@ -1131,6 +1159,21 @@ function LogModal({ isDark, firmy, onClose, isDemo }) {
           </div>
           <button onClick={onClose} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Zavřít</button>
         </div>
+
+        {/* POTVRZENÍ SMAZÁNÍ ZÁZNAMU LOGU */}
+        {deleteId && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 9200, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
+            <div style={{ background: "#1e293b", borderRadius: 14, padding: "28px 32px", width: 340, border: "1px solid rgba(239,68,68,0.4)", boxShadow: "0 24px 60px rgba(0,0,0,0.7)", textAlign: "center" }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>🗑️</div>
+              <h3 style={{ color: "#fff", margin: "0 0 8px", fontSize: 15 }}>Smazat záznam logu?</h3>
+              <p style={{ color: "rgba(255,255,255,0.4)", margin: "0 0 22px", fontSize: 13 }}>Záznam bude trvale odstraněn z logu. Tato akce je nevratná.</p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                <button onClick={() => setDeleteId(null)} disabled={deleting} style={{ padding: "9px 20px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", cursor: "pointer" }}>Zrušit</button>
+                <button onClick={() => handleDeleteLog(deleteId)} disabled={deleting} style={{ padding: "9px 20px", background: "linear-gradient(135deg,#dc2626,#b91c1c)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 700 }}>{deleting ? "Mažu..." : "Smazat"}</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3736,6 +3779,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 7px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: "rgba(15,23,42,0.6)", border: "1px solid rgba(168,85,247,0.25)", color: "rgba(192,132,252,0.55)", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0121</span>}
             <button onClick={() => setShowHelp(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
@@ -4643,7 +4687,7 @@ export default function App() {
       )}
 
       {/* LOG MODAL */}
-      {showLog && <LogModal isDark={isDark} firmy={firmy} onClose={() => setShowLog(false)} isDemo={isDemo} />}
+      {showLog && <LogModal isDark={isDark} firmy={firmy} onClose={() => setShowLog(false)} isDemo={isDemo} isAdmin={isAdmin} />}
 
       {/* HISTORIE MODAL */}
       {historieRow && <HistorieModal row={historieRow} isDark={isDark} onClose={() => setHistorieRow(null)} isDemo={isDemo} />}
