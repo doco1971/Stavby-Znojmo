@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_16_build0112
+// BUILD: 2026_03_17_build0113
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -169,6 +169,8 @@ import * as XLSX from "xlsx";
 //   Řešení B (produkce): Supabase Pro $25/měsíc — pauzování odstraněno
 //   Heartbeat YAML přidat přímo do multi-tenant template → forky zdědí automaticky
 // [DONE] 🏗️  Multi-tenant template + testovací prostředí — BUILD0112
+// [DONE] 💾 JSON záloha + 📥 Import JSON — BUILD0113
+// [DONE] ⚠️  TEST banner + badge na staging — BUILD0113
 //   ✅ .env.template — šablona proměnných pro každou instanci
 //   ✅ .github/workflows/supabase-heartbeat.yml — keep-alive Pro+Čt 9:00 UTC
 //   ✅ README.md — onboarding CZ + EN, SQL migrace, checklist
@@ -258,6 +260,13 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0113 — JSON záloha + import, TEST banner/badge na staging, oprava importu XLS
+//   💾 Záloha DB přepnuta z Excel na JSON (přesnější, bez problémů s názvy sloupců)
+//   📥 Import JSON — nový handler pro zálohu JSON (bez konverze, přímý přenos dat)
+//   📥 Import XLS — opraven FIELD_MAP (názvy sloupců z exportu), castka_bez_dph_2 přidán do NUM
+//   ⚠️  TEST banner — blikající oranžový pruh přes celou šířku na staging/preview/localhost
+//   ⚠️  TEST badge — blikající štítek v hlavičce vedle loga na staging
+//   isStaging detekce — automaticky podle URL (hostname contains staging/preview/localhost)
 // BUILD0112 — Multi-tenant template: .env.template, heartbeat YAML, README CZ+EN
 //   ✅ .env.template — šablona s VITE_SB_URL, VITE_SB_KEY + komentáře kde najít hodnoty
 //   ✅ supabase-heartbeat.yml — GitHub Actions keep-alive Po+Čt 9:00 UTC
@@ -2614,6 +2623,11 @@ export default function App() {
   const isSuperAdmin = user?.role === "superadmin";
   const isEditor = user?.role === "user_e" || isAdmin;
   const isDemo = user?.email === "demo";
+  const isStaging = typeof window !== "undefined" && (
+    window.location.hostname.includes("staging") ||
+    window.location.hostname.includes("preview") ||
+    window.location.hostname === "localhost"
+  );
 
   // ── Šířky sloupců (jen superadmin) ─────────────────────────
   const [colWidths, setColWidths] = useState({});
@@ -3160,33 +3174,28 @@ export default function App() {
     } catch(e) { showToast("Chyba exportu logu: " + e.message, "error"); }
   };
 
-  const zalohaExcel = async () => {
+  const zalohaJSON = async () => {
     const datum = new Date().toISOString().slice(0,16).replace("T","_").replace(":","-");
-    const wb = XLSX.utils.book_new();
-
-    // List 1 — Stavby
-    const stavbyHeaders = COLUMNS.filter(c => !c.computed && c.key !== "id").map(c => c.label);
-    const stavbyRows = data.map(row => COLUMNS.filter(c => !c.computed && c.key !== "id").map(c => row[c.key] ?? ""));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([stavbyHeaders, ...stavbyRows]), "Stavby");
-
-    // List 2 — Ciselniky (živá data z DB)
     try {
-      const cis = await sb("ciselniky?order=typ,poradi");
-      const cisHeaders = ["id", "typ", "hodnota", "barva", "poradi"];
-      const cisRows = (cis || []).map(r => [r.id, r.typ, r.hodnota, r.barva || "", r.poradi]);
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cisHeaders, ...cisRows]), "Ciselniky");
-    } catch { XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Chyba načtení"]]), "Ciselniky"); }
-
-    // List 3 — Uzivatele (bez hesla)
-    try {
-      const uz = await sb("uzivatele?order=id");
-      const uzHeaders = ["id", "jmeno", "email", "role"];
-      const uzRows = (uz || []).map(r => [r.id, r.jmeno, r.email, r.role]);
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([uzHeaders, ...uzRows]), "Uzivatele");
-    } catch { XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Chyba načtení"]]), "Uzivatele"); }
-
-    XLSX.writeFile(wb, `zaloha_DB_${datum}.xlsx`);
-    logAkce(user?.email, "Záloha", `${data.length} staveb + ciselniky + uzivatele`);
+      const [stavbyRes, cisRes, uzRes] = await Promise.all([
+        sb("stavby?order=id"),
+        sb("ciselniky?order=typ,poradi"),
+        sb("uzivatele?order=id"),
+      ]);
+      const payload = {
+        version: 1,
+        created: new Date().toISOString(),
+        stavby: stavbyRes || [],
+        ciselniky: cisRes || [],
+        uzivatele: (uzRes || []).map(u => ({ id: u.id, jmeno: u.jmeno, email: u.email, role: u.role })), // bez hesel
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `zaloha_DB_${datum}.json`;
+      a.click();
+      logAkce(user?.email, "Záloha", `${payload.stavby.length} staveb + ciselniky + uzivatele (JSON)`);
+    } catch(e) { showToast("Chyba zálohy: " + e.message, "error"); }
   };
 
   // ── Import původní tabulky (superadmin) ──────────────────────
@@ -3212,6 +3221,51 @@ export default function App() {
     return `${dd}.${mm}.${d.getFullYear()}`;
   };
 
+  const importRef2 = useRef(null); // JSON import
+  const handleImportJSON = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const payload = JSON.parse(ev.target.result);
+        if (!payload.stavby || !Array.isArray(payload.stavby)) {
+          setImportLog({ ok: 0, chyby: ["Neplatný formát JSON zálohy — chybí pole 'stavby'."] });
+          return;
+        }
+        let ok = 0, chyby = [];
+        const NUM_FIELDS_IMPORT = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","nabidkova_cena","vyfakturovano","zrealizovano","castka_bez_dph","castka_bez_dph_2"];
+        // Smaž stávající stavby
+        await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
+        const cleaned = payload.stavby.map(r => {
+          const c = { ...r };
+          delete c.id; // nechat DB generovat nové ID
+          delete c.created_at;
+          NUM_FIELDS_IMPORT.forEach(k => { c[k] = Number(c[k]) || 0; });
+          Object.keys(c).forEach(k => {
+            if (!NUM_FIELDS_IMPORT.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = "";
+          });
+          return c;
+        });
+        // Vkládej po 50 kusech
+        for (let i = 0; i < cleaned.length; i += 50) {
+          const chunk = cleaned.slice(i, i+50);
+          try {
+            await sb("stavby", { method: "POST", body: JSON.stringify(chunk), prefer: "return=minimal" });
+            ok += chunk.length;
+          } catch(e) { chyby.push(`Řádky ${i+1}-${i+chunk.length}: ${e.message}`); }
+        }
+        await loadAll();
+        logAkce(user?.email, "Import JSON", `${ok} staveb importováno z ${file.name}`);
+        setImportLog({ ok, chyby, zprava: `Importováno ${ok} staveb z "${file.name}"` });
+      } catch(e) {
+        setImportLog({ ok: 0, chyby: ["Chyba čtení JSON: " + e.message] });
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -3234,15 +3288,15 @@ export default function App() {
           const headers = raw[0];
           const colIdx = (label) => headers.findIndex(h => h === label);
           const FIELD_MAP = [
-            ["Firma", "firma"], ["Číslo stavby", "cislo_stavby"], ["Název stavby", "nazev_stavby"],
-            ["PS Kat.I", "ps_i"], ["SNK", "snk_i"], ["BO Kat.I", "bo_i"],
-            ["PS Kat.II", "ps_ii"], ["BO Kat.II", "bo_ii"], ["Poruchy", "poruch"],
-            ["Nabídka", "nabidkova_cena"], ["Vyfakturováno", "vyfakturovano"],
+            ["Firma", "firma"], ["Č. stavby", "cislo_stavby"], ["Název stavby", "nazev_stavby"],
+            ["Plán. stavby I", "ps_i"], ["SNK I", "snk_i"], ["Běžné opravy I", "bo_i"],
+            ["Plán. stavby II", "ps_ii"], ["Běžné opravy II", "bo_ii"], ["Poruchy", "poruch"],
+            ["Nab. cena", "nabidkova_cena"], ["Vyfakturováno", "vyfakturovano"],
             ["Zrealizováno", "zrealizovano"], ["SOD", "sod"], ["Ze dne", "ze_dne"],
             ["Objednatel", "objednatel"], ["Stavbyvedoucí", "stavbyvedouci"],
-            ["Ukončení", "ukonceni"], ["Č.faktury", "cislo_faktury"],
-            ["Částka bez DPH", "castka_bez_dph"], ["Splatná", "splatna"],
-            ["Č.faktury 2", "cislo_faktury_2"], ["Č. bez DPH 2", "castka_bez_dph_2"], ["Splatná 2", "splatna_2"],
+            ["Ukončení", "ukonceni"], ["Č. faktury", "cislo_faktury"],
+            ["Č. bez DPH", "castka_bez_dph"], ["Splatná", "splatna"],
+            ["Č. faktury 2", "cislo_faktury_2"], ["Č. bez DPH 2", "castka_bez_dph_2"], ["Splatná 2", "splatna_2"],
             ["Poznámka", "poznamka"],
           ];
           for (const row of raw.slice(1)) {
@@ -3299,10 +3353,14 @@ export default function App() {
 
         // ── Uložit do DB — DELETE vše + POST nové ──
         await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
-        const NUM = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","nabidkova_cena","vyfakturovano","zrealizovano","castka_bez_dph"];
+        const NUM = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","nabidkova_cena","vyfakturovano","zrealizovano","castka_bez_dph","castka_bez_dph_2"];
         const cleaned = stavbyRows.map(r => {
           const c = { ...r };
           NUM.forEach(k => { c[k] = Number(c[k]) || 0; });
+          Object.keys(c).forEach(k => {
+            if (!NUM.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = "";
+            if (typeof c[k] === "number" && isNaN(c[k])) c[k] = 0;
+          });
           return c;
         });
         // Vkládej po 50 kusech (Supabase limit)
@@ -3475,6 +3533,8 @@ export default function App() {
         .table-wrapper{-webkit-overflow-scrolling:touch;}
         * { -webkit-tap-highlight-color: transparent; }
         @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes stagingBlink{0%,100%{opacity:1;box-shadow:0 0 8px rgba(249,115,22,0.8)}50%{opacity:0.4;box-shadow:0 0 2px rgba(249,115,22,0.2)}}
+        @keyframes stagingPulse{0%,100%{background:rgba(249,115,22,0.95)}50%{background:rgba(234,88,12,0.7)}}
         @keyframes lgOrb1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,-40px) scale(1.15)}66%{transform:translate(-30px,50px) scale(0.9)}}
         @keyframes lgOrb2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-80px,30px) scale(0.85)}66%{transform:translate(40px,-60px) scale(1.2)}}
         @keyframes lgOrb3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(50px,40px) scale(1.1)}}
@@ -3525,6 +3585,13 @@ export default function App() {
           🎮 DEMO VERZE — plný přístup admin, data se neukládají, maximum {DEMO_MAX_STAVBY} staveb ({data.length}/{DEMO_MAX_STAVBY})
         </div>
       )}
+      {isStaging && !isDemo && (
+        <div style={{ animation: "stagingPulse 1.5s ease-in-out infinite", color: "#fff", textAlign: "center", padding: "5px 16px", fontSize: 12, fontWeight: 800, letterSpacing: 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <span style={{ animation: "stagingBlink 1.5s ease-in-out infinite", display: "inline-block" }}>⚠️</span>
+          TESTOVACÍ PROSTŘEDÍ — změny se ukládají do testovací databáze, nikoliv do ostré produkce
+          <span style={{ animation: "stagingBlink 1.5s ease-in-out infinite", display: "inline-block" }}>⚠️</span>
+        </div>
+      )}
 
       {/* HEADER */}
       <div ref={headerRef} className={liquidGlass ? "lg-panel" : ""} style={{ background: T.headerBg, borderBottom: `1px solid ${T.headerBorder}`, padding: isMobile ? "8px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, backdropFilter: T.backdropFilter, WebkitBackdropFilter: T.backdropFilter, boxShadow: T.boxShadow, position: "relative", zIndex: 10 }}>
@@ -3535,9 +3602,16 @@ export default function App() {
             <circle cx="40" cy="40" r="38" fill="#1e3a8a" />
             <polygon points="47,10 30,42 40,42 33,68 52,36 42,36" fill="#facc15" />
           </svg>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 22 }}>Stavby Znojmo</div>
-            {!isMobile && <div style={{ color: T.textMuted, fontSize: 16, textAlign: "center", letterSpacing: 1 }}>kategorie 1 & 2</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 22 }}>Stavby Znojmo</div>
+              {!isMobile && <div style={{ color: T.textMuted, fontSize: 16, textAlign: "center", letterSpacing: 1 }}>kategorie 1 & 2</div>}
+            </div>
+            {isStaging && !isDemo && (
+              <div style={{ animation: "stagingBlink 1.5s ease-in-out infinite", background: "rgba(249,115,22,0.9)", color: "#fff", fontWeight: 800, fontSize: 11, padding: "3px 8px", borderRadius: 6, letterSpacing: 1, border: "1px solid rgba(249,115,22,0.6)", flexShrink: 0 }}>
+                ⚠️ TEST
+              </div>
+            )}
           </div>
         </div>
 
@@ -3666,8 +3740,13 @@ export default function App() {
                 <span style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, padding: "0 8px", height: 28, display: "inline-flex", alignItems: "center", color: T.text, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>{filtered.length} záz.</span>
                 <button onClick={() => setShowGraf(true)} onMouseEnter={e => showTooltip(e, "Sloupcový graf nákladů")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>📊 Graf</button>
                 <NativeSelect value="⬇ Export" onChange={v => { if (v === "📄 CSV (.csv)") exportCSV(); else if (v === "📊 Excel (.xlsx)") exportXLS(); else if (v === "🎨 Barevný Excel") exportXLSColor(); else if (v === "📜 Export logu") exportLog(); else if (v === "🖨️ PDF tisk") exportPDF(); }} options={["⬇ Export", "📄 CSV (.csv)", "📊 Excel (.xlsx)", "🎨 Barevný Excel", ...(isAdmin ? ["📜 Export logu"] : []), "🖨️ PDF tisk"]} isDark={isDark} style={{ flexShrink: 0 }} />
-                {isSuperAdmin && <button onClick={zalohaExcel} onMouseEnter={e => showTooltip(e, "Záloha celé DB: stavby + číselníky + uživatelé (Excel, 3 listy)")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>💾 Záloha</button>}
-                {isSuperAdmin && <><input ref={importRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: "none" }} /><button onClick={() => importRef.current?.click()} onMouseEnter={e => showTooltip(e, "Import staveb z původní tabulky nebo zálohy DB (Excel)")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(251,191,36,0.1)" : "rgba(251,191,36,0.15)", border: `1px solid ${isDark ? "rgba(251,191,36,0.3)" : "rgba(251,191,36,0.5)"}`, borderRadius: 7, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>📥 Import</button></>}
+                {isSuperAdmin && <button onClick={zalohaJSON} onMouseEnter={e => showTooltip(e, "Záloha celé DB jako JSON: stavby + číselníky + uživatelé")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>💾 Záloha</button>}
+                {isSuperAdmin && <>
+                <input ref={importRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: "none" }} />
+                <input ref={importRef2} type="file" accept=".json" onChange={handleImportJSON} style={{ display: "none" }} />
+                <button onClick={() => importRef.current?.click()} onMouseEnter={e => showTooltip(e, "Import staveb z původní tabulky nebo zálohy DB (Excel)")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(251,191,36,0.1)" : "rgba(251,191,36,0.15)", border: `1px solid ${isDark ? "rgba(251,191,36,0.3)" : "rgba(251,191,36,0.5)"}`, borderRadius: 7, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>📥 Import XLS</button>
+                <button onClick={() => importRef2.current?.click()} onMouseEnter={e => showTooltip(e, "Import staveb ze zálohy JSON")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(16,185,129,0.1)" : "rgba(16,185,129,0.15)", border: `1px solid ${isDark ? "rgba(16,185,129,0.3)" : "rgba(16,185,129,0.5)"}`, borderRadius: 7, color: "#10b981", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>📥 Import JSON</button>
+              </>}
                 {isEditor && <button onMouseEnter={e => showTooltip(e, "Přidat novou stavbu")} onMouseLeave={hideTooltip} onClick={() => { if (isDemo && data.length >= DEMO_MAX_STAVBY) { showToast(`Demo verze: maximum ${DEMO_MAX_STAVBY} staveb.`, "error"); return; } setAdding(true); }} style={{ padding: "0 14px", height: 28, background: isDemo && data.length >= DEMO_MAX_STAVBY ? "rgba(100,116,139,0.4)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", borderRadius: 7, color: "#fff", cursor: isDemo && data.length >= DEMO_MAX_STAVBY ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600 }}>{isDemo ? `+ Přidat stavbu (${data.length}/${DEMO_MAX_STAVBY})` : "+ Přidat stavbu"}</button>}
               </div>
             </>
