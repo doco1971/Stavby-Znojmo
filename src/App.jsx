@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_18_build0139
+// BUILD: 2026_03_18_build0140
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -652,7 +652,7 @@ const hexToRgbaGlobal = (hex, alpha) => `rgba(${hexToRgb(hex)},${alpha})`;
 // ── useDraggable hook — jednotný drag pro všechna plovoucí okna ───────────────
 // w, h = šířka a výška okna v px (pro výpočet středu); lze předat 0 pokud neznáme
 function useDraggable(w = 600, h = 500) {
-  const [pos, setPos] = useState(() => {
+  const calcPos = () => {
     const iW = typeof window !== "undefined" ? window.innerWidth : 1200;
     const iH = typeof window !== "undefined" ? window.innerHeight : 800;
     const winW = Math.min(w, iW * 0.97);
@@ -661,7 +661,10 @@ function useDraggable(w = 600, h = 500) {
       x: Math.max(10, Math.round(iW / 2 - winW / 2)),
       y: Math.max(10, Math.min(60, Math.round(iH / 2 - winH / 2))),
     };
-  });
+  };
+  const [pos, setPos] = useState(calcPos);
+  // Reset pozice při každém mountu komponenty
+  useEffect(() => { setPos(calcPos()); }, []);
   const dragging = useRef(false);
   const offset = useRef({ x: 0, y: 0 });
   const onMouseDown = (e) => {
@@ -2809,9 +2812,11 @@ export default function App() {
     const r = e.currentTarget.getBoundingClientRect();
     const spaceBelow = window.innerHeight - r.bottom;
     const above = spaceBelow < 40;
+    const approxW = Math.max(text.length * 7, 80);
     const xCenter = r.left + r.width / 2;
+    const xClamped = Math.max(8, Math.min(xCenter - approxW / 2, window.innerWidth - approxW - 8));
     tooltipTimer.current = setTimeout(() => {
-      setTooltip({ visible: true, text, x: xCenter, y: above ? r.top - 6 : r.bottom + 6, above });
+      setTooltip({ visible: true, text, x: xClamped, y: above ? r.top - 34 : r.bottom + 6, above });
     }, 600);
   };
   const hideTooltip = () => { clearTimeout(tooltipTimer.current); setTooltip(t => ({ ...t, visible: false })); };
@@ -3993,7 +3998,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0139</span>}
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0140</span>}
             <button onClick={() => setShowHelp(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(isSuperAdmin); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
@@ -4500,9 +4505,8 @@ export default function App() {
 
       {/* TOOLTIP */}
       {tooltip.visible && (
-        <div style={{ position: "fixed", left: Math.max(8, Math.min(tooltip.x, window.innerWidth - 150)), top: tooltip.above ? "auto" : tooltip.y, bottom: tooltip.above ? window.innerHeight - tooltip.y : "auto", transform: "translateX(-50%)", background: "rgba(15,23,42,0.95)", color: "#e2e8f0", fontSize: 12, padding: "5px 10px", borderRadius: 6, pointerEvents: "none", zIndex: 9999, whiteSpace: "nowrap", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
+        <div style={{ position: "fixed", left: tooltip.x, top: tooltip.y, background: "rgba(15,23,42,0.95)", color: "#e2e8f0", fontSize: 12, padding: "5px 10px", borderRadius: 6, pointerEvents: "none", zIndex: 9999, whiteSpace: "nowrap", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
           {tooltip.text}
-          <div style={{ position: "absolute", top: tooltip.above ? "auto" : -4, bottom: tooltip.above ? -4 : "auto", left: "50%", transform: "translateX(-50%)", width: 8, height: 8, background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.12)", borderBottom: tooltip.above ? "none" : undefined, borderRight: "none", borderTop: tooltip.above ? undefined : "none", rotate: "45deg" }} />
         </div>
       )}
 
