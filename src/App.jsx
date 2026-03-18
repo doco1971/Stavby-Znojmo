@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_18_build0147
+// BUILD: 2026_03_18_build0148
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -2075,13 +2075,22 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                 </div>
                 <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 16, marginTop: 8 }}>
                   <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>💡 TLAČÍTKO SLOŽKA</div>
-                  <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo vidí tlačítko 💡 pro kopírování cesty ke složce zakázky.</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo vidí tlačítko 💡 pro otevření složky zakázky v Průzkumníku Windows.</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                     {[["none","Nikdo"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
                       <button key={val} onClick={() => { setEditSlozkaRole(val); onSaveSlozkaRole(val); }} style={{ padding: "7px 14px", background: editSlozkaRole === val ? "rgba(251,191,36,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${editSlozkaRole === val ? "rgba(251,191,36,0.6)" : modalBorder}`, borderRadius: 7, color: editSlozkaRole === val ? "#fbbf24" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: editSlozkaRole === val ? 700 : 400 }}>{label}</button>
                     ))}
                   </div>
-                  <div style={{ color: modalMuted, fontSize: 11, marginTop: 8 }}>Cesta ke složce se nastavuje v editaci každé stavby (sekce Ostatní).</div>
+                  <div style={{ padding: "10px 14px", background: isDark ? "rgba(251,191,36,0.06)" : "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 8, marginBottom: 8 }}>
+                    <div style={{ color: isDark ? "#fbbf24" : "#b45309", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>⚠️ Nutná jednorázová instalace na každém PC</div>
+                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 8 }}>Pro přímé otevření složky klikem na 💡 stáhněte a spusťte instalátor jako správce (trvá ~10 sekund). Funguje i přes VPN.</div>
+                    <button onClick={() => {
+                      const bat = `@echo off\r\nnet session >nul 2>&1\r\nif %errorLevel% neq 0 (echo Spustte jako spravce! & pause & exit /b 1)\r\necho Registruji protokol stavby://...\r\nset "D=%ProgramFiles%\\StavbyZnojmo"\r\nmkdir "%D%" 2>nul\r\n(echo @echo off\r\necho set "U=%%~1"\r\necho set "U=%%U:stavby://=%%"\r\necho set "U=%%U:/=\\%%"\r\necho explorer "%%U%%") > "%D%\\open.bat"\r\nreg add "HKLM\\SOFTWARE\\Classes\\stavby" /ve /d "Stavby Znojmo" /f >nul\r\nreg add "HKLM\\SOFTWARE\\Classes\\stavby" /v "URL Protocol" /d "" /f >nul\r\nreg add "HKLM\\SOFTWARE\\Classes\\stavby\\shell\\open\\command" /ve /d "cmd /c \\"%D%\\open.bat\\" \\"%%1\\"" /f >nul\r\necho.\r\necho Hotovo! Klikani na zlutou zarovku nyni otvira slozky.\r\npause`;
+                      const blob = new Blob([bat], { type: "application/octet-stream" });
+                      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "install_stavby_protocol.bat"; a.click();
+                    }} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", borderRadius: 7, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Stáhnout instalátor (Windows)</button>
+                  </div>
+                  <div style={{ color: modalMuted, fontSize: 11 }}>Cesta ke složce se zadává v editaci každé stavby (sekce Ostatní).</div>
                 </div>
                 <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 16, marginTop: 8 }}>
                   <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>ŠÍŘKY SLOUPCŮ</div>
@@ -2457,6 +2466,7 @@ export default function App() {
   const [filterKat, setFilterKat] = useState("");
   const [editRow, setEditRow] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [slozkaPopup, setSlozkaPopup] = useState(null); // { id, url, x, y }
   const [copyRow, setCopyRow] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const isMobile = useIsMobile(768);
@@ -4017,14 +4027,24 @@ export default function App() {
                       <button
                         onClick={() => {
                           if (row.slozka_url) {
-                            navigator.clipboard.writeText(row.slozka_url);
-                            showToast("Cesta zkopírována do schránky", "ok");
+                            // Převod cesty na stavby:// protokol
+                            // U:\složka\... → stavby://U:/složka/...
+                            const url = row.slozka_url
+                              .replace(/\\/g, "/")
+                              .replace(/^\/\//, ""); // odstraní úvodní // u UNC
+                            const protokolUrl = "stavby://" + url;
+                            // Pokus o otevření přes protokol
+                            const a = document.createElement("a");
+                            a.href = protokolUrl;
+                            a.click();
+                            // Zároveň zkopíruj do schránky jako záloha
+                            navigator.clipboard.writeText(row.slozka_url).catch(() => {});
                           }
                         }}
-                        onMouseEnter={e => showTooltip(e, row.slozka_url ? `Kopírovat cestu: ${row.slozka_url}` : "Složka není nastavena — upravte v editaci stavby")}
+                        onMouseEnter={e => showTooltip(e, row.slozka_url ? `Otevřít složku: ${row.slozka_url}` : "Složka není nastavena — upravte v editaci stavby")}
                         onMouseLeave={hideTooltip}
                         style={{ padding: "3px 7px", background: row.slozka_url ? "rgba(251,191,36,0.15)" : "rgba(100,116,139,0.1)", border: `1px solid ${row.slozka_url ? "rgba(251,191,36,0.4)" : "rgba(100,116,139,0.2)"}`, borderRadius: 5, color: row.slozka_url ? "#fbbf24" : "rgba(100,116,139,0.4)", cursor: row.slozka_url ? "pointer" : "default", fontSize: 13, marginLeft: 5 }}
-                        title={row.slozka_url ? "Kopírovat cestu do schránky" : "Složka není nastavena"}
+                        title={row.slozka_url ? "Otevřít složku v Průzkumníku (nutný instalátor)" : "Složka není nastavena"}
                       >💡</button>
                     )}
                   </td>
