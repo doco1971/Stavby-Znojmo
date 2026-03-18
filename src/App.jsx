@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_18_build0128
+// BUILD: 2026_03_18_build0130
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -262,6 +262,13 @@ import * as XLSX from "xlsx";
 // BUILD0068 — brightness(2) + bílý glow — příliš agresivní
 // BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
 // BUILD0070 — všechny ikony brightness(1.4)
+// BUILD0130 — FIX: skryté záznamy nevidí admin ani po znovuotevření logu
+//   Příčina: DB dotaz načítal vše vč. hidden=true, filtr byl jen v state
+//   Oprava: hidden=eq.false přidán do DB dotazu pro non-superadmin
+//   Opraveno ve: HistorieModal, LogModal, Nastavení→Log aktivit (loadLog)
+// BUILD0129 — Počet řádků na stránku uložen do localStorage
+//   PAGE_SIZE se pamatuje mezi session na stejném zařízení
+//   Každé zařízení (PC, tablet) má vlastní nastavení
 // BUILD0128 — FIX: dialog "Nevyplněná položka" — pointerEvents:"all" přímo na dialog
 //   Správné řešení: dialog zůstává uvnitř SettingsModal, ale má pointerEvents:"all"
 //   Předchozí pokusy (build0125-0127) měly buď špatný zIndex nebo syntax chybu
@@ -791,7 +798,8 @@ function HistorieModal({ row, isDark, onClose, isDemo, isAdmin, isSuperAdmin, on
     if (isDemo) { setLoading(false); return; }
     const load = async () => {
       try {
-        const res = await sb(`log_aktivit?order=cas.desc&limit=500`);
+        const hiddenFilter = isSuperAdmin ? "" : "&hidden=eq.false";
+        const res = await sb(`log_aktivit?order=cas.desc&limit=500${hiddenFilter}`);
         const idStr = String(row.id);
         const filtered = (res || []).filter(r => {
           if (!r.detail) return false;
@@ -1039,7 +1047,8 @@ function LogModal({ isDark, firmy, onClose, isDemo, isAdmin, isSuperAdmin }) {
     if (isDemo) { setLoading(false); return; }
     const load = async () => {
       try {
-        const res = await sb(`log_aktivit?order=cas.desc&limit=10000`);
+        const hiddenFilter = isSuperAdmin ? "" : "&hidden=eq.false";
+        const res = await sb(`log_aktivit?order=cas.desc&limit=10000${hiddenFilter}`);
         const all = res || [];
         setTotalLoaded(all.length);
         setZaznamy(all.filter(r => AKCE_ZAKÁZKY.includes(r.akce)));
@@ -2889,7 +2898,8 @@ export default function App() {
 
   const loadLog = useCallback(async () => {
     try {
-      const res = await sb("log_aktivit?order=cas.desc&limit=1000");
+      const hiddenFilter = isSuperAdmin ? "" : "&hidden=eq.false";
+      const res = await sb(`log_aktivit?order=cas.desc&limit=1000${hiddenFilter}`);
       setLogData(res);
       return res;
     } catch (e) { console.warn("Log load error:", e); return []; }
@@ -3414,8 +3424,17 @@ export default function App() {
   const paginationRef = useRef(null);
   const footerRef = useRef(null);
 
-  // PAGE_SIZE: fixní hodnota, uživatel může měnit tlačítky v paginaci
-  const [PAGE_SIZE, setPageSize] = useState(7);
+  // PAGE_SIZE: fixní hodnota, uživatel může měnit tlačítky v paginaci — uloženo v localStorage
+  const [PAGE_SIZE, setPageSizeState] = useState(() => {
+    try { return parseInt(localStorage.getItem("pageSize") || "7", 10); } catch { return 7; }
+  });
+  const setPageSize = (fn) => {
+    setPageSizeState(prev => {
+      const next = typeof fn === "function" ? fn(prev) : fn;
+      try { localStorage.setItem("pageSize", String(next)); } catch {}
+      return next;
+    });
+  };
   const [viewMode, setViewMode] = useState("page"); // "page" | "scroll"
   const [page, setPage] = useState(0);
   useEffect(() => { setPage(0); }, [filterFirma, filterText, filterObjed, filterSV, filterRok, filterCastkaOd, filterCastkaDo, filterProslé, filterFakturace, filterKat]);
@@ -3962,7 +3981,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 7px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: "rgba(15,23,42,0.6)", border: "1px solid rgba(168,85,247,0.25)", color: "rgba(192,132,252,0.55)", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0128</span>}
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 7px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: "rgba(15,23,42,0.6)", border: "1px solid rgba(168,85,247,0.25)", color: "rgba(192,132,252,0.55)", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0130</span>}
             <button onClick={() => setShowHelp(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
