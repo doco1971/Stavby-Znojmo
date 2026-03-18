@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_18_build0148
+// BUILD: 2026_03_18_build0149
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -4025,26 +4025,23 @@ export default function App() {
                     </button>}
                     {showSlozka && (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
                           if (row.slozka_url) {
-                            // Převod cesty na stavby:// protokol
-                            // U:\složka\... → stavby://U:/složka/...
-                            const url = row.slozka_url
-                              .replace(/\\/g, "/")
-                              .replace(/^\/\//, ""); // odstraní úvodní // u UNC
-                            const protokolUrl = "stavby://" + url;
-                            // Pokus o otevření přes protokol
+                            // Žlutá — otevři složku přes protokol
+                            const url = row.slozka_url.replace(/\\/g, "/").replace(/^\/\//, "");
                             const a = document.createElement("a");
-                            a.href = protokolUrl;
+                            a.href = "stavby://" + url;
                             a.click();
-                            // Zároveň zkopíruj do schránky jako záloha
                             navigator.clipboard.writeText(row.slozka_url).catch(() => {});
+                          } else if (isEditor) {
+                            // Šedá — otevři popup pro zadání cesty
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setSlozkaPopup({ id: row.id, url: "", x: rect.left, y: rect.bottom + 6 });
                           }
                         }}
-                        onMouseEnter={e => showTooltip(e, row.slozka_url ? `Otevřít složku: ${row.slozka_url}` : "Složka není nastavena — upravte v editaci stavby")}
+                        onMouseEnter={e => showTooltip(e, row.slozka_url ? `Otevřít složku: ${row.slozka_url}` : isEditor ? "Kliknutím nastavit cestu ke složce" : "Složka není nastavena")}
                         onMouseLeave={hideTooltip}
-                        style={{ padding: "3px 7px", background: row.slozka_url ? "rgba(251,191,36,0.15)" : "rgba(100,116,139,0.1)", border: `1px solid ${row.slozka_url ? "rgba(251,191,36,0.4)" : "rgba(100,116,139,0.2)"}`, borderRadius: 5, color: row.slozka_url ? "#fbbf24" : "rgba(100,116,139,0.4)", cursor: row.slozka_url ? "pointer" : "default", fontSize: 13, marginLeft: 5 }}
-                        title={row.slozka_url ? "Otevřít složku v Průzkumníku (nutný instalátor)" : "Složka není nastavena"}
+                        style={{ padding: "3px 7px", background: row.slozka_url ? "rgba(251,191,36,0.15)" : "rgba(100,116,139,0.1)", border: `1px solid ${row.slozka_url ? "rgba(251,191,36,0.4)" : "rgba(100,116,139,0.2)"}`, borderRadius: 5, color: row.slozka_url ? "#fbbf24" : isEditor ? "rgba(100,116,139,0.6)" : "rgba(100,116,139,0.3)", cursor: (row.slozka_url || isEditor) ? "pointer" : "default", fontSize: 13, marginLeft: 5 }}
                       >💡</button>
                     )}
                   </td>
@@ -4741,6 +4738,49 @@ export default function App() {
 
       {/* GRAF MODAL */}
       {showGraf && <GrafModal data={filtered} firmy={firmy} isDark={isDark} onClose={() => setShowGraf(false)} />}
+
+      {/* POPUP — zadání cesty ke složce */}
+      {slozkaPopup && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 8000, pointerEvents: "none" }} onClick={() => setSlozkaPopup(null)}>
+          <div
+            style={{ position: "fixed", left: Math.min(slozkaPopup.x, window.innerWidth - 380), top: slozkaPopup.y, width: 370, background: isDark ? "#1e293b" : "#fff", border: "1px solid rgba(251,191,36,0.5)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", padding: "12px 14px", pointerEvents: "all", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 12, marginBottom: 8 }}>💡 Cesta ke složce zakázky</div>
+            <input
+              autoFocus
+              type="text"
+              value={slozkaPopup.url}
+              onChange={e => setSlozkaPopup(p => ({ ...p, url: e.target.value }))}
+              placeholder="U:\Dočekal\2025\ZN-001 nebo \\server\..."
+              style={{ width: "100%", padding: "8px 10px", background: isDark ? "#0f172a" : "#f8fafc", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 7, color: isDark ? "#fff" : "#1e293b", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 8 }}
+              onKeyDown={async e => {
+                if (e.key === "Enter") {
+                  const url = slozkaPopup.url.trim();
+                  if (!url) { setSlozkaPopup(null); return; }
+                  if (!isDemo) await sb(`stavby?id=eq.${slozkaPopup.id}`, { method: "PATCH", body: JSON.stringify({ slozka_url: url }), prefer: "return=minimal" });
+                  setData(prev => prev.map(r => r.id === slozkaPopup.id ? { ...r, slozka_url: url } : r));
+                  setSlozkaPopup(null);
+                  showToast("Cesta ke složce uložena ✅", "ok");
+                }
+                if (e.key === "Escape") setSlozkaPopup(null);
+              }}
+            />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setSlozkaPopup(null)} style={{ padding: "6px 12px", background: "transparent", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 6, color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", cursor: "pointer", fontSize: 12 }}>Zrušit</button>
+              <button onClick={async () => {
+                const url = slozkaPopup.url.trim();
+                if (!url) { setSlozkaPopup(null); return; }
+                if (!isDemo) await sb(`stavby?id=eq.${slozkaPopup.id}`, { method: "PATCH", body: JSON.stringify({ slozka_url: url }), prefer: "return=minimal" });
+                setData(prev => prev.map(r => r.id === slozkaPopup.id ? { ...r, slozka_url: url } : r));
+                setSlozkaPopup(null);
+                showToast("Cesta ke složce uložena ✅", "ok");
+              }} style={{ padding: "6px 14px", background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", borderRadius: 6, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>💾 Uložit</button>
+            </div>
+            <div style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)", fontSize: 10, marginTop: 6 }}>Enter = uložit · Esc = zrušit</div>
+          </div>
+        </div>
+      )}
 
       {/* IMPORT JSON — POTVRZOVACÍ DIALOG */}
       {importConfirm && (() => {
