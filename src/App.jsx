@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_18_build0140
+// BUILD: 2026_03_18_build0141
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -2050,6 +2050,8 @@ function ListEditor({ label, color, list, setList, nv, setNv, isDark }) {
   const itemBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
   const itemBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const itemText = isDark ? "#e2e8f0" : "#1e293b";
+  const dragIdx = useRef(null);
+  const [dragOver, setDragOver] = useState(null);
   return (
     <div style={{ flex: 1 }}>
       <div style={{ color, fontWeight: 700, fontSize: 12, letterSpacing: 0.5, marginBottom: 10, borderLeft: `3px solid ${color}`, paddingLeft: 8 }}>{label}</div>
@@ -2058,9 +2060,27 @@ function ListEditor({ label, color, list, setList, nv, setNv, isDark }) {
           placeholder="Přidat..." style={{ ...inputSx, flex: 1, fontSize: 12, background: isDark ? "#0f172a" : "#f8fafc", color: itemText, border: `1px solid ${itemBorder}` }} />
         <button onClick={add} style={{ padding: "8px 12px", background: `${color}33`, border: `1px solid ${color}55`, borderRadius: 7, color, cursor: "pointer", fontWeight: 700 }}>+</button>
       </div>
-      {list.map(v => (
-        <div key={v} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: itemBg, borderRadius: 6, border: `1px solid ${itemBorder}` }}>
-          <span style={{ color: itemText, fontSize: 13 }}>{v}</span>
+      {list.map((v, i) => (
+        <div key={v}
+          draggable
+          onDragStart={() => { dragIdx.current = i; }}
+          onDragOver={e => { e.preventDefault(); setDragOver(i); }}
+          onDragLeave={() => setDragOver(null)}
+          onDrop={() => {
+            if (dragIdx.current === null || dragIdx.current === i) { setDragOver(null); return; }
+            const next = [...list];
+            const [moved] = next.splice(dragIdx.current, 1);
+            next.splice(i, 0, moved);
+            setList(next);
+            dragIdx.current = null;
+            setDragOver(null);
+          }}
+          onDragEnd={() => { dragIdx.current = null; setDragOver(null); }}
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: itemBg, borderRadius: 6, border: `1px solid ${dragOver === i ? color : itemBorder}`, borderLeft: dragOver === i ? `3px solid ${color}` : `1px solid ${itemBorder}`, transition: "border 0.1s" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", cursor: "grab", fontSize: 13, lineHeight: 1, flexShrink: 0 }} title="Přetáhnout pro změnu pořadí">⠿</span>
+            <span style={{ color: itemText, fontSize: 13 }}>{v}</span>
+          </div>
           <button onClick={() => rem(v)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 14 }}>✕</button>
         </div>
       ))}
@@ -2071,8 +2091,10 @@ function ListEditor({ label, color, list, setList, nv, setNv, isDark }) {
 function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   const [newNazev, setNewNazev] = useState("");
   const [newBarva, setNewBarva] = useState("#3b82f6");
-  const [confirmDelete, setConfirmDelete] = useState(null); // { hodnota, count }
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmStep2, setConfirmStep2] = useState(false);
+  const [dragOver, setDragOver] = useState(null);
+  const dragIdx = useRef(null);
   const PRESET_COLORS = ["#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899","#f59e0b","#6366f1"];
   const itemBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
   const itemBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
@@ -2114,9 +2136,25 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
           <div key={c} onClick={() => setNewBarva(c)} style={{ width: 20, height: 20, borderRadius: 4, background: c, cursor: "pointer", border: newBarva === c ? "2px solid #fff" : "2px solid transparent" }} />
         ))}
       </div>
-      {list.map(f => (
-        <div key={f.hodnota} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: itemBg, borderRadius: 6, border: `1px solid ${itemBorder}` }}>
+      {list.map((f, i) => (
+        <div key={f.hodnota}
+          draggable
+          onDragStart={() => { dragIdx.current = i; }}
+          onDragOver={e => { e.preventDefault(); setDragOver(i); }}
+          onDragLeave={() => setDragOver(null)}
+          onDrop={() => {
+            if (dragIdx.current === null || dragIdx.current === i) { setDragOver(null); return; }
+            const next = [...list];
+            const [moved] = next.splice(dragIdx.current, 1);
+            next.splice(i, 0, moved);
+            setList(next);
+            dragIdx.current = null;
+            setDragOver(null);
+          }}
+          onDragEnd={() => { dragIdx.current = null; setDragOver(null); }}
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: itemBg, borderRadius: 6, border: `1px solid ${dragOver === i ? "#60a5fa" : itemBorder}`, borderLeft: dragOver === i ? "3px solid #60a5fa" : `1px solid ${itemBorder}`, transition: "border 0.1s" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", cursor: "grab", fontSize: 13, lineHeight: 1, flexShrink: 0 }} title="Přetáhnout pro změnu pořadí">⠿</span>
             <div style={{ width: 14, height: 14, borderRadius: 3, background: f.barva || "#3b82f6" }} />
             <span style={{ color: itemText, fontSize: 13 }}>{f.hodnota}</span>
           </div>
@@ -3998,7 +4036,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0140</span>}
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0141</span>}
             <button onClick={() => setShowHelp(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(isSuperAdmin); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
