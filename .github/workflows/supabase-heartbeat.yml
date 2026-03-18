@@ -14,7 +14,7 @@ name: Supabase Heartbeat
 
 on:
   schedule:
-    - cron: '0 9 * * 1,4'   # Every Monday and Thursday at 09:00 UTC (10:00 CZ winter / 11:00 CZ summer)
+    - cron: '45 4 * * *'   # Every Monday and Thursday at 09:00 UTC (10:00 CZ winter / 11:00 CZ summer)
   workflow_dispatch:          # Allow manual trigger from GitHub Actions UI
 
 jobs:
