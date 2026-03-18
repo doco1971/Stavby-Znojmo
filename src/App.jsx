@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_18_build0145
+// BUILD: 2026_03_18_build0146
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -11,545 +11,160 @@ import * as XLSX from "xlsx";
 //   Třetí řádek souboru: // BUILD: DATUM_buildXXXX
 //   Po každém buildu aktualizovat sekci HISTORY níže.
 //
-// DEPLOY: Vercel + GitHub (doco1971/stavby-znojmo), branch main
+// DEPLOY: Vercel + GitHub (doco1971/stavby-znojmo)
+//   Větve: main (produkce) + staging (testování)
 //   Soubor patří do: src/App.jsx
+//   Postup: staging první → otestovat → main
 //
 // TRANSCRIPT: /mnt/transcripts/ — přečíst pro kontext předchozích session
 //
 // ============================================================
-// EMAIL NOTIFIKACE — AKTUÁLNÍ STAV (session 2026-03-16)
+// AKTUÁLNÍ STAV APLIKACE (session 2026-03-18)
 // ============================================================
-// ✅ Resend.com funguje a je plně nakonfigurován
-// ✅ Doména zmes.cz ověřena v Resend (DNS záznamy přidal IT správce Forpsi)
-//   DNS záznamy přidány:
+//
+// ✅ BUILD0145 nasazen na staging i main
+// ✅ Supabase staging: wgrdhqkkjhtrkweiqxvo.supabase.co
+// ✅ GitHub heartbeat: .github/workflows/supabase-heartbeat.yml
+//    Schedule: 45 4 * * * (probouzí SB 15 min před pg_cron emailem)
+// ✅ Email notifikace: pg_cron job "stavby-deadline-emails-v2" (jobid=2)
+//    Schedule: 0 5 * * * = 5:00 UTC = 6:00 CZ zimní / 7:00 CZ letní
+// ✅ vercel.json přidán — cache headers (index.html no-cache)
+// ✅ index.html aktualizován — meta no-cache tagy
+//
+// ============================================================
+// EMAIL NOTIFIKACE
+// ============================================================
+// ✅ Resend.com nakonfigurován, doména zmes.cz ověřena
+//   DNS záznamy (přidal IT správce Forpsi):
 //     TXT  resend._domainkey.zmes.cz  → DKIM klíč
 //     MX   send.zmes.cz               → feedback-smtp.eu-west-1.amazonses.com (priorita 10)
 //     TXT  send.zmes.cz               → v=spf1 include:amazonses.com ~all
-//   Domain verified: Mar 16, 6:21 PM (Ireland eu-west-1)
-// ✅ FROM_EMAIL nastaven v Supabase Secrets: stavby_znojmo@zmes.cz
-// ✅ Edge Function aktualizována — FROM_EMAIL fallback = stavby_znojmo@zmes.cz
+// ✅ FROM_EMAIL: stavby_znojmo@zmes.cz (Supabase Secret)
 // ✅ Edge Function načítá emaily z DB (tabulka nastaveni, klic=notify_emails)
-// ✅ pg_cron nastaven — job "stavby-deadline-emails-v2" (jobid=2)
-//   Schedule: 0 5 * * * = 5:00 UTC = 6:00 CZ zimní / 7:00 CZ letní
-// ✅ Duplicitní job "send-deadline-emails-daily" (jobid=3) byl smazán
-// ✅ Emaily lze spravovat v aplikaci: Nastavení → Aplikace → 📧 EMAIL NOTIFIKACE
-//   Pole notify_emails: adresy oddělené čárkou nebo novým řádkem, uloženo v DB
+// ✅ Emaily lze spravovat: Nastavení → Aplikace → 📧 EMAIL NOTIFIKACE
 //
 // SUPABASE SECRETS (Edge Functions → Secrets):
-//   RESEND_API_KEY          — API klíč z resend.com
-//   FROM_EMAIL              — stavby_znojmo@zmes.cz
-//   SUPABASE_URL            — automaticky dostupná
+//   RESEND_API_KEY            — API klíč z resend.com
+//   FROM_EMAIL                — stavby_znojmo@zmes.cz
+//   SUPABASE_URL              — automaticky dostupná
 //   SUPABASE_SERVICE_ROLE_KEY — automaticky dostupná
 //
-// PENDING ÚKOLY:
-//   [ ] Sledovat několik dní — chodí email každý den spolehlivě?
-//
 // ============================================================
-// MULTI-TENANT ARCHITEKTURA — ROZPRACOVÁNO (session 2026-03-16)
+// SUPABASE — DB MIGRACE (spustit na obou DB: prod + staging)
 // ============================================================
-// Plán: 3–5 firem. Každá firma = vlastní instance, data 100% oddělená.
-// Hosting: Cloudflare Pages (zdarma, komerční použití povoleno)
-//          Vercel Hobby ZAKÁZÁN pro komerční použití — nepoužívat!
-//
-// STRUKTURA REPOZITÁŘŮ:
-//   Template: doco1971/stavby-template — základ, nikdy se nenasazuje přímo
-//   Každá firma = fork: doco1971/stavby-[nazev]
-//   Každý fork má 2 větve: main (produkce) + staging (testování)
-//
-// STRUKTURA JEDNÉ INSTANCE (každá firma):
-//   GitHub fork:       doco1971/stavby-[nazev]
-//     větev main    → Cloudflare Pages (produkce)  + Supabase PROD DB
-//     větev staging → Cloudflare Pages (staging)   + Supabase STAGING DB
-//   .env: VITE_SB_URL + VITE_SB_KEY (liší se mezi firmami i prostředími)
-//
-// SOUBORY TEMPLATE (vytvořeny v BUILD0112):
-//   .env.template                            — šablona proměnných
-//   .github/workflows/supabase-heartbeat.yml — keep-alive pro Supabase Free
-//   README.md                                — onboarding CZ + EN
-//
-// JAK ŠÍŘIT OPRAVY KÓDU:
-//   1. Opravit v stavby-template (main větev)
-//   2. V každém forku: git fetch upstream && git merge upstream/main
-//   3. Firma nechce Git? → udělat za ně (5 minut)
-//
-// SUPABASE FREE — HEARTBEAT:
-//   Free tier pauzuje po 7 dnech nečinnosti
-//   Řešení: .github/workflows/supabase-heartbeat.yml (ping Po+Čt 9:00 UTC)
-//   GitHub Secrets nutné: VITE_SB_URL + VITE_SB_KEY (Settings → Secrets → Actions)
-//   Produkce s vysokými nároky: zvážit Supabase Pro ($25/měsíc)
-//
-// .ENV PROMĚNNÉ:
-//   VITE_SB_URL      — URL Supabase projektu (prod nebo staging)
-//   VITE_SB_KEY      — Supabase anon klíč
-//   (Resend + FROM_EMAIL = Supabase Secrets, ne .env)
-//
-// CHECKLIST PRO KAŽDOU NOVOU FIRMU:
-//   [ ] Fork stavby-template → stavby-[nazev] (Private)
-//   [ ] Vytvořit 2 Supabase projekty (prod + staging)
-//   [ ] Spustit SQL migrace v obou projektech
-//   [ ] Vyplnit .env (prod hodnoty), nepushovat do Gitu
-//   [ ] Vytvořit větev staging, pushnout
-//   [ ] Nasadit na Cloudflare Pages (main → prod, staging → staging)
-//   [ ] Přidat GitHub Actions Secrets (VITE_SB_URL + VITE_SB_KEY)
-//   [ ] Nastavit Resend emaily (volitelné)
-//   [ ] Otestovat přihlášení, CRUD, export na staging
-//   [ ] Předat přístupy firmě
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS poznamka TEXT;
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS cislo_faktury_2 TEXT;
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS castka_bez_dph_2 NUMERIC;
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS splatna_2 TEXT;
+//   ALTER TABLE log_aktivit ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT false;
+//   UPDATE log_aktivit SET hidden = false WHERE hidden IS NULL;
+//   CREATE POLICY "admin_read_all"  ON log_aktivit FOR SELECT USING (true);
+//   CREATE POLICY "allow_insert"    ON log_aktivit FOR INSERT WITH CHECK (true);
+//   CREATE POLICY "admin_delete_log" ON log_aktivit FOR DELETE USING (true);
+//   CREATE POLICY "allow_update_log" ON log_aktivit FOR UPDATE USING (true) WITH CHECK (true);
 //
 // ============================================================
 // TECHNICKÉ DETAILY
 // ============================================================
 //
 // SUPABASE: tabulky stavby, ciselniky, uzivatele, log_aktivit, nastaveni
-//   sb() helper — fetch wrapper s Bearer tokenem
+//   sb() helper — fetch wrapper s Bearer tokenem (anon key)
 //   XLSX export: HTML blob (.xls) — NE import("xlsx"), nefunguje v bundlu!
 //   XLSX import: XLSX.read(..., { raw: true, cellDates: true }) — raw:true nutné!
 //
 // TABULKA — sloupce:
 //   Faktura 2 (cislo_faktury_2, castka_bez_dph_2, splatna_2): hidden:true
 //   ale zobrazují se jako druhý řádek v buňkách faktury (stejný font, čára dashed)
-//   Zelený řádek (isFaktura): č.faktury + castka_bez_dph + splatna vyplněny
-//     → isOverdue = false
+//   Zelený řádek (isFaktura): č.faktury + castka_bez_dph + splatna vyplněny → isOverdue=false
 //   Červené ukončení (isOverdue): termín v minulosti, jen pokud !isFaktura
 //
 // ROLE: user (čtení), user_e (editor), admin, superadmin
 //
 // DEMO: email=demo / heslo=demo
 //   role=admin, max 15 staveb, jen v paměti — NESMÍ zapisovat do DB!
-//   Blokováno: logAkce, saveSettings, saveUsers, saveAppInfo, saveColWidths,
-//              loadLog, HistorieModal, LogModal, SettingsModal log tab
 //   Demo data: 8 staveb, 4 firmy, DEMO_USERS (4 účty viditelné v Nastavení)
 //
-// IMPORT původní tabulky (📥 Import, jen superadmin):
+// ZÁLOHA JSON (💾, jen superadmin):
+//   version: 2 — obsahuje stavby + ciselniky + uzivatele (bez hesel) + log_aktivit
+//   Automatická záloha při prvním přihlášení superadmina každý den (po 3s)
+//   Dialog odhlášení: tlačítko "💾 Zálohovat a odhlásit" pro admin+superadmin
+//   Import: jen superadmin, smaže celou DB a nahradí zálohou
+//   Přenos mezi prostředími: červené varování při neshodě + nutné napsat POTVRDIT
+//
+// SKRÝVÁNÍ LOGŮ (hidden=true místo DELETE):
+//   Záznamy se nikdy fyzicky nemažou
+//   admin+superadmin: může skrýt v Historii změn + Log zakázek
+//   superadmin: vidí přepínač Aktivní/Skryté/Vše ve všech třech lozích
+//   superadmin: může obnovit skrytý záznam (↩)
+//   non-superadmin: vidí jen hidden=false (filtr v DB dotazu)
+//
+// PLOVOUCÍ OKNA (useDraggable):
+//   Všechna okna draggable, reset pozice při každém otevření
+//   useDraggable vrací { pos, onMouseDown, reset }
+//   reset() volat při otevření oken definovaných v App (helpPos, deadlinesPos atd.)
+//
+// ČÍSELNÍKY — drag & drop pořadí:
+//   Firmy, Objednatelé, Stavbyvedoucí lze přeuspořádat tažením za ⠿
+//   Pořadí firem se projeví v SummaryCards, filtru i tabulce
+//
+// IMPORT původní tabulky (📥 Import XLS, jen superadmin):
 //   Formát A — původní Excel: List1, hlavička řádek 4, data od řádku 5
-//     col1=firma, col3=ps_i, col4=snk_i, col5=bo_i, col6=ps_ii, col7=bo_ii,
-//     col8=poruch, col9=cislo_stavby, col10=nazev_stavby,
-//     col14=ukonceni, col15=zrealizovano, col16=sod, col17=ze_dne,
-//     col18=objednatel, col19=stavbyvedouci, col20=nabidkova_cena,
-//     col21=cislo_faktury, col22=castka_bez_dph, col23=splatna
 //   Formát B — záloha DB (list "Stavby" z aplikace)
 //   Datumy vždy DD.MM.YYYY, čísla jako float (raw:true)
 //
-// ZÁLOHA DB (💾 Záloha DB, jen superadmin):
-//   Excel 3 listy: Stavby + Ciselniky + Uzivatele (bez hesel)
-//
-// DB MIGRACE (nutné v Supabase SQL editoru):
-//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS poznamka TEXT;
-//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS cislo_faktury_2 TEXT;
-//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS castka_bez_dph_2 NUMERIC;
-//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS splatna_2 TEXT;
-//   CREATE POLICY "admin_read_all" ON log_aktivit FOR SELECT USING (true);
-//
-// MOBIL: tabulka není optimalizována (25 sloupců) → do budoucna kartičky
+// MULTI-TENANT ARCHITEKTURA (plán):
+//   Hosting: Cloudflare Pages (zdarma, komerční použití povoleno)
+//   Vercel Hobby ZAKÁZÁN pro komerční použití — v budoucnu přejít na CF Pages
+//   Template: doco1971/stavby-template → forky pro každou firmu
+//   Každý fork: větev main (prod) + staging, vlastní Supabase projekty
 //
 // ============================================================
-// PENDING FUNKCE (dohodnuté, zatím neimplementované)
+// PENDING FUNKCE
 // ============================================================
-// [PENDING] 🎨 Layout / rozmístění na ploše — až po dokončení všech funkcí
 // [PENDING] 📱 iOS klávesnice — přihlašovací obrazovka se roztáhne při psaní
 // [PENDING] 📱 iOS klávesnice — alert okno (⚠️ Termíny) přetéká mimo obrazovku
-// [PENDING] 📱 Překrývání tlačítek Export (⬇) a + Přidat stavbu na mobilu
-// [PENDING] ↔️  Změna šířky sloupců tabulky tažením myší
-// [PENDING] 📈 Dashboard — přehledová stránka s KPI kartami a grafy
-//   KPI karty: celkem staveb, prošlé termíny, vyfakturováno, celková nab. cena
-//   Grafy: stavby per firma, vyfakturováno vs nevyfakturováno, nab. ceny per rok
-//   Nový pohled (třetí záložka vedle 📋 Stránky / 📜 Vše)
-// [PENDING] 🗓️ Kalendářní pohled — termíny ukončení v kalendáři
-//   Zobrazení termínů ukončení staveb v měsíčním kalendáři
-//   Barevné odlišení dle firmy nebo stavu (prošlé / aktivní / vyfakturované)
-// [PENDING] ☁️  Přechod Vercel → Cloudflare Pages
-//   Vercel Hobby zakazuje komerční použití → Cloudflare Pages zdarma bez omezení
-//   Postup: napojit GitHub repo, build = npm run build / output = dist, přenést .env
-//   Odhadovaný čas: 15–30 min na instanci, žádná změna v kódu App.jsx
-//   Provést pro všechny instance při vytváření multi-tenant template
-// [PENDING] 😴 Supabase pauzování — heartbeat workaround
-//   Free tier uspí projekt po 7 dnech nečinnosti (data zůstanou, app offline)
-//   Řešení A (staging/free): GitHub Actions YAML ping každé Po+Čt 9:00 UTC
-//     Soubor: .github/workflows/supabase-heartbeat.yml
-//     Secrets v GitHub: VITE_SB_URL + VITE_SB_KEY → Settings → Secrets → Actions
-//   Řešení B (produkce): Supabase Pro $25/měsíc — pauzování odstraněno
-//   Heartbeat YAML přidat přímo do multi-tenant template → forky zdědí automaticky
-// [DONE] 🏗️  Multi-tenant template + testovací prostředí — BUILD0112
-// [DONE] 💾 JSON záloha + 📥 Import JSON — BUILD0113
-// [DONE] 🔒 Ochrana importu JSON: potvrzovací dialog + detekce prostředí — BUILD0114
-// [DONE] ⚠️  TEST banner na přihlašovací obrazovce — BUILD0115
-// [DONE] ⚠️  TEST banner + badge na staging — BUILD0113
-//   ✅ .env.template — šablona proměnných pro každou instanci
-//   ✅ .github/workflows/supabase-heartbeat.yml — keep-alive Pro+Čt 9:00 UTC
-//   ✅ README.md — onboarding CZ + EN, SQL migrace, checklist
-//   ✅ MULTI-TENANT sekce v hlavičce aktualizována
+// [PENDING] 📈 Dashboard — KPI karty + grafy (celkem staveb, prošlé, vyfakt., nab.cena)
+// [PENDING] 🗓️ Kalendářní pohled — termíny ukončení staveb v měsíčním kalendáři
+// [PENDING] ☁️  Přechod Vercel → Cloudflare Pages (komerční omezení Hobby plánu)
 //
-// PRAVIDLA EXPORTU (platí od BUILD0052)
 // ============================================================
-// Každý build se exportuje jako:
-//   1. stavby-app_DATUM_buildXXXX.jsx        — hlavní soubor aplikace
-//   2. stavby-app_DATUM_buildXXXX_changelog.txt — popis změn tohoto buildu
-// Hlavička .jsx obsahuje vždy aktuální HISTORY + PENDING sekci.
+// HISTORY BUILDŮ
 // ============================================================
-// HISTORY BUILDŮ (0025–0045)
-// ============================================================
+// BUILD0025–0070 — viz starší session (notifikace, graf, auto-logout, nápověda,
+//   plovoucí okna, Liquid Glass, mobilní kartičky, resize sloupců, drag&drop sloupců)
 //
-// BUILD0025 — Notifikace, SVG graf firma/měsíc, auto-logout, poznámka
-// BUILD0026 — FIX: recharts odstraněn, duplicate key
-// BUILD0027 — FIX: 💬 ikona pro user, nápověda rozšířena
-// BUILD0028 — Graf: třetí přepínač Kat. I / II
-// BUILD0029 — 🕐 HistorieModal, diff při uložení, FIELD_LABELS
-// BUILD0030 — FIX: syntax error v nápovědě
-// BUILD0031 — FIX: regex filtr historie (přesná shoda ID)
-// BUILD0032 — 📜 LogModal, exporty z logu a historie
-// BUILD0033 — 🔴 Tečka na 🕐, RLS banner v logu
-// BUILD0034 — FIX: ReferenceError "ur", dynamic import xlsx
-// BUILD0035 — Tečka permanentní, nápověda přepsána (16 sekcí)
-// BUILD0036 — Nápověda plovoucí (drag), demo banner, RLS kopírovat
-// BUILD0037 — Aktualizace hlavičky (jen dokumentace)
-// BUILD0038 — Demo jako admin, 8 staveb, DEMO_USERS, tečka při loginu
-// BUILD0039 — FIX: demo logy prázdné (isDemo prop), tečka ihned po save
-// BUILD0040 — FIX: SettingsModal log tab blokován v demo
-// BUILD0041 — 🚨 KRITICKÁ OPRAVA: demo zapisovalo do ostré DB
-//   saveSettings/saveUsers/logAkce/saveAppInfo/saveColWidths — vše blokováno
-//   PŘÍČINA: demo role admin + chybějící guardy → přepsalo ciselniky+uzivatele
-// BUILD0042 — 💾 Záloha DB (superadmin): 3 listy Stavby+Ciselniky+Uzivatele
-// BUILD0043 — 📥 Import staveb: původní tabulka + záloha DB formát
-// BUILD0044 — FIX: import čísla (raw:true), datumy DD.MM.YYYY, Faktura 2 obnovena
-//   Faktura 2 chyběla v COLUMNS/editaci/tabulce — obnovena kompletně
-//   FIX syntax error: chybějící </div> po sekci Faktura 2 v EditModal
-// BUILD0045 — Aktualizace hlavičky pro nové session (jen dokumentace)
-// BUILD0046 — FIX: Faktura 2 v buňce stejný font jako Faktura 1, skryté sloupce
-//   Č. FAKTURY 2 / Č. BEZ DPH 2 / SPLATNÁ 2 zmizely z hlavičky (hidden filter)
-//   colgroup + thead: přidán filtr !col.hidden (chyběl, data ho měly)
-//   Druhý řádek faktury: odstraněn fontSize:11 + color:textMuted → dědí styl buňky
-//   FIX: table-wrapper overflowY:"hidden" → "auto" (řádky nebyly vidět)
-// BUILD0047 — Označení faktur: červené "e" (E.ON) před Fakturou 1, žluté "S" (sdružení) před Fakturou 2
-//   Nápověda doplněna: sekce 🧾 Označení faktur
-// BUILD0048 — 🔍 Rozšířený filtr: rok, rozsah nab. ceny, prošlé termíny bez faktury
-//   Plovoucí přetahovatelný panel (stejný princip jako nápověda)
-//   Tabulka se při otevření filtru neposouvá
-//   Nápověda doplněna: sekce 🔍 Rozšířený filtr
-// BUILD0049 — FIX filtrovací lišta: kompaktní layout, nowrap, overflowX auto
-//   Zmenšeny šířky NativeSelect (145/160/170), hledání 170px, gap 6px
-//   Zkráceny popisky tlačítek (záz., Záloha) aby se vešlo na 1 řádek
-//   Aktualizována HISTORY + PENDING sekce v hlavičce
-// BUILD0050 — FIX blikání stránkování: řádky s Fakturou 2 jsou vyšší
-//   PAGE_SIZE se počítal z firstRow → přepočet → blikání
-//   Oprava: MIN výška, pak MAX výška, nakonec stableRowH ref — vše nestabilní
-// BUILD0051 — FIX posuvník a přetékání: více pokusů o dynamický výpočet
-//   useMemo + iterativní simulace stránkování, ratchet DOM měření — vše nestabilní
-//   Problém: různé výšky řádků na různých stránkách nelze spolehlivě předpovědět z DOM
-// BUILD0052 — FIX definitivní: PAGE_SIZE = fixní useState(7), žádné DOM měření
-//   Přidána tlačítka − / + v paginaci pro ruční nastavení počtu řádků (3–50)
-// BUILD0053 — Dva pohledy + oprava filtru Kat. II + barevné grafy
-//   📋 Stránky / 📜 Vše, filterKat II fix, stacked graf, barevná tabulka
-// BUILD0054 — FIX export dropdown překrytý tabulkou
-//   position:fixed + getBoundingClientRect, click toggle, kompaktní lišta
-// BUILD0055 — FIX legenda grafu Kat. I/II
-//   Legenda přesunuta z SVG do HTML, Kat.I/II sekce odděleny
-// BUILD0056 — FIX build error: renderBars HTML legenda mimo return
-//   Přidán React fragment <> kolem svg+legenda
-// BUILD0057 — 3 opravy filtrovací lišty a grafu
-//   Graf labels horizontal, Export NativeSelect, height 28px
-// BUILD0058 — FIX: graf labels stále šikmé + export menu příliš úzké
-//   labels rotate odstraněn, NativeSelect minWidth 220px
-// BUILD0059 — FIX: resize sloupce — truncate maxWidth: col.width → getColWidth
-// BUILD0060 — FIX: resize sloupce nepustí za header text
-//   th: minWidth:0 + maxWidth:getColWidth, input max 2000px
-// BUILD0061 — Doplnění nápovědy o nové funkce (BUILD0043–0060)
-//   Přidány sekce: Dva pohledy, Rozšířený filtr, Import, Označení faktur e/S
-// BUILD0062 — FIX: td overflow:hidden pro truncate sloupce, reset shownDeadlineOnce při změně usera
-// BUILD0063 — FIX: th maxWidth odstraněn (blokoval resize), nápověda e/S s barvami
-// BUILD0064 — FIX: ikona ⟺ vždy viditelná (flex space-between), objednatel 130px, SV 140px
-// BUILD0065 — FIX: tlačítka −/+ vždy viditelná (mimo blok totalPages>1), glow ikony v nápovědě
-// BUILD0066 — Nápověda: auto glow všech emoji přes Unicode regex + drop-shadow filter
-// BUILD0067 — FIX: drop-shadow → brightness(1.4) — čisté zesvětlení bez modrého nádechu
-// BUILD0068 — brightness(2) + bílý glow — příliš agresivní
-// BUILD0069 — nadpisová ikona brightness(1.4), ikony v textu bez filtru
-// BUILD0070 — všechny ikony brightness(1.4)
-// BUILD0132 — FIX: tisk nápovědy — text sekci černý místo světle šedého
-// BUILD0131 — FIX: RLS hláška zmizí pro superadmina + loadLog předává isSuperAdmin
-//   1) RLS varování skryto pro superadmina (ten vidí 1 uživatele legitimně)
-//   2) loadLog() přijímá parametr superAdmin — volá se s isSuperAdmin hodnotou
-//      Příčina: useCallback nemá přístup k isSuperAdmin (definován níže)
-// BUILD0130 — FIX: skryté záznamy nevidí admin ani po znovuotevření logu
-//   Příčina: DB dotaz načítal vše vč. hidden=true, filtr byl jen v state
-//   Oprava: hidden=eq.false přidán do DB dotazu pro non-superadmin
-//   Opraveno ve: HistorieModal, LogModal, Nastavení→Log aktivit (loadLog)
-// BUILD0129 — Počet řádků na stránku uložen do localStorage
-//   PAGE_SIZE se pamatuje mezi session na stejném zařízení
-//   Každé zařízení (PC, tablet) má vlastní nastavení
-// BUILD0128 — FIX: dialog "Nevyplněná položka" — pointerEvents:"all" přímo na dialog
-//   Správné řešení: dialog zůstává uvnitř SettingsModal, ale má pointerEvents:"all"
-//   Předchozí pokusy (build0125-0127) měly buď špatný zIndex nebo syntax chybu
-// BUILD0127 — FIX: dialog "Nevyplněná položka" — syntax chyba (nešlo buildovat) (tlačítka nereagovala)
-// BUILD0124 — Skrývání záznamů logů (hidden=true místo DELETE) + přepínač Aktivní/Skryté/Vše
-//   DB migrace nutná: ALTER TABLE log_aktivit ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT false;
-//   🕐 Historie změn: admin/superadmin skryje (hidden=true), superadmin obnoví (↩)
-//     červená tečka zhasne když všechny záznamy stavby jsou hidden
-//   📜 Log zakázek: superadmin skryje/obnoví, přepínač Aktivní/Skryté/Vše v headeru
-//   ⚙️ Nastavení → Log aktivit: superadmin skryje/obnoví, přepínač v toolbaru
-//   Záznamy se nikdy fyzicky nemažou — superadmin vidí vše a může obnovit
-// BUILD0123 — Mazání záznamů ve všech třech lozích s různými právy
-//   📜 Log zakázek: mazání jen superadmin (opraveno z build0121 kde byl admin+superadmin)
-//   ⚙️ Nastavení → Log aktivit: mazání jen superadmin
-//   🕐 Historie změn: mazání admin + superadmin
-//   Všude: tlačítko ✕, potvrzovací dialog, okamžité odebrání ze state
-// BUILD0122 — FIX: mazání logu — ikona 🗑 → ✕ (lepší kompatibilita fontů)
-// BUILD0121 — Mazání záznamů logu (admin + superadmin)
-//   LogModal: tlačítko 🗑 na každém záznamu (jen admin/superadmin, ne demo)
-//   Potvrzovací dialog před smazáním
-//   DELETE na log_aktivit?id=eq.{id}, okamžité odebrání ze state
-// BUILD0120 — Build badge v hlavičce pro superadmina
-//   Zobrazí "build0120" badge hned za role badge SUPERADMIN
-//   Viditelný jen pro superadmina, tooltip "Číslo buildu aplikace"
-//   Každý nový build = aktualizovat text badge
-// BUILD0119 — FIX: záloha exportuje vše, import filtruje dynamicky podle chyb DB
-//   zalohaJSON: vrácen na export celé DB (žádný VALID_FIELDS filtr) — plná záloha
-//   doImportJSON: ALWAYS_SKIP (id, created_at, nabidka, rozdil, bez_dph_2, bez_dph)
-//     + self-healing: při chybě PGRST204 automaticky odstraní problematický sloupec
-//     a zkusí vložit znovu (max 10 pokusů) — funguje i pro budoucí neznámé sloupce
-// BUILD0118 — FIX: záloha + import JSON — legacy sloupce a computed pole
-//   zalohaJSON: exportuje jen platné DB sloupce (VALID_FIELDS)
-//     odstraněno: nabidka, rozdil (computed), bez_dph_2 (legacy)
-//   doImportJSON: SKIP_FIELDS = id, created_at, nabidka, rozdil, bez_dph_2, bez_dph
-//     zálohy z prod DB (s legacy sloupci) se importují do staging bez chyby
-// BUILD0117 — FIX: fallback starých názvů sloupců při importu JSON
-//   bez_dph_2 → castka_bez_dph_2, bez_dph → castka_bez_dph
-//   Zálohy z před migrace se importují správně
-// BUILD0116 — FIX: detekce prostředí v importu/záloze JSON — hostname místo SB_URL
-//   prostrediAktualni + prostredi v záloze: hostname.includes("staging/preview/localhost")
-//   Příčina bugu: SB_URL nemusí obsahovat "znojmo-staging" → vždy vrátilo PRODUKCE
-//   Sjednoceno s isStaging logikou v hlavní app a Login komponentě
-// BUILD0115 — TEST banner na přihlašovací obrazovce (staging detekce)
-//   Login komponenta: isLoginStaging detekce podle hostname (stejná logika jako hlavní app)
-//   Blikající oranžový banner nahoře obrazovky (loginStagingPulse + loginStagingBlink)
-//   Přihlašovací karta: oranžový border + box-shadow + marginTop při staging
-//   Banner text: "TESTOVACÍ PROSTŘEDÍ — přihlašujete se do testovací databáze"
-// BUILD0114 — Ochrana importu JSON: potvrzovací dialog + detekce prostředí
-//   Záloha JSON nově obsahuje pole "prostredi" (PRODUKCE / STAGING) + "sb_url"
-//   Import JSON: před smazáním dat zobrazí dialog se shrnutím zálohy
-//     - název prostředí zálohy vs. aktuálního prostředí
-//     - datum a čas zálohy
-//     - počet staveb v záloze vs. aktuálně v DB
-//     - varování že se smažou všechna stávající data
-//     - při neshodě prostředí: červené varování, nutné napsat POTVRDIT
-//     - při shodě prostředí: žluté varování, nutné napsat POTVRDIT
-// BUILD0113 — JSON záloha + import, TEST banner/badge na staging, oprava importu XLS
-//   💾 Záloha DB přepnuta z Excel na JSON (přesnější, bez problémů s názvy sloupců)
-//   📥 Import JSON — nový handler pro zálohu JSON (bez konverze, přímý přenos dat)
-//   📥 Import XLS — opraven FIELD_MAP (názvy sloupců z exportu), castka_bez_dph_2 přidán do NUM
-//   ⚠️  TEST banner — blikající oranžový pruh přes celou šířku na staging/preview/localhost
-//   ⚠️  TEST badge — blikající štítek v hlavičce vedle loga na staging
-//   isStaging detekce — automaticky podle URL (hostname contains staging/preview/localhost)
-// BUILD0112 — Multi-tenant template: .env.template, heartbeat YAML, README CZ+EN
-//   ✅ .env.template — šablona s VITE_SB_URL, VITE_SB_KEY + komentáře kde najít hodnoty
-//   ✅ supabase-heartbeat.yml — GitHub Actions keep-alive Po+Čt 9:00 UTC
-//   ✅ README.md — onboarding CZ+EN, SQL migrace, Cloudflare Pages setup, checklist
-//   ✅ MULTI-TENANT sekce přepsána: 3–5 firem, staging větev, Cloudflare Pages
-//   ✅ PENDING 🏗️ označen jako DONE
-// BUILD0111 — Aktualizace PENDING: Cloudflare Pages, Supabase heartbeat, multi-tenant
-//   [PENDING] ☁️  Přechod Vercel → Cloudflare Pages (komerční omezení Hobby plánu)
-//   [PENDING] 😴 Supabase heartbeat workaround (Free tier pauzování po 7 dnech)
-//   [PENDING] 🏗️  Multi-tenant template + testovací prostředí — příští krok
-// BUILD0110 — Aktualizace hlavičky: email na více adres otestován a funguje
-//   ✅ Odesílání na více adres otestováno — funguje
-//   ✅ Správa emailů přes Nastavení → Aplikace funguje end-to-end
-//   PENDING emailu: zbývá jen sledovat spolehlivost denního odesílání
-// BUILD0109 — Aktualizace hlavičky: kompletní stav emailu po dokončení konfigurace
-//   ✅ Doména zmes.cz ověřena v Resend (DNS přidal IT správce Forpsi)
-//   ✅ FROM_EMAIL = stavby_znojmo@zmes.cz (Supabase Secret + Edge Function)
-//   ✅ Edge Function čte emaily z DB (notify_emails), posílá na více adres
-//   ✅ Emaily lze spravovat v Nastavení → Aplikace bez zásahu do kódu
-//   EMAIL sekce kompletně přepsána s aktuálním stavem + Supabase Secrets popisem
-// BUILD0108 — Aktualizace hlavičky: Dashboard + Kalendář do PENDING, multi-tenant rozšířen
-//   [PENDING] přidán 📈 Dashboard (KPI karty + grafy, třetí pohled)
-//   [PENDING] přidán 🗓️ Kalendářní pohled (termíny ukončení v kalendáři)
-//   Multi-tenant sekce rozšířena: .env proměnné, postup šíření oprav, detaily onboardingu
-// BUILD0107 — Aktualizace hlavičky: email funguje, pg_cron ověřen, plán více adres
-//   ✅ Email odesílá na doco@seznam.cz, pg_cron job2 běží 0 5 * * *
-//   ✅ Duplicitní job3 smazán, EMAIL sekce přepsána na aktuální stav
-// BUILD0106 — Aktualizace hlavičky: multi-tenant architektura + email řešení (jen dokumentace)
-//   Přidána sekce MULTI-TENANT do poznámek pro Claude
-//   Přidána sekce EMAIL NOTIFIKACE — aktuální stav a plán řešení
-// BUILD0105 — 📧 Email notifikace: pole pro emaily v Nastavení → Aplikace,
-//   uloženo v DB (nastaveni, klic=notify_emails), načteno při startu
-// BUILD0104 — FIX: 💎 se nevypíná při klik 🌞/🌙 — liquidGlassRef + setLiquidGlass(false) vždy
-// BUILD0103 — FIX: NativeSelect dropdown font — portal dědí font z body, přidán fontFamily
-// BUILD0102 — Sjednocení fontFamily: všude 'Segoe UI',Tahoma,sans-serif
-// BUILD0101 — Oprava data exportu: 2026_03_13 → 2026_03_14 (aktuální datum)
-// BUILD0100 — UX: klik 🌞/🌙 při aktivním 💎 → vypne LG + zobrazí theme slider
-// BUILD0099 — FIX: NativeSelect dropdown portál do body (přes overflow:hidden + stacking context)
-// BUILD0098 — FIX: NativeSelect hover otevírá + spolehlivé zavírání (relatedTarget)
-// BUILD0097 — FIX: NativeSelect dropdown klik místo hover (thead překrytí),
-//   Nápověda: sekce Superadmin oprávnění + tlačítko Tisk nápovědy
-// BUILD0096 — FIX + UX: Termíny plovoucí, Nápověda přeřazena PC/mobil
-//   ⚠️ Termíny — převedeno na plovoucí okno (useDraggable 820×500)
-//   Nápověda — PC funkce nahoře, mobilní sekce dole (☰, ⋯, mobilní karty)
-// BUILD0095 — 🪟 Plovoucí okna — všechny modály draggable, jednotný vzor
-//   Nový hook: useDraggable(w, h) — výchozí pozice vždy střed obrazovky
-//   Převedeny: HistorieModal, LogModal, GrafModal, SettingsModal
-//   Help a AdvFilter — sjednoceny na useDraggable hook (stávající kód nahrazen)
-//   FormModal — stávající drag zachován, refaktorován na useDraggable
-//   Vzor: overlay pointerEvents:none, okno pointerEvents:all, header = táhlo
-//   Dimming backdrop odstraněn — plovoucí okno bez zatmění pozadí
-//   Header každého okna: ⠿ přetáhnout hint, cursor grab
-//   PENDING odstraněno: 🪟 Plovoucí okna
-// BUILD0094 — FIX: drag & drop sloupců omezen pouze na superadmin
-//   Ikona ⠿ a draggable atribut zobrazeny jen pokud isSuperAdmin
-//   Ostatní role (user, user_e, admin) nemohou přehazovat sloupce
-//   Resize ⟺ zůstává beze změny (jen superadmin — tak jak bylo)
-// BUILD0093 — ↔️ Drag & drop přehazování sloupců tabulky myší
-//   colOrder state — pole klíčů sloupců v aktuálním pořadí
-//   Uloženo v localStorage (per-browser, bez DB)
-//   HTML5 Drag & Drop API na <th> elementech
-//   dragColKey ref — táhnutý sloupec, dragOverKey ref — cílový sloupec
-//   Drag handle: ⠿ vlevo od názvu sloupce (viditelné vždy, ne jen superadmin)
-//   Vizuální highlight: cílový sloupec — modrý levý border při dragover
-//   thead i tbody přepnuty z COLUMNS.filter(...) na orderedCols
-//   Reset pořadí: tlačítko v Nastavení vedle Reset šířek (jen superadmin)
-//   PENDING odstraněno: ↔️ Drag & drop přehazování sloupců
-// BUILD0092 — Jeden univerzální posuvník mezi 💎 a Odhlásit
-//   Zobrazí se po kliknutí na 🌞, 🌙 nebo 💎 — vždy na stejném místě
-//   activeSlider state: null | "theme" | "lg" — určuje co slider ovládá
-//   Slider "theme": themeStrength (0–100), mění intenzitu appBg
-//   Slider "lg": lgStrength (10–100), mění sílu Liquid Glass efektu
-//   FIX: appBg se při themeStrength nereagoval — příčina: podmínka liquidGlass
-//        na řádku main divu ignorovala T.appBg → opraveno: darkAppBg/lightAppBg
-//        se aplikují vždy přes T.appBg, liquidGlass větev odstraněna
-//   Samostatné themeSlider/lgSlider stavy a timery nahrazeny jedním activeSlider
-//   Timer ref: sliderTimer — 2s auto-hide
-//   Desktop: slider vždy mezi 💎 a Odhlásit
-//   Mobil: slider pod 🌞/🌙/💎 tlačítky v hamburger menu
-// BUILD0091 — 🌞/🌙 posuvník intenzity pozadí + auto-hide po 2s nečinnosti
-//   themeStrength state (0–100, default 50), uložen v localStorage
-//   themeSliderVisible state + themeSliderTimer ref (stejný princip jako lgSlider)
-//   changeTheme(): přepne režim + zobrazí slider + spustí 2s timer
-//   changeThemeStrength(): změní intenzitu + resetuje timer
-//   Slider onMouseEnter=zastaví timer, onMouseLeave=spustí timer
-//   Mobilní slider: onTouchStart/onTouchEnd pro dotykové displeje
-//   T.appBg tmavý: interpolace #060818 (0%) ↔ #1e293b (100%)
-//   T.appBg světlý: interpolace #ffffff (0%) ↔ #d0d8e8 (100%)
-//   Slider akcent: 🌞 #fbbf24 žlutá / 🌙 #818cf8 modrá
-// BUILD0090 — 💎 Liquid Glass posuvník: auto-hide po nečinnosti 2s
-//   lgSliderVisible state (výchozí false) — slider se zobrazí jen po kliknutí na 💎
-//   lgSliderTimer ref — setTimeout 2000ms schová slider
-//   Nečinnost = ani myš nad sliderem, ani změna hodnoty
-//   toggleLiquidGlass: zapnutí → lgSliderVisible=true + spustí timer
-//                      vypnutí → lgSliderVisible=false okamžitě
-//   changeLgStrength: resetuje timer nečinnosti (pohyb posuvníkem)
-//   Slider div: onMouseEnter=reset timer, onMouseLeave=spustí timer znovu
-//   Desktop i mobilní menu: obě instance slideru synchronní
-// BUILD0089 — Nápověda: aktualizována sekce 💎 Liquid Glass
-//   Doplněn popis posuvníku síly (10–100%), animovaných orbů, iOS 26 stylu
-// BUILD0088 — 💎 Liquid Glass posuvník síly efektu
-//   lgStrength state (10–100, default 60), uložen v localStorage
-//   lgS = lgStrength/100 — všechny T hodnoty dynamicky interpolovány
-//   Orb kontejner: opacity:lgS + transition 0.3s
-//   Slider se zobrazí vedle 💎 jen když je LG zapnutý (desktop + mobil)
-//   accentColor:#a78bfa — fialový slider styl
-// BUILD0087 — FIX: 💎 tlačítko nešlo vypnout Liquid Glass
-//   Příčina: .lg-shimmer měl position:absolute inset:0 z-index:3 přímo na headeru
-//            → překrýval obsah a blokoval klikání na tlačítka
-//   Oprava: shimmer jako inline child div s pointer-events:none
-//           z-index pseudo-elementů snížen na 0 (pod obsah)
-// BUILD0086 — 💎 Liquid Glass iOS 26 upgrade
-//   Animované orby na pozadí (4x tmavý / 3x světlý, blur + CSS animace)
-//   SVG filtry: feTurbulence + feDisplacementMap (simulace lomu světla)
-//   CSS třídy: lg-panel (gradient odlesk + top highlight linka)
-//              lg-shimmer (animovaný průchod světla)
-//   T objekt: inset box-shadow s horním odleskem (simulace iOS skla)
-//   Header + filtr lišta: lg-panel + lg-shimmer třídy + z-index vrstvení
-//   Výkon: orby jsou fixed/pointer-events:none, neblokují interakci
-// BUILD0085 — Aktualizace PENDING sekce v hlavičce
-//   Přidány iOS mobilní problémy (klávesnice, alert, překrývání tlačítek)
-//   Přidány dohodnuté budoucí funkce (plovoucí okna, D&D sloupce, resize sloupce)
-// BUILD0084 — 💎 Liquid Glass téma
-//   Tlačítko 💎 vedle 🌞/🌙 (desktop i mobilní menu)
-//   liquidGlass state: uložen v localStorage
-//   T objekt: backdropFilter, boxShadow, průsvitné barvy pro LG variantu
-//   Pozadí appky: gradient místo flat barvy při LG aktivním
-//   Header + filtrovací lišta: backdropFilter/WebkitBackdropFilter aplikován
-//   Nápověda: sekce téma aktualizována
-// BUILD0083 — Nápověda aktualizována pro mobilní funkce
-//   📱 Mobilní zobrazení — kartičky: rozšířený popis (metriky, stavy, akce)
-//   ☰ Mobilní menu (hamburger): nová sekce
-//   ⋯ Mobilní filtr — rozbalovací řádek: nová sekce
-//   🔍 Filtry: doplněno o červené tlačítko při aktivním filtru
-// BUILD0082 — FIX: klávesnice iOS roztahuje login + modály; překrývání Export/Přidat
-//   Login: position:fixed místo minHeight:100vh → escape body overflow:hidden
-//   Deadline modál: WebkitOverflowScrolling:touch přidán
-//   Přidat stavbu tlačítko: marginLeft:auto → odsunuto od Export, nepřekrývají se
-// BUILD0081 — FIX: login + deadline modál mimo obrazovku; filtr ⋯ rozbalovací
-//   Login: alignItems flex-start + overflowY auto → scrollovatelná na mobilu
-//   Deadline modál: overlay scrollovatelný (alignItems flex-start + overflowY auto)
-//     obsah modálu: bez maxHeight (scrolluje overlay, ne vnitřek)
-//   Filtrovací lišta: tlačítko ⋯ rozbalí/schová řádek 2 (objednatel,SV,view,export...)
-//   State: showFilterRow2 přidán
-// BUILD0080 — FIX: header přetékal na mobilu, Nastavení/Odhlášení nedosažitelné
-//   Header: mobilní varianta — logo + Termíny + ☰ hamburger
-//   Hamburger menu (dropdown): jméno, role, téma, Nápověda, Nastavení, Log, Odhlásit
-//   Deadline modál: overflowX:auto na tabulce (scrollovatelná na mobilu)
-//   State: showMobileMenu přidán
-// BUILD0079 — FIX: mobilní layout kompletní
-//   Login: width min(380px,94vw) + padding clamp → nevyžaduje svýpování
-//   SummaryCards: firmy s nulou skryty na mobilu → souhrny zaberou méně místa
-//   Filtrovací lišta: dvouřádková na mobilu
-//     Řádek 1: hledání + firma + Filtr▼ + ▦
-//     Řádek 2: objednatel + SV + Str/Vše + záz. + 📊 + ⬇ + Přidat
-//   Desktop: beze změny
-// BUILD0078 — FIX: mobilní layout — souhrny a deadline modál mimo obrazovku
-//   Deadline modál: width min(820px,96vw), padding inset, ✕ tlačítko flexShrink:0
-//   SummaryCards: isMobile prop → kompaktní řádkový layout místo karet
-//   Firmy na mobilu: tečka + název + celkem + Kat.I/II v jednom řádku
-// BUILD0077 — FIX: kartičky zobrazovaly jen header (firma+číslo), tělo chybělo
-//   Odstraněn overflow:hidden z root divu StavbaCard (ořezával obsah)
-//   Přidán minHeight:0 na card view kontejner (iOS flex fix)
-// BUILD0076 — FIX: kartičky nefungovaly na iPhone (Chrome/Safari/Firefox)
-//   window.innerWidth nespolehlivý na iOS WebKit → přechod na window.matchMedia
-//   useIsMobile: mq.matches + mq.addEventListener("change") místo resize listeneru
-//   cardView init: window.matchMedia("(max-width: 767px)").matches
-// BUILD0075 — FIX: kartičky na mobilu nezobrazovaly se (zobrazovala se tabulka)
-//   cardView inicializován lazy: useState(() => window.innerWidth < 768)
-//   Odstraněn useEffect který nastavoval cardView až po prvním renderu — příliš pozdě
+// BUILD0071 — ikony v nápovědě, dva pohledy Stránky/Vše, stacked graf Kat.I/II
+// BUILD0072 — 📋 Kopírování stavby
+// BUILD0073 — Tlačítko Filtr ▾ červené při aktivním filtru
 // BUILD0074 — 📱 Mobilní kartičky
-//   useIsMobile hook (breakpoint 768px, resize listener)
-//   Výchozí pohled na mobilu: kartičky; na desktopu: tabulka
-//   Tlačítko přepínače v liště: jen na mobilu (📋/📇)
-//   Kartička: firma tečka + název + číslo stavby, 3 metriky,
-//     termín + badge (prošlý/blížící se/vyfakturováno/bez termínu),
-//     poznámka (💬 text), faktura(y) e/S, akce dle role
-//   Role: user=jen čtení, user_e=editovat+kopie, admin+=smazat
-// BUILD0073 — Tlačítko Filtr ▾: červené rozsvícení když je aktivní alespoň 1 rozšířený filtr
-//   Stav tlačítka: zavřený+neaktivní / zavřený+aktivní (červená) / otevřený / otevřený+aktivní (červená)
-//   Barva nezávislá na tom zda je panel otevřený — signalizuje aktivní filtrování
-// BUILD0072 — 📋 Kopírování stavby: tlačítko vedle editace (admin+editor)
-//   Otevře FormModal s daty původní stavby, č. stavby + " (kopie)", bez ID
-//   Demo: respektuje DEMO_MAX_STAVBY limit; ostrá DB: POST + logAkce "Kopírování stavby"
-//   Nápověda doplněna: sekce 📋 Kopírování stavby
-//   PENDING odstraněno: 📋 Kopírovat stavbu
-// BUILD0071 — ikony v textu fontSize:15 + saturate(1.3) pro sjednocení s nadpisovou ikonou
-//   Přidáno: Dva pohledy, Rozšířený filtr, Import staveb, Označení faktur e/S
-//   Upraveno: Šířky sloupců (max 2000px, zadání číslem)
-//   th: minWidth:0 + maxWidth:getColWidth → fixed layout respektuje col šířku
-//   input pro šířku: max 2000px, šířka 65px
-//   maxWidth: col.width-22 → getColWidth(col)-22
-//   labels: rotate odstraněn, textAnchor middle, font 11 bold
-//   NativeSelect dropdown: minWidth max(šířka tlačítka, 220px)
-//   1. Graf: firma labels horizontálně, font 9→11, fontWeight 600
-//   2. Export: custom dropdown → NativeSelect (stejný styl jako filtry)
-//   3. Všechna tlačítka lišty: height: 28px (sjednocená výška)
-//   Přidán React fragment <> kolem svg+legenda
-//   Legenda přesunuta z SVG do HTML pod grafem
-//   Kat. I a Kat. II každá ve svém řádku se svými barvami
-//   SVG PAD_B: 100→30, H: 340→280 (více místa pro sloupce)
-//   zIndex dropdown: 200 → 1100, overlay: 199 → 1099
-//   Export přepnut z hover na click toggle (spolehlivější)
-//   📋 Stránky / 📜 Vše — přepínač v filtrovací liště
-//   Pohled Vše: zobrazí všechny filtered řádky, skryje paginaci
-//   FIX: filterKat "II" nezahrnoval poruch → opraveno
-//   Graf Kat. I/II: stacked bars — 3 složky KAT I (fialová/modrá/zelená)
-//     + 3 složky KAT II (oranžová/červená/fialová)
-//   Tabulka v grafu: rozpad na 6 složek s barvami + součty Kat. I, Kat. II, Celkem
-//   Přidána tlačítka − / + v paginaci pro ruční nastavení počtu řádků (3–50)
-//   Zobrazení "7 řád." vedle tlačítek — uživatel vidí aktuální hodnotu
-//   Každý monitor si nastaví sám dle potřeby
-// ============================================================
+// BUILD0075–076 — FIX: kartičky na mobilu/iPhone
+// BUILD0077–082 — FIX: mobilní layout, klávesnice iOS, header hamburgeru
+// BUILD0083–086 — 💎 Liquid Glass iOS 26, posuvník síly, nápověda
+// BUILD0087–092 — FIX: Liquid Glass vypínání, univerzální slider, posuvník intenzity
+// BUILD0093–094 — Drag & drop sloupců (jen superadmin)
+// BUILD0095–100 — Plovoucí okna (useDraggable), NativeSelect fix, UX sliderl
+// BUILD0101–112 — Opravy exportu, multi-tenant template, heartbeat YAML, README
+// BUILD0113–119 — JSON záloha+import, TEST banner, detekce prostředí, self-healing
+// BUILD0120 — Build badge v hlavičce (superadmin)
+// BUILD0121–123 — Mazání/skrývání záznamů logů s různými právy
+// BUILD0124 — Skrývání logů (hidden=true) + přepínač Aktivní/Skryté/Vše
+// BUILD0125–128 — FIX: dialog "Nevyplněná položka" (pointerEvents, zIndex)
+// BUILD0129 — PAGE_SIZE uložen do localStorage
+// BUILD0130 — FIX: hidden filtr v DB dotazu pro non-superadmin
+// BUILD0131 — FIX: RLS hláška skryta pro superadmina, loadLog(isSuperAdmin)
+// BUILD0132–134 — FIX: tisk nápovědy (čistý HTML, černý text)
+// BUILD0135 — FIX: plovoucí okna od vrchu, tooltip fix, index.html no-cache
+// BUILD0136 — Build badge viditelný pro admin i superadmin
+// BUILD0137–139 — FIX: tooltip nepřetéká za okraj, useDraggable lazy init
+// BUILD0140 — FIX: useDraggable reset při otevření, tooltip clamp
+// BUILD0141–142 — Drag & drop v číselníkách (firmy, objednatelé, stavbyvedoucí)
+//   Reset pozice oken při otevření (resetHelp, resetDeadlines)
+// BUILD0143 — Záloha JSON version 2: přidán log_aktivit (export i import)
+// BUILD0144 — Automatická záloha při prvním přihlášení dne (superadmin)
+//   Dialog odhlášení: tlačítko "💾 Zálohovat a odhlásit" (superadmin)
+// BUILD0145 — Dialog odhlášení: záloha pro admin i superadmin
+// BUILD0146 — Aktualizace hlavičky: kompletní dokumentace stavu aplikace
+//
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -4212,7 +3827,7 @@ export default function App() {
                 <span style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, padding: "0 8px", height: 28, display: "inline-flex", alignItems: "center", color: T.text, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>{filtered.length} záz.</span>
                 <button onClick={() => setShowGraf(true)} onMouseEnter={e => showTooltip(e, "Sloupcový graf nákladů")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>📊 Graf</button>
                 <NativeSelect value="⬇ Export" onChange={v => { if (v === "📄 CSV (.csv)") exportCSV(); else if (v === "📊 Excel (.xlsx)") exportXLS(); else if (v === "🎨 Barevný Excel") exportXLSColor(); else if (v === "📜 Export logu") exportLog(); else if (v === "🖨️ PDF tisk") exportPDF(); }} options={["⬇ Export", "📄 CSV (.csv)", "📊 Excel (.xlsx)", "🎨 Barevný Excel", ...(isAdmin ? ["📜 Export logu"] : []), "🖨️ PDF tisk"]} isDark={isDark} style={{ flexShrink: 0 }} />
-                {isSuperAdmin && <button onClick={zalohaJSON} onMouseEnter={e => showTooltip(e, "Záloha celé DB jako JSON: stavby + číselníky + uživatelé")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>💾 Záloha</button>}
+                {isSuperAdmin && <button onClick={zalohaJSON} onMouseEnter={e => showTooltip(e, "Záloha celé DB jako JSON: stavby + číselníky + uživatelé + logy")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>💾 Záloha</button>}
                 {isSuperAdmin && <>
                 <input ref={importRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: "none" }} />
                 <input ref={importRef2} type="file" accept=".json" onChange={handleImportJSON} style={{ display: "none" }} />
@@ -4483,7 +4098,9 @@ export default function App() {
                 { icon: "🗑️", title: "Smazání stavby", text: "Klikněte na červené tlačítko 🗑️ v levém sloupci. Systém požádá o potvrzení — musíte kliknout dvakrát (ochrana proti náhodnému smazání). Smazanou stavbu nelze obnovit." },
                 { icon: "📋", title: "Kopírování stavby", text: "Tlačítko 📋 vedle editace otevře formulář s předvyplněnými daty dané stavby. Číslo stavby dostane příponu \" (kopie)\". Po uložení se vytvoří nový samostatný záznam — původní zůstane nezměněn. Funkce je dostupná pro editory i administrátory." },
                 { icon: "🕐", title: "Historie změn stavby", text: <span>Fialové tlačítko 🕐 v levém sloupci otevře historii změn. Kdo, kdy a která pole změnil. <span style={{display:"inline-flex",alignItems:"center",gap:2}}>Červená tečka <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#ef4444",boxShadow:"0 0 6px #ef4444, 0 0 12px rgba(239,68,68,0.7)",verticalAlign:"middle"}}/>  na ikoně</span> = stavba má záznamy v historii. Export jako Excel nebo PDF.</span> },
-                { icon: "📜", title: "Log zakázek", text: "Tlačítko 📜 Log v hlavičce (pouze admin) otevře kompletní přehled všech akcí na zakázkách — přidání, editace i smazání. Záznamy lze filtrovat podle uživatele, typu akce a datumového rozsahu. Exporty: Excel, Barevný Excel a PDF tisk." },
+                { icon: "📜", title: "Log zakázek a skrývání", text: "Tlačítko 📜 Log v hlavičce (admin+) zobrazí přehled akcí na zakázkách. Admin může záznamy skrýt (✕) — záznamy se fyzicky nemažou, jen skrývají. Superadmin vidí přepínač Aktivní / Skryté / Vše a může záznamy obnovit (↩). Stejné skrývání funguje v Historii změn stavby a Nastavení → Log aktivit." },
+                { icon: "💾", title: "Záloha a obnova dat", text: "Tlačítko 💾 Záloha (superadmin) stáhne JSON zálohu celé DB — stavby + číselníky + uživatelé + logy. Automatická záloha se spustí při prvním přihlášení superadmina každý den. Při odhlášení lze zálohu stáhnout tlačítkem 💾 Zálohovat a odhlásit (admin+). Import JSON (superadmin) obnoví celou DB ze zálohy — smaže stávající data. Přenos mezi prostředími: červené varování + nutné napsat POTVRDIT." },
+                { icon: "⚙️", title: "Nastavení — číselníky", text: "Správa firem (název + barva), objednatelů a stavbyvedoucích. Pořadí položek lze měnit tažením za ikonu ⠿ vlevo od každé položky. Pořadí firem se projeví v kartách nahoře i ve filtru. Admin spravuje uživatele — přidání, změna hesla a role." },
                 { icon: "💬", title: "Poznámka ke stavbě", text: <span>V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA. Ikona <span style={{fontSize:13}}>💬</span> se zobrazí vedle názvu stavby pokud poznámka existuje — najeďte myší pro zobrazení textu.</span> },
                 { icon: "🎨", title: "Barevné řádky", text: <span>Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). <span style={{background:"rgba(34,197,94,0.25)",color:"#4ade80",padding:"1px 5px",borderRadius:4,fontWeight:600}}>Zelený řádek</span> = stavba má fakturu, částku i datum splatnosti — kompletně vyfakturována.</span> },
                 { icon: "⚠️", title: "Termíny ukončení", text: <span>Pole Ukončení se zobrazí <span style={{color:"#f87171",fontWeight:700}}>červeně ⚠️</span> pokud je termín v minulosti a stavba nemá fakturu. Tlačítko <span style={{color:"#f87171",fontWeight:700}}>⚠️ Termíny</span> v hlavičce zobrazí přehled staveb s termínem do 30 dní — včetně zbývajících pracovních dní.</span> },
@@ -4491,13 +4108,11 @@ export default function App() {
                 { icon: "🔍", title: "Rozšířený filtr", text: "Tlačítko Filtr ▾ otevře plovoucí panel s rozšířenými možnostmi: rok uvedení do provozu, rozsah nabídkové ceny (od/do), prošlé termíny bez faktury, stav fakturace a kategorie I / II. Panel lze přetáhnout myší kamkoliv na plochu." },
                 { icon: "📊", title: "Graf nákladů", text: "Tlačítko 📊 Graf ve filtrovací liště otevře interaktivní sloupcový graf. Tři přepínače: 🏢 Firma, 📅 Měsíc, 📂 Kat. I / II (Plán.+SNK+Běžné op. vs. Plán.+Běžné op.+Poruchy). Graf vždy odráží aktuální filtr." },
                 { icon: "📤", title: "Export dat", text: "CSV — prostá tabulka. Excel (.xlsx) — standardní formát. Barevný Excel (.xls) — se zbarvením firem (potvrďte varování Excelu). PDF — tisk na A4 landscape. Vše pracuje s aktuálním filtrem." },
-                { icon: "📥", title: "Import staveb", text: "Tlačítko 📥 Import (pouze superadmin) načte stavby z Excelu — podporuje původní tabulkový formát i zálohu DB. Před importem systém zobrazí náhled a umožní potvrdit nebo zrušit. Existující záznamy se aktualizují, nové přidají." },
-                { icon: "💾", title: "Záloha DB", text: "Tlačítko Záloha DB (pouze superadmin) stáhne kompletní zálohu celé databáze jako Excel se třemi listy: Stavby, Ciselniky, Uzivatele. Doporučujeme zálohovat pravidelně, zvláště před hromadnými změnami nebo aktualizací aplikace." },
+                { icon: "📥", title: "Import staveb", text: "Tlačítko 📥 Import XLS (superadmin) načte stavby z Excelu — původní tabulkový formát i záloha DB. Tlačítko 📥 Import JSON (superadmin) obnoví celou DB ze zálohy JSON — před importem zobrazí potvrzovací dialog." },
                 { icon: "📋", title: "Dva pohledy — Stránky / Vše", text: "Přepínač 📋 Stránky / 📜 Vše v liště přepíná mezi stránkovaným zobrazením (tlačítka −/+ pro počet řádků na stránce) a plným výpisem všech záznamů s vertikálním scrollem." },
                 { icon: "↔️", title: "Šířky a pořadí sloupců", text: "Superadmin: Táhněte ikonu ⟺ v záhlaví sloupce pro změnu šířky. Kliknutím na ⟺ zadáte šířku číslem. Táhněte záhlaví za ikonu ⠿ pro změnu pořadí sloupců. Obojí se ukládá automaticky. Reset v Nastavení → Aplikace." },
                 { icon: "🪟", title: "Plovoucí okna", text: "Všechna okna (formuláře, nastavení, log, nápověda, graf, termíny…) jsou plovoucí — přetáhněte je za záhlaví (⠿ přetáhnout) kamkoliv na plochu. Okno vždy otevře na výchozí pozici uprostřed obrazovky." },
-                { icon: "⚙️", title: "Nastavení", text: "Správa firem (název + barva řádku), číselníků objednatelů a stavbyvedoucích. Admin spravuje uživatele — přidává, mění hesla a role. Role: USER (čtení), USER EDITOR (editace), ADMIN (plný přístup), SUPERADMIN (+ nastavení aplikace)." },
-                { icon: "🌙", title: "Tmavý / světlý režim + Liquid Glass", text: "Přepínejte mezi 🌞 světlým a 🌙 tmavým režimem. Tlačítko 💎 aktivuje Liquid Glass — průsvitné panely s blur efektem, animovanými orby na pozadí a odlesky ve stylu iOS 26. Posuvník síly efektu (10–100 %). Všechny preference se ukládají v prohlížeči." },
+                { icon: "🌙", title: "Tmavý / světlý režim + Liquid Glass", text: "Přepínejte mezi 🌞 světlým a 🌙 tmavým režimem. Posuvník intenzity pozadí se zobrazí automaticky. Tlačítko 💎 aktivuje Liquid Glass — průsvitné panely s blur efektem, animovanými orby na pozadí a odlesky ve stylu iOS 26. Posuvník síly efektu (10–100 %). Všechny preference se ukládají v prohlížeči." },
                 { icon: "🔔", title: "Notifikace v prohlížeči", text: "Aplikace zobrazuje upozornění na blížící se termíny i mimo otevřenou záložku. Po přihlášení prohlížeč zobrazí dialog — klikněte Povolit. Notifikace se odešlou pro stavby s termínem do 7 pracovních dní, opakují každých 60 min pokud záložka není aktivní." },
                 { icon: "⏱️", title: "Automatické odhlášení", text: "Aplikace se automaticky odhlásí po 15 minutách nečinnosti. Před odhlášením se zobrazí varování s odpočítáváním 60 sekund — klikněte Jsem tady pro pokračování. Neaktivní v demo režimu." },
                 { icon: "🧾", title: "Označení faktur", text: <span>Červené <span style={{fontWeight:700,color:"#ef4444",textShadow:"0 0 6px #ef4444"}}>e</span> před číslem faktury = E.ON (sdružená dodávka). Žluté <span style={{fontWeight:700,color:"#facc15",textShadow:"0 0 6px #facc15"}}>S</span> před druhým číslem faktury = faktura sdružení. Druhá faktura se zobrazí jako druhý řádek v buňce (přerušovaná čára).</span> },
@@ -4555,22 +4170,22 @@ export default function App() {
                   ["✏️","Editace stavby","Klikněte na modré tlačítko ✏️ v levém sloupci u řádku stavby. Otevře se formulář s předvyplněnými hodnotami — změňte co potřebujete a uložte. Všechny změny se automaticky zaznamenají do Historie změn."],
                   ["🗑️","Smazání stavby","Klikněte na červené tlačítko 🗑️ v levém sloupci. Systém požádá o potvrzení — musíte kliknout dvakrát (ochrana proti náhodnému smazání). Smazanou stavbu nelze obnovit."],
                   ["📋","Kopírování stavby","Tlačítko 📋 vedle editace otevře formulář s předvyplněnými daty dané stavby. Číslo stavby dostane příponu (kopie). Po uložení se vytvoří nový samostatný záznam — původní zůstane nezměněn."],
-                  ["🕐","Historie změn stavby","Fialové tlačítko 🕐 v levém sloupci otevře historii změn — kdo, kdy a která pole změnil. Červená tečka na ikoně = stavba má záznamy v historii. Export jako Excel nebo PDF."],
-                  ["📜","Log zakázek","Tlačítko 📜 Log v hlavičce (pouze admin) otevře kompletní přehled všech akcí na zakázkách — přidání, editace i smazání. Záznamy lze filtrovat podle uživatele, typu akce a datumového rozsahu."],
+                  ["🕐","Historie změn stavby","Fialové tlačítko 🕐 v levém sloupci otevře historii změn — kdo, kdy a která pole změnil. Červená tečka na ikoně = stavba má záznamy v historii. Admin může záznamy skrýt (✕), superadmin obnovit (↩). Export jako Excel nebo PDF."],
+                  ["📜","Log zakázek","Tlačítko 📜 Log v hlavičce (admin+) zobrazí přehled všech akcí na zakázkách. Superadmin vidí přepínač Aktivní / Skryté / Vše. Záznamy se fyzicky nemažou — pouze skrývají."],
                   ["💬","Poznámka ke stavbě","V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA. Ikona 💬 se zobrazí vedle názvu stavby pokud poznámka existuje — najeďte myší pro zobrazení textu."],
                   ["🎨","Barevné řádky","Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). Zelený řádek = stavba má fakturu, částku i datum splatnosti — kompletně vyfakturována."],
                   ["⚠️","Termíny ukončení","Pole Ukončení se zobrazí červeně ⚠️ pokud je termín v minulosti a stavba nemá fakturu. Tlačítko ⚠️ Termíny v hlavičce zobrazí přehled staveb s termínem do 30 dní."],
-                  ["🔍","Filtry a vyhledávání","Vyhledávejte podle názvu nebo čísla stavby. Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Tlačítko Filtr▼ otevře rozšířený filtr: rok, rozsah částky, prošlé termíny, fakturace, kategorie."],
+                  ["🔍","Filtry a vyhledávání","Vyhledávejte podle názvu nebo čísla stavby. Filtrujte podle firmy, objednatele nebo stavbyvedoucího. Tlačítko Filtr▼ otevře rozšířený filtr: rok, rozsah částky, prošlé termíny, fakturace, kategorie. Červené tlačítko = aktivní filtr."],
                   ["📊","Graf nákladů","Tlačítko 📊 Graf otevře interaktivní sloupcový graf. Tři přepínače: Firma, Měsíc, Kat. I / II. Graf vždy odráží aktuální filtr."],
-                  ["📤","Export dat","CSV, Excel, Barevný Excel, PDF. Vše pracuje s aktuálním filtrem."],
-                  ["📥","Import staveb","Tlačítko 📥 Import (pouze superadmin) načte stavby z Excelu nebo JSON zálohy."],
-                  ["💾","Záloha DB","Tlačítko Záloha DB (pouze superadmin) stáhne kompletní zálohu celé databáze."],
-                  ["↔️","Šířky a pořadí sloupců","Superadmin: Táhněte ⟺ pro změnu šířky, ⠿ pro změnu pořadí sloupců. Ukládá se automaticky."],
-                  ["🪟","Plovoucí okna","Všechna okna jsou plovoucí — přetáhněte je za záhlaví kamkoliv na plochu."],
-                  ["⚙️","Nastavení","Správa firem, číselníků, uživatelů a aplikace. Role: USER, USER EDITOR, ADMIN, SUPERADMIN."],
-                  ["🌙","Tmavý / světlý režim","Přepínejte mezi 🌞 světlým a 🌙 tmavým režimem. Tlačítko 💎 aktivuje Liquid Glass efekt."],
-                  ["⏱️","Automatické odhlášení","Aplikace se odhlásí po 15 minutách nečinnosti. Před odhlášením zobrazí varování s odpočítáváním."],
-                  ["📱","Mobilní zobrazení","Na mobilu se zobrazí kartičky místo tabulky. Tlačítko ▦/☰ přepíná mezi kartičkami a tabulkou."],
+                  ["📤","Export dat","CSV, Excel, Barevný Excel, PDF. Vše pracuje s aktuálním filtrem. Exportovat lze i log aktivit (admin+)."],
+                  ["💾","Záloha a import","Tlačítko 💾 Záloha (superadmin) stáhne zálohu celé DB jako JSON — stavby + číselníky + uživatelé + logy. Automatická záloha se spustí při prvním přihlášení superadmina každý den. Při odhlášení lze zálohu stáhnout tlačítkem 💾 Zálohovat a odhlásit (admin+). Import JSON (superadmin) obnoví celou DB ze zálohy — pozor, smaže stávající data."],
+                  ["↔️","Šířky a pořadí sloupců","Superadmin: Táhněte ⟺ pro změnu šířky, ⠿ v záhlaví pro změnu pořadí sloupců. Ukládá se automaticky. Reset v Nastavení → Aplikace."],
+                  ["⚙️","Nastavení — číselníky","Firmy (název + barva), objednatelé, stavbyvedoucí. Pořadí lze měnit tažením za ⠿ vlevo od položky. Pořadí firem se projeví v kartách nahoře i ve filtru."],
+                  ["👥","Nastavení — uživatelé","Admin spravuje uživatele: přidání, změna hesla a role. Role: USER (čtení), USER EDITOR (editace), ADMIN (plný přístup), SUPERADMIN (+ nastavení aplikace)."],
+                  ["🪟","Plovoucí okna","Všechna okna jsou plovoucí — přetáhněte je za záhlaví kamkoliv na plochu. Po zavření a opětovném otevření se okno vrátí na výchozí pozici uprostřed."],
+                  ["🌙","Tmavý / světlý režim","Přepínejte mezi 🌞 světlým a 🌙 tmavým režimem pomocí tlačítek v hlavičce. Posuvník intenzity pozadí se zobrazí automaticky. Tlačítko 💎 aktivuje Liquid Glass efekt (průsvitné panely ve stylu iOS). Vše se ukládá v prohlížeči."],
+                  ["⏱️","Automatické odhlášení","Aplikace se odhlásí po 15 minutách nečinnosti. Před odhlášením zobrazí varování s odpočítáváním 60 sekund — klikněte Jsem tady pro pokračování."],
+                  ["📱","Mobilní zobrazení","Na mobilu (šířka < 768px) se automaticky zobrazí kartičky místo tabulky. Tlačítko ▦/☰ přepíná mezi kartičkami a tabulkou. Hamburger menu ☰ v pravém rohu obsahuje Nastavení, Nápovědu, Log a Odhlásit."],
                 ];
                 const rows = helpItems.map(([icon, title, text]) => `
                   <div class="item">
