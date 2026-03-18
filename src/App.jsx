@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_18_build0141
+// BUILD: 2026_03_18_build0142
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -663,8 +663,8 @@ function useDraggable(w = 600, h = 500) {
     };
   };
   const [pos, setPos] = useState(calcPos);
-  // Reset pozice při každém mountu komponenty
   useEffect(() => { setPos(calcPos()); }, []);
+  const reset = useCallback(() => setPos(calcPos()), []);
   const dragging = useRef(false);
   const offset = useRef({ x: 0, y: 0 });
   const onMouseDown = (e) => {
@@ -686,7 +686,7 @@ function useDraggable(w = 600, h = 500) {
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   };
-  return { pos, onMouseDown };
+  return { pos, onMouseDown, reset };
 }
 
 // Sdílený styl pro drag header
@@ -2050,8 +2050,30 @@ function ListEditor({ label, color, list, setList, nv, setNv, isDark }) {
   const itemBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
   const itemBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const itemText = isDark ? "#e2e8f0" : "#1e293b";
-  const dragIdx = useRef(null);
   const [dragOver, setDragOver] = useState(null);
+  const dragIdx = useRef(null);
+
+  const handleDragStart = (i) => (e) => {
+    dragIdx.current = i;
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleDragOver = (i) => (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(i);
+  };
+  const handleDrop = (i) => (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragIdx.current === null || dragIdx.current === i) { setDragOver(null); return; }
+    const next = [...list];
+    const [moved] = next.splice(dragIdx.current, 1);
+    next.splice(i, 0, moved);
+    setList(next);
+    dragIdx.current = null;
+    setDragOver(null);
+  };
+
   return (
     <div style={{ flex: 1 }}>
       <div style={{ color, fontWeight: 700, fontSize: 12, letterSpacing: 0.5, marginBottom: 10, borderLeft: `3px solid ${color}`, paddingLeft: 8 }}>{label}</div>
@@ -2063,22 +2085,14 @@ function ListEditor({ label, color, list, setList, nv, setNv, isDark }) {
       {list.map((v, i) => (
         <div key={v}
           draggable
-          onDragStart={() => { dragIdx.current = i; }}
-          onDragOver={e => { e.preventDefault(); setDragOver(i); }}
+          onDragStart={handleDragStart(i)}
+          onDragOver={handleDragOver(i)}
           onDragLeave={() => setDragOver(null)}
-          onDrop={() => {
-            if (dragIdx.current === null || dragIdx.current === i) { setDragOver(null); return; }
-            const next = [...list];
-            const [moved] = next.splice(dragIdx.current, 1);
-            next.splice(i, 0, moved);
-            setList(next);
-            dragIdx.current = null;
-            setDragOver(null);
-          }}
+          onDrop={handleDrop(i)}
           onDragEnd={() => { dragIdx.current = null; setDragOver(null); }}
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: itemBg, borderRadius: 6, border: `1px solid ${dragOver === i ? color : itemBorder}`, borderLeft: dragOver === i ? `3px solid ${color}` : `1px solid ${itemBorder}`, transition: "border 0.1s" }}>
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: itemBg, borderRadius: 6, border: `1px solid ${dragOver === i ? color : itemBorder}`, borderLeft: dragOver === i ? `3px solid ${color}` : `1px solid ${itemBorder}`, transition: "border 0.1s", cursor: "default" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", cursor: "grab", fontSize: 13, lineHeight: 1, flexShrink: 0 }} title="Přetáhnout pro změnu pořadí">⠿</span>
+            <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", cursor: "grab", fontSize: 13, lineHeight: 1, flexShrink: 0, userSelect: "none" }} title="Přetáhnout pro změnu pořadí">⠿</span>
             <span style={{ color: itemText, fontSize: 13 }}>{v}</span>
           </div>
           <button onClick={() => rem(v)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 14 }}>✕</button>
@@ -2099,6 +2113,18 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   const itemBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
   const itemBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const itemText = isDark ? "#e2e8f0" : "#1e293b";
+
+  const handleDragStart = (i) => (e) => { dragIdx.current = i; e.dataTransfer.effectAllowed = "move"; };
+  const handleDragOver = (i) => (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(i); };
+  const handleDrop = (i) => (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (dragIdx.current === null || dragIdx.current === i) { setDragOver(null); return; }
+    const next = [...list];
+    const [moved] = next.splice(dragIdx.current, 1);
+    next.splice(i, 0, moved);
+    setList(next);
+    dragIdx.current = null; setDragOver(null);
+  };
 
   const setNazev = (v) => { setNewNazev(v); onNvChange?.(v); };
 
@@ -2139,22 +2165,14 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
       {list.map((f, i) => (
         <div key={f.hodnota}
           draggable
-          onDragStart={() => { dragIdx.current = i; }}
-          onDragOver={e => { e.preventDefault(); setDragOver(i); }}
+          onDragStart={handleDragStart(i)}
+          onDragOver={handleDragOver(i)}
           onDragLeave={() => setDragOver(null)}
-          onDrop={() => {
-            if (dragIdx.current === null || dragIdx.current === i) { setDragOver(null); return; }
-            const next = [...list];
-            const [moved] = next.splice(dragIdx.current, 1);
-            next.splice(i, 0, moved);
-            setList(next);
-            dragIdx.current = null;
-            setDragOver(null);
-          }}
+          onDrop={handleDrop(i)}
           onDragEnd={() => { dragIdx.current = null; setDragOver(null); }}
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: itemBg, borderRadius: 6, border: `1px solid ${dragOver === i ? "#60a5fa" : itemBorder}`, borderLeft: dragOver === i ? "3px solid #60a5fa" : `1px solid ${itemBorder}`, transition: "border 0.1s" }}>
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: itemBg, borderRadius: 6, border: `1px solid ${dragOver === i ? "#60a5fa" : itemBorder}`, borderLeft: dragOver === i ? "3px solid #60a5fa" : `1px solid ${itemBorder}`, transition: "border 0.1s", cursor: "default" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", cursor: "grab", fontSize: 13, lineHeight: 1, flexShrink: 0 }} title="Přetáhnout pro změnu pořadí">⠿</span>
+            <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", cursor: "grab", fontSize: 13, lineHeight: 1, flexShrink: 0, userSelect: "none" }} title="Přetáhnout pro změnu pořadí">⠿</span>
             <div style={{ width: 14, height: 14, borderRadius: 3, background: f.barva || "#3b82f6" }} />
             <span style={{ color: itemText, fontSize: 13 }}>{f.hodnota}</span>
           </div>
@@ -2808,7 +2826,7 @@ export default function App() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const { pos: helpPos, onMouseDown: onHelpDragStart } = useDraggable(680, 500);
+  const { pos: helpPos, onMouseDown: onHelpDragStart, reset: resetHelp } = useDraggable(680, 500);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   // ── Graf ──────────────────────────────────────────────────
   const [showGraf, setShowGraf] = useState(false);
@@ -3181,7 +3199,7 @@ export default function App() {
   // ── Upozornění na blížící se termíny ──────────────────────
   const [deadlineWarnings, setDeadlineWarnings] = useState([]);
   const [showDeadlines, setShowDeadlines] = useState(false);
-  const { pos: deadlinesPos, onMouseDown: onDeadlinesDragStart } = useDraggable(820, 500);
+  const { pos: deadlinesPos, onMouseDown: onDeadlinesDragStart, reset: resetDeadlines } = useDraggable(820, 500);
   const [showOrphanWarning, setShowOrphanWarning] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showFilterRow2, setShowFilterRow2] = useState(false);
@@ -3234,6 +3252,7 @@ export default function App() {
   useEffect(() => {
     if (user && user.email !== "demo" && !shownDeadlineOnce.current && deadlineWarnings.length > 0) {
       shownDeadlineOnce.current = true;
+      resetDeadlines();
       setShowDeadlines(true);
     }
   }, [deadlineWarnings, user]);
@@ -4029,15 +4048,15 @@ export default function App() {
         {/* Pravá část: desktop = vše, mobil = Termíny + ☰ */}
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
           {!isDemo && deadlineWarnings.length > 0 && (
-            <button onClick={() => setShowDeadlines(true)} style={{ padding: isMobile ? "4px 8px" : "5px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: isMobile ? 11 : 12, fontWeight: 600 }}>⚠️ Termíny ({deadlineWarnings.length})</button>
+            <button onClick={() => { resetDeadlines(); setShowDeadlines(true); }} style={{ padding: isMobile ? "4px 8px" : "5px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: isMobile ? 11 : 12, fontWeight: 600 }}>⚠️ Termíny ({deadlineWarnings.length})</button>
           )}
           {!isMobile && !isDemo && (() => { const firmyNames = firmy.map(f => f.hodnota); const count = data.filter(s => s.firma && !firmyNames.includes(s.firma)).length; return count > 0 ? <button onClick={() => setShowOrphanWarning(true)} style={{ padding: "5px 12px", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🏚️ Bez firmy ({count})</button> : null; })()}
           {!isMobile && <>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0141</span>}
-            <button onClick={() => setShowHelp(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0142</span>}
+            <button onClick={() => { resetHelp(); setShowHelp(true); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(isSuperAdmin); }} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -4114,7 +4133,7 @@ export default function App() {
                 <input type="range" min="10" max="100" step="5" value={lgStrength} onChange={e => changeLgStrength(Number(e.target.value))} style={{ flex: 1, accentColor: "#a78bfa", cursor: "pointer" }} />
               </div>
             )}
-            <button onClick={() => { setShowHelp(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 13 }}>❓ Nápověda</button>
+            <button onClick={() => { resetHelp(); setShowHelp(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 13 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); setShowMobileMenu(false); if (!isDemo) loadLog(isSuperAdmin); }} style={{ padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 13 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => { setShowLog(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 13 }}>📜 Log</button>}
             {!isDemo && (() => { const firmyNames = firmy.map(f => f.hodnota); const count = data.filter(s => s.firma && !firmyNames.includes(s.firma)).length; return count > 0 ? <button onClick={() => { setShowOrphanWarning(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>🏚️ Bez firmy ({count})</button> : null; })()}
