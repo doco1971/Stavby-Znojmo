@@ -10,6 +10,11 @@ import * as XLSX from "xlsx";
 //   s vysvětlením výhod/nevýhod, teprve pak implementovat zvolenou.
 //   NESPOUŠTĚT implementaci bez průzkumu a výběru uživatelem!
 //
+// PRAVIDLO #1 — POKUD NĚCO NEFUNGUJE:
+//   Nejprve důkladně zkontrolovat kód v App.jsx (logika, stavy, podmínky)
+//   než se začne cokoliv jiného měnit nebo navrhovat.
+//   NEHÁDEJ — ZKONTROLUJ KÓD!
+//
 // PRAVIDLO: Každá změna = dva soubory:
 //   stavby-app_DATUM_buildXXXX.jsx
 //   stavby-app_DATUM_buildXXXX_changelog.txt
