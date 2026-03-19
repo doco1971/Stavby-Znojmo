@@ -2789,21 +2789,33 @@ export default function App() {
       return;
     }
 
-    // Metoda 1: stavby:// vlastní protokol — VŽDY přes iframe (nikdy window.location.href!)
-    // iframe trik nezavírá záložku v žádném prohlížeči
+    // Metoda 1: stavby:// vlastní protokol
+    // Použij window.open s about:blank — otevře nové okno, spustí protokol, okno se zavře
+    // Toto je jediná metoda která spolehlivě NEzavírá původní záložku v Chrome/Opera/Firefox
     const encodedPath = encodeURIComponent(path);
     const protokolUrl = `stavby://open?path=${encodedPath}`;
 
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = "display:none;width:0;height:0;border:0;position:fixed;";
-    document.body.appendChild(iframe);
-    iframe.src = protokolUrl;
-    setTimeout(() => {
-      try { document.body.removeChild(iframe); } catch {}
-      setProtokolReady(true);
-    }, 800);
-    showToast("📂 Otevírám složku… (při prvním použití potvrďte dialog prohlížeče)", "ok");
-    return;
+    try {
+      const w = window.open("about:blank", "_blank", "width=1,height=1,left=-100,top=-100");
+      if (w) {
+        w.location.href = protokolUrl;
+        setTimeout(() => { try { w.close(); } catch {} }, 1000);
+        setProtokolReady(true);
+        showToast("📂 Otevírám složku…", "ok");
+        return;
+      }
+    } catch {}
+
+    // Metoda 2: rozšíření prohlížeče
+    if (extensionReady) {
+      window.postMessage({ type: "STAVBY_OPEN_FOLDER", path }, "*");
+      return;
+    }
+
+    // Metoda 3: clipboard fallback
+    navigator.clipboard.writeText(path)
+      .then(() => showToast("📋 Cesta zkopírována — nainstalujte stavby:// protokol (viz Nastavení → 💡)", "ok"))
+      .catch(() => showToast("Nepodařilo se zkopírovat cestu", "error"));
   };
 
   // Zobrazit tlačítko 💡 pro aktuálního uživatele?
