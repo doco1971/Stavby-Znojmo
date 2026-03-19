@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_19_build0166
+// BUILD: 2026_03_19_build0167
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -185,6 +185,7 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0167 — Log: table-layout fixed, bez horizontálního scrollbaru
 // BUILD0166 — Log: datum zkráceno+nowrap, přepínač auto zálohy v Nastavení
 // BUILD0165 — Log: fix scrollbar, TEST banner červený+větší
 // BUILD0164 — Log širší (1100px), Nastavení bez overflow-x scrollbaru
@@ -2252,12 +2253,19 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                   }} style={{ padding: "5px 12px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 6, color: isDark ? "#fff" : "#1e293b", cursor: "pointer", fontSize: 12 }}>📥 Export Excel</button>
                 </div>
               </div>
-              <div style={{ overflowY: "auto", maxHeight: "calc(90vh - 280px)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+              <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(90vh - 280px)" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: "auto" }} />
+                    {isSuperAdmin && !isDemo && <col style={{ width: 40 }} />}
+                  </colgroup>
                   <thead>
                     <tr style={{ background: isDark ? "#1a2744" : "#e2e8f0" }}>
                       {["Čas", "Uživatel", "Akce", "Detail", ...(isSuperAdmin && !isDemo ? [""] : [])].map(h => (
-                        <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontWeight: 700, fontSize: 11, borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}` }}>{h}</th>
+                        <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontWeight: 700, fontSize: 11, borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, overflow: "hidden", textOverflow: "ellipsis" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -2272,7 +2280,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                         <td style={{ padding: "7px 12px" }}>
                           <span style={{ background: (AKCE_COLOR[r.akce] || "#94a3b8") + "22", color: AKCE_COLOR[r.akce] || "#94a3b8", border: `1px solid ${(AKCE_COLOR[r.akce] || "#94a3b8")}44`, borderRadius: 5, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{r.akce}</span>
                         </td>
-                        <td style={{ padding: "7px 12px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontSize: 12 }}>{r.detail}</td>
+                        <td style={{ padding: "7px 12px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 0 }}>{r.detail}</td>
                         {isSuperAdmin && !isDemo && (
                           <td style={{ padding: "7px 8px", textAlign: "center" }}>
                             {r.hidden ? (
@@ -3920,7 +3928,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0166</span>}
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0167</span>}
             <button onClick={() => { resetHelp(); setShowHelp(true); }} onMouseEnter={e => showTooltip(e, "Nápověda k aplikaci")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(isSuperAdmin); }} onMouseEnter={e => showTooltip(e, "Nastavení aplikace — firmy, číselníky, uživatelé, emaily")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} onMouseEnter={e => showTooltip(e, "Log aktivit uživatelů")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
