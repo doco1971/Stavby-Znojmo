@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_19_build0163
+// BUILD: 2026_03_19_build0164
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -185,6 +185,7 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0164 — Log širší (1100px), Nastavení bez overflow-x scrollbaru
 // BUILD0163 — okna: top=10px (horní okraj), left=střed obrazovky
 // BUILD0162 — okna vystředěna, maxHeight 90vh
 // BUILD0161 — kompaktní layout editace/přidání stavby, Poznámka v gridu
@@ -697,7 +698,7 @@ function HistorieModal({ row, isDark, onClose, isDemo, isAdmin, isSuperAdmin, on
 function LogModal({ isDark, firmy, onClose, isDemo, isAdmin, isSuperAdmin }) {
   const [zaznamy, setZaznamy] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { pos, onMouseDown: onDragStart } = useDraggable(900, 580);
+  const { pos, onMouseDown: onDragStart } = useDraggable(1100, 580);
   const [filterUser, setFilterUser]   = useState("");
   const [filterAkce, setFilterAkce]   = useState("");
   const [filterOd,   setFilterOd]     = useState("");
@@ -824,7 +825,7 @@ function LogModal({ isDark, firmy, onClose, isDemo, isAdmin, isSuperAdmin }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1250, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
-      <div style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: modalBg, borderRadius: 16, width: "min(900px,97vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.65)" }}>
+      <div style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: modalBg, borderRadius: 16, width: "min(1100px,98vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.65)" }}>
 
         {/* header — táhlo */}
         <div onMouseDown={onDragStart} style={dragHeaderStyle()}>
@@ -1267,14 +1268,14 @@ function GrafModal({ data, firmy, isDark, onClose }) {
           </div>
         </div>
         {/* graf */}
-        <div style={{ padding: "16px 22px 8px", overflowX: "auto", overflowY: "hidden", flexShrink: 0 }}>
+        <div style={{ padding: "16px 22px 8px", overflowX: "hidden", overflowY: "hidden", flexShrink: 0 }}>
           {grafData.length === 0
             ? <div style={{ textAlign: "center", color: mutedC, padding: 48 }}>Žádná data k zobrazení</div>
             : renderBars()
           }
         </div>
         {/* tabulka */}
-        <div style={{ padding: "0 22px 18px", flex: 1, overflowY: "auto", overflowX: "auto" }}>
+        <div style={{ padding: "0 22px 18px", flex: 1, overflowY: "auto", overflowX: "hidden" }}>
           {renderTable()}
         </div>
       </div>
@@ -3898,7 +3899,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0163</span>}
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0164</span>}
             <button onClick={() => { resetHelp(); setShowHelp(true); }} onMouseEnter={e => showTooltip(e, "Nápověda k aplikaci")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(isSuperAdmin); }} onMouseEnter={e => showTooltip(e, "Nastavení aplikace — firmy, číselníky, uživatelé, emaily")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} onMouseEnter={e => showTooltip(e, "Log aktivit uživatelů")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
