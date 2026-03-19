@@ -2806,6 +2806,8 @@ export default function App() {
         if (r.ok) {
           setProtokolReady(true);
           showToast("📂 Složka otevřena", "ok");
+          // Dej focus zpet na okno prohlizece (pomaha v Chrome)
+          window.focus();
         } else {
           throw new Error("Helper chyba");
         }
