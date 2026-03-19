@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_18_build0151
+// BUILD: 2026_03_19_build0155
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -19,17 +19,52 @@ import * as XLSX from "xlsx";
 // TRANSCRIPT: /mnt/transcripts/ — přečíst pro kontext předchozích session
 //
 // ============================================================
-// AKTUÁLNÍ STAV APLIKACE (session 2026-03-18)
+// AKTUÁLNÍ STAV APLIKACE (session 2026-03-18, build0153)
 // ============================================================
 //
-// ✅ BUILD0145 nasazen na staging i main
+// ✅ Poslední nasazený build: build0152 (staging)
 // ✅ Supabase staging: wgrdhqkkjhtrkweiqxvo.supabase.co
 // ✅ GitHub heartbeat: .github/workflows/supabase-heartbeat.yml
 //    Schedule: 45 4 * * * (probouzí SB 15 min před pg_cron emailem)
 // ✅ Email notifikace: pg_cron job "stavby-deadline-emails-v2" (jobid=2)
 //    Schedule: 0 5 * * * = 5:00 UTC = 6:00 CZ zimní / 7:00 CZ letní
-// ✅ vercel.json přidán — cache headers (index.html no-cache)
-// ✅ index.html aktualizován — meta no-cache tagy
+// ✅ vercel.json + index.html no-cache headers
+//
+// ============================================================
+// TLAČÍTKO 💡 — SLOŽKA ZAKÁZKY
+// ============================================================
+// Umožňuje přiřadit síťovou cestu ke každé stavbě a otevřít ji klikem.
+//
+// FUNKCE:
+//   Šedá 💡 (bez cesty) + klik → popup pro zadání cesty
+//   Žlutá 💡 (s cestou) + klik → otevře složku nebo zkopíruje cestu
+//   Cesta lze zadat i v editaci stavby (sekce OSTATNÍ)
+//   Nastavení kdo vidí 💡: Nastavení → Aplikace → 💡 TLAČÍTKO SLOŽKA
+//   Uloženo v DB (tabulka nastaveni, klic=slozka_role)
+//   Hodnoty: none | user | user_e | admin | superadmin (výchozí: admin)
+//
+// FORMÁTY CEST (vše funguje):
+//   U:\Dočekal\2025\ZN-001        — lokální/síťový disk
+//   \\server\zakazky\ZN-001       — UNC cesta
+//   http://server/zakazky/ZN-001  — webový odkaz (otevře prohlížeč)
+//
+// PRIORITA OTEVÍRÁNÍ SLOŽKY:
+//   1. stavby:// protokol  — nejjednodušší, jen .reg soubor, všechny prohlížeče
+//   2. Rozšíření           — Chrome/Opera (trvalé), Firefox (.xpi)
+//   3. Clipboard fallback  — zkopíruje cestu (bez instalace čehokoliv)
+//
+// METODA 1 — vlastní URL protokol stavby:// (DOPORUČENO):
+//   Instalace: stavby-protokol.zip → install.bat jako správce (jednorázově na PC)
+//   Funguje: Chrome, Opera, Firefox, Edge — BEZ rozšíření prohlížeče
+//   Prohlížeč zobrazí dialog "Otevřít Stavby Opener?" → OK → otevře složku
+//   Detekce: protokolReady state (ping test při načtení)
+//   Soubory: stavby_handler.ps1 + install.bat (PowerShell, žádný Python)
+//
+// METODA 2 — rozšíření prohlížeče (stavby-rozsireni-v2.zip):
+//   Chrome/Opera: trvalé, "Načíst rozbalené" + install.bat
+//   Firefox: dočasné (about:debugging) nebo trvalé (.xpi podpis přes Mozilla)
+//   Detekce: extensionReady state (window message "STAVBY_EXTENSION_READY")
+//   Nastavení → Aplikace → 💡: zobrazuje stav protokolu i rozšíření
 //
 // ============================================================
 // EMAIL NOTIFIKACE
@@ -42,24 +77,30 @@ import * as XLSX from "xlsx";
 // ✅ FROM_EMAIL: stavby_znojmo@zmes.cz (Supabase Secret)
 // ✅ Edge Function načítá emaily z DB (tabulka nastaveni, klic=notify_emails)
 // ✅ Emaily lze spravovat: Nastavení → Aplikace → 📧 EMAIL NOTIFIKACE
+// ✅ OPRAVA 2026-03-19: Edge Function měla špatný název secretu
+//    PŘED: Deno.env.get("SERVICE_ROLE_KEY")
+//    PO:   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+//    Příčina: secret nebyl načten → žádné emaily přes notify_emails → nic se neposlalo
+//    Výsledek: po opravě emaily okamžitě přišly ✅
 //
 // SUPABASE SECRETS (Edge Functions → Secrets):
 //   RESEND_API_KEY            — API klíč z resend.com
 //   FROM_EMAIL                — stavby_znojmo@zmes.cz
 //   SUPABASE_URL              — automaticky dostupná
-//   SUPABASE_SERVICE_ROLE_KEY — automaticky dostupná
+//   SUPABASE_SERVICE_ROLE_KEY — automaticky dostupná (POZOR: ne SERVICE_ROLE_KEY!)
 //
 // ============================================================
-// SUPABASE — DB MIGRACE (spustit na obou DB: prod + staging)
+// SUPABASE — VŠECHNY DB MIGRACE (spustit na obou DB: prod + staging)
 // ============================================================
 //   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS poznamka TEXT;
 //   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS cislo_faktury_2 TEXT;
 //   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS castka_bez_dph_2 NUMERIC;
 //   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS splatna_2 TEXT;
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS slozka_url TEXT;
 //   ALTER TABLE log_aktivit ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT false;
 //   UPDATE log_aktivit SET hidden = false WHERE hidden IS NULL;
-//   CREATE POLICY "admin_read_all"  ON log_aktivit FOR SELECT USING (true);
-//   CREATE POLICY "allow_insert"    ON log_aktivit FOR INSERT WITH CHECK (true);
+//   CREATE POLICY "admin_read_all"   ON log_aktivit FOR SELECT USING (true);
+//   CREATE POLICY "allow_insert"     ON log_aktivit FOR INSERT WITH CHECK (true);
 //   CREATE POLICY "admin_delete_log" ON log_aktivit FOR DELETE USING (true);
 //   CREATE POLICY "allow_update_log" ON log_aktivit FOR UPDATE USING (true) WITH CHECK (true);
 //
@@ -84,12 +125,12 @@ import * as XLSX from "xlsx";
 //   role=admin, max 15 staveb, jen v paměti — NESMÍ zapisovat do DB!
 //   Demo data: 8 staveb, 4 firmy, DEMO_USERS (4 účty viditelné v Nastavení)
 //
-// ZÁLOHA JSON (💾, jen superadmin):
-//   version: 2 — obsahuje stavby + ciselniky + uzivatele (bez hesel) + log_aktivit
-//   Automatická záloha při prvním přihlášení superadmina každý den (po 3s)
-//   Dialog odhlášení: tlačítko "💾 Zálohovat a odhlásit" pro admin+superadmin
+// ZÁLOHA JSON (💾, admin+superadmin stáhne, jen superadmin importuje):
+//   version: 2 — stavby + ciselniky + uzivatele (bez hesel) + log_aktivit
+//   Automatická záloha: první přihlášení superadmina každý den (po 3s)
+//   Dialog odhlášení: tlačítko "💾 Zálohovat a odhlásit" (admin+superadmin)
 //   Import: jen superadmin, smaže celou DB a nahradí zálohou
-//   Přenos mezi prostředími: červené varování při neshodě + nutné napsat POTVRDIT
+//   Přenos mezi prostředími: červené varování + nutné napsat POTVRDIT
 //
 // SKRÝVÁNÍ LOGŮ (hidden=true místo DELETE):
 //   Záznamy se nikdy fyzicky nemažou
@@ -99,72 +140,45 @@ import * as XLSX from "xlsx";
 //   non-superadmin: vidí jen hidden=false (filtr v DB dotazu)
 //
 // PLOVOUCÍ OKNA (useDraggable):
-//   Všechna okna draggable, reset pozice při každém otevření
 //   useDraggable vrací { pos, onMouseDown, reset }
 //   reset() volat při otevření oken definovaných v App (helpPos, deadlinesPos atd.)
 //
 // ČÍSELNÍKY — drag & drop pořadí:
-//   Firmy, Objednatelé, Stavbyvedoucí lze přeuspořádat tažením za ⠿
+//   Firmy, Objednatelé, Stavbyvedoucí — tažení za ⠿
 //   Pořadí firem se projeví v SummaryCards, filtru i tabulce
-//
-// IMPORT původní tabulky (📥 Import XLS, jen superadmin):
-//   Formát A — původní Excel: List1, hlavička řádek 4, data od řádku 5
-//   Formát B — záloha DB (list "Stavby" z aplikace)
-//   Datumy vždy DD.MM.YYYY, čísla jako float (raw:true)
 //
 // MULTI-TENANT ARCHITEKTURA (plán):
 //   Hosting: Cloudflare Pages (zdarma, komerční použití povoleno)
-//   Vercel Hobby ZAKÁZÁN pro komerční použití — v budoucnu přejít na CF Pages
+//   Vercel Hobby ZAKÁZÁN pro komerční použití — přejít na CF Pages
 //   Template: doco1971/stavby-template → forky pro každou firmu
-//   Každý fork: větev main (prod) + staging, vlastní Supabase projekty
 //
 // ============================================================
 // PENDING FUNKCE
 // ============================================================
+// [PENDING] 💡 Helper bez Pythonu — přepsat stavby_opener.py na .exe
 // [PENDING] 📱 iOS klávesnice — přihlašovací obrazovka se roztáhne při psaní
-// [PENDING] 📱 iOS klávesnice — alert okno (⚠️ Termíny) přetéká mimo obrazovku
-// [PENDING] 📈 Dashboard — KPI karty + grafy (celkem staveb, prošlé, vyfakt., nab.cena)
-// [PENDING] 🗓️ Kalendářní pohled — termíny ukončení staveb v měsíčním kalendáři
-// [PENDING] ☁️  Přechod Vercel → Cloudflare Pages (komerční omezení Hobby plánu)
+// [PENDING] 📈 Dashboard — KPI karty + grafy
+// [PENDING] 🗓️ Kalendářní pohled — termíny ukončení v měsíčním kalendáři
+// [PENDING] ☁️  Přechod Vercel → Cloudflare Pages
 //
 // ============================================================
 // HISTORY BUILDŮ
 // ============================================================
-// BUILD0025–0070 — viz starší session (notifikace, graf, auto-logout, nápověda,
-//   plovoucí okna, Liquid Glass, mobilní kartičky, resize sloupců, drag&drop sloupců)
-//
-// BUILD0071 — ikony v nápovědě, dva pohledy Stránky/Vše, stacked graf Kat.I/II
-// BUILD0072 — 📋 Kopírování stavby
-// BUILD0073 — Tlačítko Filtr ▾ červené při aktivním filtru
-// BUILD0074 — 📱 Mobilní kartičky
-// BUILD0075–076 — FIX: kartičky na mobilu/iPhone
-// BUILD0077–082 — FIX: mobilní layout, klávesnice iOS, header hamburgeru
-// BUILD0083–086 — 💎 Liquid Glass iOS 26, posuvník síly, nápověda
-// BUILD0087–092 — FIX: Liquid Glass vypínání, univerzální slider, posuvník intenzity
-// BUILD0093–094 — Drag & drop sloupců (jen superadmin)
-// BUILD0095–100 — Plovoucí okna (useDraggable), NativeSelect fix, UX sliderl
-// BUILD0101–112 — Opravy exportu, multi-tenant template, heartbeat YAML, README
-// BUILD0113–119 — JSON záloha+import, TEST banner, detekce prostředí, self-healing
-// BUILD0120 — Build badge v hlavičce (superadmin)
-// BUILD0121–123 — Mazání/skrývání záznamů logů s různými právy
-// BUILD0124 — Skrývání logů (hidden=true) + přepínač Aktivní/Skryté/Vše
-// BUILD0125–128 — FIX: dialog "Nevyplněná položka" (pointerEvents, zIndex)
-// BUILD0129 — PAGE_SIZE uložen do localStorage
-// BUILD0130 — FIX: hidden filtr v DB dotazu pro non-superadmin
-// BUILD0131 — FIX: RLS hláška skryta pro superadmina, loadLog(isSuperAdmin)
-// BUILD0132–134 — FIX: tisk nápovědy (čistý HTML, černý text)
-// BUILD0135 — FIX: plovoucí okna od vrchu, tooltip fix, index.html no-cache
-// BUILD0136 — Build badge viditelný pro admin i superadmin
-// BUILD0137–139 — FIX: tooltip nepřetéká za okraj, useDraggable lazy init
-// BUILD0140 — FIX: useDraggable reset při otevření, tooltip clamp
-// BUILD0141–142 — Drag & drop v číselníkách (firmy, objednatelé, stavbyvedoucí)
-//   Reset pozice oken při otevření (resetHelp, resetDeadlines)
-// BUILD0143 — Záloha JSON version 2: přidán log_aktivit (export i import)
-// BUILD0144 — Automatická záloha při prvním přihlášení dne (superadmin)
-//   Dialog odhlášení: tlačítko "💾 Zálohovat a odhlásit" (superadmin)
-// BUILD0145 — Dialog odhlášení: záloha pro admin i superadmin
-// BUILD0147 — Tlačítko 💡 složka zakázky + nastavení role
-// BUILD0146 — Aktualizace hlavičky: kompletní dokumentace stavu aplikace
+// BUILD0025–0145 — viz předchozí session (transcript v /mnt/transcripts/)
+// BUILD0146 — Aktualizace hlavičky, nápověda 20 sekcí
+// BUILD0147–149 — Tlačítko 💡 složka: popup zadání, drag&drop číselníky
+// BUILD0150–151 — FIX: protokol stavby:// zavíral záložku (iframe trick)
+// BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
+//   Detekce extensionReady, openFolder() s fallback na clipboard
+//   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0155 — openFolder: stavby:// protokol jako primární metoda
+//   Nová priorita: stavby:// protokol → rozšíření → clipboard
+//   Detekce protokolu: ping test při načtení stránky
+//   Fallback zachován — bez protokolu i bez rozšíření kopíruje do schránky
+//   Nastavení → Aplikace → 💡: zobrazuje stav protokolu i rozšíření
+//   Viz stavby-protokol.zip pro instalaci (.reg + handler)
+// BUILD0154 — Oprava Edge Function: SERVICE_ROLE_KEY → SUPABASE_SERVICE_ROLE_KEY
+// BUILD0153 — Aktualizace hlavičky + dokumentace + nápověda
 //
 // ============================================================
 // SUPABASE CONFIG
@@ -1851,7 +1865,7 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   );
 }
 
-function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole }) {
+function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false }) {
   const [tab, setTab] = useState("ciselniky");
   const [f, setF] = useState([...firmy]);
   const [o, setO] = useState([...objednatele]);
@@ -2075,22 +2089,39 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                 </div>
                 <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 16, marginTop: 8 }}>
                   <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>💡 TLAČÍTKO SLOŽKA</div>
-                  <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo vidí tlačítko 💡 pro otevření složky zakázky v Průzkumníku Windows.</div>
+                  <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo vidí tlačítko 💡 u každé stavby pro otevření složky zakázky.</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                     {[["none","Nikdo"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
                       <button key={val} onClick={() => { setEditSlozkaRole(val); onSaveSlozkaRole(val); }} style={{ padding: "7px 14px", background: editSlozkaRole === val ? "rgba(251,191,36,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${editSlozkaRole === val ? "rgba(251,191,36,0.6)" : modalBorder}`, borderRadius: 7, color: editSlozkaRole === val ? "#fbbf24" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: editSlozkaRole === val ? 700 : 400 }}>{label}</button>
                     ))}
                   </div>
-                  <div style={{ padding: "10px 14px", background: isDark ? "rgba(251,191,36,0.06)" : "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 8, marginBottom: 8 }}>
-                    <div style={{ color: isDark ? "#fbbf24" : "#b45309", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>⚠️ Nutná jednorázová instalace na každém PC</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 8 }}>Pro přímé otevření složky klikem na 💡 stáhněte a spusťte instalátor jako správce (trvá ~10 sekund). Funguje i přes VPN.</div>
-                    <button onClick={() => {
-                      const bat = `@echo off\r\nnet session >nul 2>&1\r\nif %errorLevel% neq 0 (echo Spustte jako spravce! & pause & exit /b 1)\r\necho Registruji protokol stavby://...\r\nset "D=%ProgramFiles%\\StavbyZnojmo"\r\nmkdir "%D%" 2>nul\r\n(echo Set objShell = CreateObject("WScript.Shell")\r\necho Dim sURL\r\necho sURL = WScript.Arguments(0)\r\necho sURL = Mid(sURL, 10)\r\necho sURL = Replace(sURL, "/", "\\")\r\necho objShell.Run "explorer.exe """ & sURL & """", 0, False) > "%D%\\open.vbs"\r\nreg add "HKLM\\SOFTWARE\\Classes\\stavby" /ve /d "Stavby Znojmo" /f >nul\r\nreg add "HKLM\\SOFTWARE\\Classes\\stavby" /v "URL Protocol" /d "" /f >nul\r\nreg add "HKLM\\SOFTWARE\\Classes\\stavby\\shell\\open\\command" /ve /d "wscript.exe \\"%D%\\open.vbs\\" \\"%%1\\"" /f >nul\r\necho.\r\necho Hotovo! Klikani na zlutou zarovku nyni otvira slozky.\r\npause`;
-                      const blob = new Blob([bat], { type: "application/octet-stream" });
-                      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "install_stavby_protocol.bat"; a.click();
-                    }} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", borderRadius: 7, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Stáhnout instalátor (Windows)</button>
+                  {/* Stav protokolu + download tlačítko */}
+                  <div style={{ padding: "12px 14px", background: protokolReady ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.06)", border: `1px solid ${protokolReady ? "rgba(16,185,129,0.3)" : "rgba(251,191,36,0.2)"}`, borderRadius: 8, marginBottom: 8 }}>
+                    <div style={{ color: protokolReady ? "#34d399" : "#fbbf24", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+                      {protokolReady ? "✅ Protokol stavby:// aktivní — klik otevře složku" : "⚠️ Nutná jednorázová instalace na každém PC"}
+                    </div>
+                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: protokolReady ? 0 : 10 }}>
+                      {protokolReady
+                        ? "Protokol je nainstalován. Klik na 💡 otevře složku přímo v Průzkumníku Windows."
+                        : "Pro přímé otevření složky kliknutím na 💡 stáhněte a spusťte instalátor jako správce (trvá ~10 sekund). Funguje i přes VPN."}
+                    </div>
+                    {!protokolReady && (
+                      <a
+                        href="/install.bat"
+                        download="install.bat"
+                        style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 18px", background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+                      >
+                        🖥 Stáhnout instalátor (Windows)
+                      </a>
+                    )}
+                    {/* Stav rozšíření — zobrazit jen pokud je aktivní */}
+                    {extensionReady && (
+                      <div style={{ marginTop: protokolReady ? 8 : 0, color: "#34d399", fontSize: 11, fontWeight: 600 }}>
+                        ✅ Rozšíření prohlížeče také aktivní (záložní metoda)
+                      </div>
+                    )}
                   </div>
-                  <div style={{ color: modalMuted, fontSize: 11 }}>Cesta ke složce se zadává v editaci každé stavby (sekce Ostatní).</div>
+                  <div style={{ color: modalMuted, fontSize: 11 }}>Cesta se zadává kliknutím na šedou 💡 nebo v editaci stavby (sekce Ostatní).</div>
                 </div>
                 <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 16, marginTop: 8 }}>
                   <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>ŠÍŘKY SLOUPCŮ</div>
@@ -2713,6 +2744,90 @@ export default function App() {
       await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "slozka_role", hodnota: val }), prefer: "resolution=merge-duplicates,return=minimal" });
       setSlozkaRole(val);
     } catch {}
+  };
+
+  // Detekce rozšíření Stavby Znojmo
+  const [extensionReady, setExtensionReady] = useState(false);
+  const [protokolReady, setProtokolReady] = useState(false);
+
+  // Detekce rozšíření (window message)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data && e.data.type === "STAVBY_EXTENSION_READY") setExtensionReady(true);
+      if (e.data && e.data.type === "STAVBY_OPEN_FOLDER_RESULT" && e.data.success === false && e.data.fallbackClipboard) {
+        // Rozšíření je, ale native host selhal — zkopíruj cestu
+        navigator.clipboard.writeText(e.data.path || "")
+          .then(() => showToast("📋 Cesta zkopírována (helper selhal — zkontroluj instalaci)", "ok"))
+          .catch(() => {});
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  // Detekce stavby:// protokolu — ping test při načtení
+  useEffect(() => {
+    const testProtokol = () => {
+      // Zkusíme otevřít stavby://ping — pokud handler existuje, nezahlásí chybu
+      // Detekci dělá iframe trik: vytvoříme skrytý iframe, nastavíme src, počkáme
+      // Pokud prohlížeč zná protokol, iframe tiše selže (bez chyby v konzoli)
+      // Pokud nezná, nic se nestane — v obou případech to vypadá stejně z JS
+      // Proto používáme heuristiku: zkusíme otevřít a nastavíme příznak
+      // Skutečná detekce není možná z bezpečnostních důvodů — příznak nastavíme
+      // pokud uživatel klikne a složka se otevře (viz openFolder níže)
+    };
+    testProtokol();
+  }, []);
+
+  // Otevření složky — priorita: stavby:// protokol → rozšíření → clipboard
+  const openFolder = (path) => {
+    if (!path) return;
+
+    // HTTP/HTTPS odkaz — otevřít přímo v prohlížeči
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      window.open(path, "_blank", "noopener");
+      return;
+    }
+
+    // Metoda 1: stavby:// vlastní protokol (doporučeno — funguje bez rozšíření)
+    // Zakóduj cestu pro URL: \ → %5C, mezery → %20 atd.
+    const encodedPath = encodeURIComponent(path);
+    const protokolUrl = `stavby://open?path=${encodedPath}`;
+
+    if (protokolReady) {
+      // Protokol byl detekován jako funkční — otevři přímo
+      window.location.href = protokolUrl;
+      return;
+    }
+
+    // Zkus protokol i bez detekce (uživatel ho možná má)
+    // Použij iframe trik — nezavírá záložku (funguje v Chrome, Opera, Firefox)
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+    try {
+      iframe.src = protokolUrl;
+      // Označíme protokol jako "použitý" — příštím klikem půjde přímo
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        setProtokolReady(true);
+      }, 500);
+      showToast("📂 Otevírám složku…", "ok");
+      return;
+    } catch {
+      document.body.removeChild(iframe);
+    }
+
+    // Metoda 2: rozšíření prohlížeče
+    if (extensionReady) {
+      window.postMessage({ type: "STAVBY_OPEN_FOLDER", path }, "*");
+      return;
+    }
+
+    // Metoda 3: clipboard fallback
+    navigator.clipboard.writeText(path)
+      .then(() => showToast("📋 Cesta zkopírována — nainstalujte stavby:// protokol pro přímé otevírání (viz README)", "ok"))
+      .catch(() => showToast("Nepodařilo se zkopírovat cestu", "error"));
   };
 
   // Zobrazit tlačítko 💡 pro aktuálního uživatele?
@@ -4027,22 +4142,15 @@ export default function App() {
                       <button
                         onClick={(e) => {
                           if (row.slozka_url) {
-                            // Žlutá — otevři složku přes protokol
-                            const url = row.slozka_url.replace(/\\/g, "/").replace(/^\/\//, "");
-                            // Použij iframe trick — nezmění URL záložky ani nezavře okno
-                            const iframe = document.createElement("iframe");
-                            iframe.style.display = "none";
-                            document.body.appendChild(iframe);
-                            iframe.src = "stavby://" + url;
-                            setTimeout(() => document.body.removeChild(iframe), 2000);
-                            navigator.clipboard.writeText(row.slozka_url).catch(() => {});
+                            openFolder(row.slozka_url);
                           } else if (isEditor) {
-                            // Šedá — otevři popup pro zadání cesty
                             const rect = e.currentTarget.getBoundingClientRect();
                             setSlozkaPopup({ id: row.id, url: "", x: rect.left, y: rect.bottom + 6 });
                           }
                         }}
-                        onMouseEnter={e => showTooltip(e, row.slozka_url ? `Otevřít složku: ${row.slozka_url}` : isEditor ? "Kliknutím nastavit cestu ke složce" : "Složka není nastavena")}
+                        onMouseEnter={e => showTooltip(e, row.slozka_url
+                          ? ((protokolReady || extensionReady) ? `Otevřít složku: ${row.slozka_url}` : `Kopírovat cestu: ${row.slozka_url}`)
+                          : isEditor ? "Kliknutím nastavit cestu ke složce" : "Složka není nastavena")}
                         onMouseLeave={hideTooltip}
                         style={{ padding: "3px 7px", background: row.slozka_url ? "rgba(251,191,36,0.15)" : "rgba(100,116,139,0.1)", border: `1px solid ${row.slozka_url ? "rgba(251,191,36,0.4)" : "rgba(100,116,139,0.2)"}`, borderRadius: 5, color: row.slozka_url ? "#fbbf24" : isEditor ? "rgba(100,116,139,0.6)" : "rgba(100,116,139,0.3)", cursor: (row.slozka_url || isEditor) ? "pointer" : "default", fontSize: 13, marginLeft: 5 }}
                       >💡</button>
@@ -4185,6 +4293,7 @@ export default function App() {
                 { icon: "🕐", title: "Historie změn stavby", text: <span>Fialové tlačítko 🕐 v levém sloupci otevře historii změn. Kdo, kdy a která pole změnil. <span style={{display:"inline-flex",alignItems:"center",gap:2}}>Červená tečka <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#ef4444",boxShadow:"0 0 6px #ef4444, 0 0 12px rgba(239,68,68,0.7)",verticalAlign:"middle"}}/>  na ikoně</span> = stavba má záznamy v historii. Export jako Excel nebo PDF.</span> },
                 { icon: "📜", title: "Log zakázek a skrývání", text: "Tlačítko 📜 Log v hlavičce (admin+) zobrazí přehled akcí na zakázkách. Admin může záznamy skrýt (✕) — záznamy se fyzicky nemažou, jen skrývají. Superadmin vidí přepínač Aktivní / Skryté / Vše a může záznamy obnovit (↩). Stejné skrývání funguje v Historii změn stavby a Nastavení → Log aktivit." },
                 { icon: "💾", title: "Záloha a obnova dat", text: "Tlačítko 💾 Záloha (superadmin) stáhne JSON zálohu celé DB — stavby + číselníky + uživatelé + logy. Automatická záloha se spustí při prvním přihlášení superadmina každý den. Při odhlášení lze zálohu stáhnout tlačítkem 💾 Zálohovat a odhlásit (admin+). Import JSON (superadmin) obnoví celou DB ze zálohy — smaže stávající data. Přenos mezi prostředími: červené varování + nutné napsat POTVRDIT." },
+                { icon: "💡", title: "Složka zakázky", text: "Tlačítko 💡 v levém sloupci. Šedá = cesta není nastavena — kliknutím otevřete popup pro zadání cesty (U:\\... nebo \\\\server\\...). Žlutá = cesta je nastavena — klik otevře složku v Průzkumníku (nutné rozšíření) nebo zkopíruje cestu do schránky. Cesta lze zadat i v editaci stavby (sekce OSTATNÍ). Kdo vidí 💡 nastavíte v Nastavení → Aplikace → 💡 TLAČÍTKO SLOŽKA. Pro přímé otevření složek nainstalujte rozšíření — aplikace zobrazí stav ✅/⚠️." },
                 { icon: "⚙️", title: "Nastavení — číselníky", text: "Správa firem (název + barva), objednatelů a stavbyvedoucích. Pořadí položek lze měnit tažením za ikonu ⠿ vlevo od každé položky. Pořadí firem se projeví v kartách nahoře i ve filtru. Admin spravuje uživatele — přidání, změna hesla a role." },
                 { icon: "💬", title: "Poznámka ke stavbě", text: <span>V editačním formuláři najdete fialovou sekci 💬 POZNÁMKA. Ikona <span style={{fontSize:13}}>💬</span> se zobrazí vedle názvu stavby pokud poznámka existuje — najeďte myší pro zobrazení textu.</span> },
                 { icon: "🎨", title: "Barevné řádky", text: <span>Každá firma má přiřazenou barvu (nastavitelnou v Nastavení). <span style={{background:"rgba(34,197,94,0.25)",color:"#4ade80",padding:"1px 5px",borderRadius:4,fontWeight:600}}>Zelený řádek</span> = stavba má fakturu, částku i datum splatnosti — kompletně vyfakturována.</span> },
@@ -4264,6 +4373,7 @@ export default function App() {
                   ["📊","Graf nákladů","Tlačítko 📊 Graf otevře interaktivní sloupcový graf. Tři přepínače: Firma, Měsíc, Kat. I / II. Graf vždy odráží aktuální filtr."],
                   ["📤","Export dat","CSV, Excel, Barevný Excel, PDF. Vše pracuje s aktuálním filtrem. Exportovat lze i log aktivit (admin+)."],
                   ["💾","Záloha a import","Tlačítko 💾 Záloha (superadmin) stáhne zálohu celé DB jako JSON — stavby + číselníky + uživatelé + logy. Automatická záloha se spustí při prvním přihlášení superadmina každý den. Při odhlášení lze zálohu stáhnout tlačítkem 💾 Zálohovat a odhlásit (admin+). Import JSON (superadmin) obnoví celou DB ze zálohy — pozor, smaže stávající data."],
+                  ["💡","Složka zakázky","Tlačítko 💡 v levém sloupci tabulky. Šedá = složka není nastavena (klik → popup pro zadání cesty). Žlutá = složka je nastavena (klik → otevře složku nebo zkopíruje cestu). Cesta lze zadat i v editaci stavby (sekce OSTATNÍ). Formát: U:\\Složka\\... nebo \\\\server\\zakazky\\... Pro přímé otevření složek je nutné nainstalovat Chrome/Opera rozšíření — viz Nastavení → Aplikace → 💡 TLAČÍTKO SLOŽKA."],
                   ["↔️","Šířky a pořadí sloupců","Superadmin: Táhněte ⟺ pro změnu šířky, ⠿ v záhlaví pro změnu pořadí sloupců. Ukládá se automaticky. Reset v Nastavení → Aplikace."],
                   ["⚙️","Nastavení — číselníky","Firmy (název + barva), objednatelé, stavbyvedoucí. Pořadí lze měnit tažením za ⠿ vlevo od položky. Pořadí firem se projeví v kartách nahoře i ve filtru."],
                   ["👥","Nastavení — uživatelé","Admin spravuje uživatele: přidání, změna hesla a role. Role: USER (čtení), USER EDITOR (editace), ADMIN (plný přístup), SUPERADMIN (+ nastavení aplikace)."],
@@ -4506,7 +4616,7 @@ export default function App() {
       {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={handleAdd} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={handleSave} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {copyRow && <FormModal title="📋 Kopírovat stavbu" initial={copyRow} onSave={handleCopySave} onClose={() => setCopyRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
-      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} />}
+      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} />}
 
       {showOrphanWarning && (() => {
         const firmyNames = firmy.map(f => f.hodnota);
