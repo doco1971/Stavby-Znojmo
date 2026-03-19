@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_19_build0165
+// BUILD: 2026_03_19_build0166
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -185,7 +185,8 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
-// BUILD0165 — Log: fix scrollbar, TEST banner červený+větší, autoz áloha vypnuta
+// BUILD0166 — Log: datum zkráceno+nowrap, přepínač auto zálohy v Nastavení
+// BUILD0165 — Log: fix scrollbar, TEST banner červený+větší
 // BUILD0164 — Log širší (1100px), Nastavení bez overflow-x scrollbaru
 // BUILD0163 — okna: top=10px (horní okraj), left=střed obrazovky
 // BUILD0162 — okna vystředěna, maxHeight 90vh
@@ -485,7 +486,7 @@ function HistorieModal({ row, isDark, onClose, isDemo, isAdmin, isSuperAdmin, on
   const fmtCas = (cas) => {
     if (!cas) return "";
     const d = new Date(cas);
-    return d.toLocaleString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleString("cs-CZ", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
   };
 
   const parseDetail = (detail) => {
@@ -1887,7 +1888,7 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   );
 }
 
-function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false }) {
+function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha }) {
   const [tab, setTab] = useState("ciselniky");
   const [f, setF] = useState([...firmy]);
   const [o, setO] = useState([...objednatele]);
@@ -2167,6 +2168,18 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                   >💾 Uložit emaily</button>
                   <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Uloženo v databázi (tabulka nastaveni, klic = notify_emails)</div>
                 </div>
+                {isSuperAdmin && (
+                  <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 16, marginTop: 8 }}>
+                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>💾 AUTOMATICKÁ ZÁLOHA</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <button
+                        onClick={() => onSaveAutoZaloha(!autoZaloha)}
+                        style={{ padding: "7px 16px", background: autoZaloha ? "linear-gradient(135deg,#059669,#047857)" : "rgba(255,255,255,0.05)", border: `1px solid ${autoZaloha ? "#059669" : modalBorder}`, borderRadius: 8, color: autoZaloha ? "#fff" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: 700 }}
+                      >{autoZaloha ? "✅ Zapnuta" : "⚪ Vypnuta"}</button>
+                      <div style={{ color: modalMuted, fontSize: 11 }}>Při prvním přihlášení superadmina každý den se automaticky stáhne záloha DB.</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2251,7 +2264,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                   <tbody>
                     {localLogFiltered.map((r, i) => (
                       <tr key={r.id} style={{ background: i % 2 === 0 ? (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)") : "transparent", opacity: r.hidden ? 0.55 : 1 }}>
-                        <td style={{ padding: "7px 12px", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.5)" }}>{fmtCas(r.cas)}</td>
+                        <td style={{ padding: "7px 12px", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.5)", whiteSpace: "nowrap", fontSize: 11 }}>{fmtCas(r.cas)}</td>
                         <td style={{ padding: "7px 12px", color: isDark ? "#e2e8f0" : "#1e293b" }}>
                           {r.uzivatel}
                           {r.hidden && <span style={{ marginLeft: 6, fontSize: 10, color: "rgba(148,163,184,0.8)", background: "rgba(100,116,139,0.15)", padding: "1px 5px", borderRadius: 4, fontWeight: 600 }}>skryto</span>}
@@ -2753,6 +2766,7 @@ export default function App() {
   // Složka — minimální role pro zobrazení tlačítka 💡
   // Hodnoty: "user" | "user_e" | "admin" | "superadmin" | "none"
   const [slozkaRole, setSlozkaRole] = useState("admin");
+  const [autoZaloha, setAutoZaloha] = useState(true);
   useEffect(() => {
     if (isDemo) return;
     sb("nastaveni?klic=eq.slozka_role").then(res => {
@@ -3000,9 +3014,29 @@ export default function App() {
 
   useEffect(() => { loadAll(user?.email === "demo"); }, [loadAll, user?.email]);
 
-  // ── Automatická záloha při prvním spuštění dne — VYPNUTO
-  // Záloha je dostupná při odhlášení (tlačítko Zálohovat a odhlásit)
-  // a ručně přes tlačítko 💾 Záloha v hlavičce (superadmin)
+  // ── Automatická záloha při prvním spuštění dne ────────────────
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("autoZaloha");
+      if (v === "false") setAutoZaloha(false);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!user || user.email === "demo" || !isSuperAdmin || !autoZaloha) return;
+    const dnes = new Date().toISOString().slice(0, 10);
+    const klic = `lastBackup_${user.email}`;
+    try {
+      const posledni = localStorage.getItem(klic);
+      if (posledni !== dnes) {
+        const t = setTimeout(() => {
+          zalohaJSON();
+          localStorage.setItem(klic, dnes);
+        }, 3000);
+        return () => clearTimeout(t);
+      }
+    } catch {}
+  }, [user, isSuperAdmin, autoZaloha]);
 
   // ── Upozornění na blížící se termíny ──────────────────────
   const [deadlineWarnings, setDeadlineWarnings] = useState([]);
@@ -3886,7 +3920,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0165</span>}
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0166</span>}
             <button onClick={() => { resetHelp(); setShowHelp(true); }} onMouseEnter={e => showTooltip(e, "Nápověda k aplikaci")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(isSuperAdmin); }} onMouseEnter={e => showTooltip(e, "Nastavení aplikace — firmy, číselníky, uživatelé, emaily")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} onMouseEnter={e => showTooltip(e, "Log aktivit uživatelů")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
@@ -4615,7 +4649,7 @@ export default function App() {
       {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={handleAdd} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={handleSave} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {copyRow && <FormModal title="📋 Kopírovat stavbu" initial={copyRow} onSave={handleCopySave} onClose={() => setCopyRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
-      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} />}
+      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} autoZaloha={autoZaloha} onSaveAutoZaloha={(v) => { setAutoZaloha(v); try { localStorage.setItem("autoZaloha", v ? "true" : "false"); } catch {} }} />}
 
       {showOrphanWarning && (() => {
         const firmyNames = firmy.map(f => f.hodnota);
