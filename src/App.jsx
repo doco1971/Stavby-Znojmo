@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_19_build0164
+// BUILD: 2026_03_19_build0165
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -185,6 +185,7 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0165 — Log: fix scrollbar, TEST banner červený+větší, autoz áloha vypnuta
 // BUILD0164 — Log širší (1100px), Nastavení bez overflow-x scrollbaru
 // BUILD0163 — okna: top=10px (horní okraj), left=střed obrazovky
 // BUILD0162 — okna vystředěna, maxHeight 90vh
@@ -2238,7 +2239,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                   }} style={{ padding: "5px 12px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 6, color: isDark ? "#fff" : "#1e293b", cursor: "pointer", fontSize: 12 }}>📥 Export Excel</button>
                 </div>
               </div>
-              <div style={{ overflowY: "auto", maxHeight: 400 }}>
+              <div style={{ overflowY: "auto", maxHeight: "calc(90vh - 280px)" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                   <thead>
                     <tr style={{ background: isDark ? "#1a2744" : "#e2e8f0" }}>
@@ -2250,7 +2251,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                   <tbody>
                     {localLogFiltered.map((r, i) => (
                       <tr key={r.id} style={{ background: i % 2 === 0 ? (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)") : "transparent", opacity: r.hidden ? 0.55 : 1 }}>
-                        <td style={{ padding: "7px 12px", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.5)", whiteSpace: "nowrap" }}>{fmtCas(r.cas)}</td>
+                        <td style={{ padding: "7px 12px", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.5)" }}>{fmtCas(r.cas)}</td>
                         <td style={{ padding: "7px 12px", color: isDark ? "#e2e8f0" : "#1e293b" }}>
                           {r.uzivatel}
                           {r.hidden && <span style={{ marginLeft: 6, fontSize: 10, color: "rgba(148,163,184,0.8)", background: "rgba(100,116,139,0.15)", padding: "1px 5px", borderRadius: 4, fontWeight: 600 }}>skryto</span>}
@@ -2999,23 +3000,9 @@ export default function App() {
 
   useEffect(() => { loadAll(user?.email === "demo"); }, [loadAll, user?.email]);
 
-  // ── Automatická záloha při prvním spuštění dne ────────────────
-  useEffect(() => {
-    if (!user || user.email === "demo" || !isSuperAdmin) return;
-    const dnes = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const klic = `lastBackup_${user.email}`;
-    try {
-      const posledni = localStorage.getItem(klic);
-      if (posledni !== dnes) {
-        // Počkej 3s aby se data načetla, pak spusť zálohu
-        const t = setTimeout(() => {
-          zalohaJSON();
-          localStorage.setItem(klic, dnes);
-        }, 3000);
-        return () => clearTimeout(t);
-      }
-    } catch {}
-  }, [user, isSuperAdmin]);
+  // ── Automatická záloha při prvním spuštění dne — VYPNUTO
+  // Záloha je dostupná při odhlášení (tlačítko Zálohovat a odhlásit)
+  // a ručně přes tlačítko 💾 Záloha v hlavičce (superadmin)
 
   // ── Upozornění na blížící se termíny ──────────────────────
   const [deadlineWarnings, setDeadlineWarnings] = useState([]);
@@ -3807,8 +3794,8 @@ export default function App() {
         .table-wrapper{-webkit-overflow-scrolling:touch;}
         * { -webkit-tap-highlight-color: transparent; }
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes stagingBlink{0%,100%{opacity:1;box-shadow:0 0 8px rgba(249,115,22,0.8)}50%{opacity:0.4;box-shadow:0 0 2px rgba(249,115,22,0.2)}}
-        @keyframes stagingPulse{0%,100%{background:rgba(249,115,22,0.95)}50%{background:rgba(234,88,12,0.7)}}
+        @keyframes stagingBlink{0%,100%{opacity:1;box-shadow:0 0 8px rgba(220,38,38,0.8)}50%{opacity:0.4;box-shadow:0 0 2px rgba(220,38,38,0.2)}}
+        @keyframes stagingPulse{0%,100%{background:rgba(220,38,38,0.95)}50%{background:rgba(185,28,28,0.7)}}
         @keyframes lgOrb1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,-40px) scale(1.15)}66%{transform:translate(-30px,50px) scale(0.9)}}
         @keyframes lgOrb2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-80px,30px) scale(0.85)}66%{transform:translate(40px,-60px) scale(1.2)}}
         @keyframes lgOrb3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(50px,40px) scale(1.1)}}
@@ -3860,7 +3847,7 @@ export default function App() {
         </div>
       )}
       {isStaging && !isDemo && (
-        <div style={{ animation: "stagingPulse 1.5s ease-in-out infinite", color: "#fff", textAlign: "center", padding: "5px 16px", fontSize: 12, fontWeight: 800, letterSpacing: 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+        <div style={{ animation: "stagingPulse 1.5s ease-in-out infinite", color: "#fff", textAlign: "center", padding: "7px 16px", fontSize: 14, fontWeight: 800, letterSpacing: 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
           <span style={{ animation: "stagingBlink 1.5s ease-in-out infinite", display: "inline-block" }}>⚠️</span>
           TESTOVACÍ PROSTŘEDÍ — změny se ukládají do testovací databáze, nikoliv do ostré produkce
           <span style={{ animation: "stagingBlink 1.5s ease-in-out infinite", display: "inline-block" }}>⚠️</span>
@@ -3882,7 +3869,7 @@ export default function App() {
               {!isMobile && <div style={{ color: T.textMuted, fontSize: 16, textAlign: "center", letterSpacing: 1 }}>kategorie 1 & 2</div>}
             </div>
             {isStaging && !isDemo && (
-              <div style={{ animation: "stagingBlink 1.5s ease-in-out infinite", background: "rgba(249,115,22,0.9)", color: "#fff", fontWeight: 800, fontSize: 11, padding: "3px 8px", borderRadius: 6, letterSpacing: 1, border: "1px solid rgba(249,115,22,0.6)", flexShrink: 0 }}>
+              <div style={{ animation: "stagingBlink 1.5s ease-in-out infinite", background: "rgba(220,38,38,0.9)", color: "#fff", fontWeight: 800, fontSize: 13, padding: "4px 12px", borderRadius: 6, letterSpacing: 1, border: "1px solid rgba(220,38,38,0.6)", flexShrink: 0 }}>
                 ⚠️ TEST
               </div>
             )}
@@ -3899,7 +3886,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0164</span>}
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0165</span>}
             <button onClick={() => { resetHelp(); setShowHelp(true); }} onMouseEnter={e => showTooltip(e, "Nápověda k aplikaci")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(isSuperAdmin); }} onMouseEnter={e => showTooltip(e, "Nastavení aplikace — firmy, číselníky, uživatelé, emaily")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} onMouseEnter={e => showTooltip(e, "Log aktivit uživatelů")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
