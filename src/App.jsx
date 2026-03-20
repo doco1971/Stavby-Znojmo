@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0185
+// BUILD: 2026_03_20_build0186
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -225,6 +225,7 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0186 — Tisk: pred tiskem prepnout na svetly motiv, po tisku vratit zpet
 // BUILD0185 — Tisk: svetly vizual - bgLight pro radky, td transparent, th modra
 // BUILD0184 — Tisk: obnoveny barvy firem a radku (odstranen background-color:transparent)
 // BUILD0183 — Tisk: zoom 0.55 (vsechny sloupce), skryty symboly hlavicek
@@ -272,7 +273,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0185";
+const APP_BUILD = "build0186";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -3486,11 +3487,17 @@ export default function App() {
   const exportXLS = () => { setConfirmExport({ type: "xls", label: "Excel (.xlsx)" }); setShowExport(false); };
   const exportPDF = () => {
     setShowExport(false);
+    const prevTheme = theme;
+    const needsSwitch = isDark;
+    if (needsSwitch) setTheme("light");
     setTimeout(() => {
       document.documentElement.classList.add("printing");
       window.print();
-      setTimeout(() => document.documentElement.classList.remove("printing"), 1000);
-    }, 50);
+      setTimeout(() => {
+        document.documentElement.classList.remove("printing");
+        if (needsSwitch) setTheme(prevTheme);
+      }, 1000);
+    }, needsSwitch ? 150 : 50); // světlý motiv potřebuje čas na překreslení
   };
   const exportXLSColor = () => { setConfirmExport({ type: "xls-color", label: "Barevný Excel (.xls)" }); setShowExport(false); };
 
