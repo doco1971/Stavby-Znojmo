@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0201
+// BUILD: 2026_03_20_build0202
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0202 — FIX: drag&drop — dataTransfer.getData jako záloha, stopPropagation na placeholder
 // BUILD0201 — FIX: handleCardDragEnd — cols nedostupné v closure, nahrazeno cardsOrder
 // BUILD0200 — FIX: drag&drop karet — isDraggingCard state, placeholder 80px při dragu
 // BUILD0199 — FIX: drag&drop karet — DragEnter+DragEnd vzor, dragOverRef, placeholder na konci
@@ -492,7 +493,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0201";
+const APP_BUILD = "build0202";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2478,8 +2479,8 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const handleCardDragOver = (e) => { e.preventDefault(); };
 
   const handleCardDrop = (e, targetId) => {
-    e.preventDefault();
-    const srcId = dragCardRef.current;
+    e.preventDefault(); e.stopPropagation();
+    const srcId = e.dataTransfer.getData("text/plain") || dragCardRef.current;
     if (!srcId || srcId === targetId) return;
     setCardsOrder(prev => {
       const next = [...prev];
@@ -2489,7 +2490,8 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
       try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
       return next;
     });
-    dragCardRef.current = null; dragOverRef.current = null; setDragOverCard(null);
+    dragCardRef.current = null; dragOverRef.current = null;
+    setDragOverCard(null); setIsDraggingCard(false);
   };
 
   const handleCardDragEnd = () => {
@@ -2943,17 +2945,17 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                         {col.length > 0 && (
                           <div
                             style={{ minHeight: isDraggingCard ? 80 : 16, marginTop: 6, borderRadius: 8, border: `2px dashed ${dragOverCard === `end-${ci}` ? "#3b82f6" : isDraggingCard ? (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)") : "transparent"}`, display: "flex", alignItems: "center", justifyContent: "center", color: dragOverCard === `end-${ci}` ? "#60a5fa" : modalMuted, fontSize: 12, transition: "all 0.15s", background: dragOverCard === `end-${ci}` ? "rgba(37,99,235,0.08)" : "transparent" }}
-                            onDragOver={e => e.preventDefault()}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "move"; }}
                             onDragEnter={e => {
-                              e.preventDefault();
+                              e.preventDefault(); e.stopPropagation();
                               if (dragCardRef.current) {
                                 dragOverRef.current = `__end_${ci}__`;
                                 setDragOverCard(`end-${ci}`);
                               }
                             }}
                             onDrop={e => {
-                              e.preventDefault();
-                              const srcId = dragCardRef.current;
+                              e.preventDefault(); e.stopPropagation();
+                              const srcId = e.dataTransfer.getData("text/plain") || dragCardRef.current;
                               if (!srcId) return;
                               setCardsOrder(prev => {
                                 const next = prev.filter(id => id !== srcId);
@@ -2967,7 +2969,8 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                                 try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
                                 return next;
                               });
-                              dragCardRef.current = null; dragOverRef.current = null; setDragOverCard(null);
+                              dragCardRef.current = null; dragOverRef.current = null;
+                              setDragOverCard(null); setIsDraggingCard(false);
                             }}
                           >
                             {dragOverCard === `end-${ci}` ? "⬇ přetáhni sem" : isDraggingCard ? "⬇" : ""}
