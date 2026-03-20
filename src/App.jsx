@@ -10,38 +10,242 @@ import * as XLSX from "xlsx";
 //   s vysvětlením výhod/nevýhod, teprve pak implementovat zvolenou.
 //   NESPOUŠTĚT implementaci bez průzkumu a výběru uživatelem!
 //
+// PRAVIDLO #1 — POKUD NĚCO NEFUNGUJE:
+//   Nejprve důkladně zkontrolovat kód v App.jsx (logika, stavy, podmínky)
+//   než se začne cokoliv jiného měnit nebo navrhovat.
+//   NEHÁDEJ — ZKONTROLUJ KÓD!
+//   Příklad: build číslo "natvrdo" → nekontrolovat = špatné řešení
+//            zkontrolovat kód = najít natvrdo → správné řešení = konstanta APP_BUILD
+//
+// PRAVIDLO #2 — TEXTY V TABULKÁCH:
+//   Nikdy nepoužívat textOverflow:ellipsis tam kde je dost místa.
+//   "ellipsis" = trojtečka (...) na konci oříznutého textu.
+//   Text se má zobrazit celý (wordBreak:break-word) bez horizontálního scrollbaru.
+//   Raději se zeptat na požadovanou šířku než dělat 4 buildy!
+//
 // PRAVIDLO #3 — VŽDY OVĚŘIT VÝSLEDEK:
 //   Po každé změně zkontrolovat že se oprava skutečně projevila v souboru.
 //   Nestačí říct "opraveno" — OVĚŘIT kódem (grep/search) že změna je tam.
 //   Nelhat! Pokud replace selhal, říct to a opravit znovu.
 //
-// PRAVIDLO #2 — TEXTY V TABULKÁCH:
-//   Nikdy nepoužívat textOverflow:ellipsis tam kde je dost místa.
-//   Text se má zobrazit celý (wordBreak:break-word) bez horizontálního scrollbaru.
-//   Raději se zeptat na požadovanou šířku než dělat 4 buildy!
-//
-// PRAVIDLO #1 — POKUD NĚCO NEFUNGUJE:
-//   Nejprve důkladně zkontrolovat kód v App.jsx (logika, stavy, podmínky)
-//   než se začne cokoliv jiného měnit nebo navrhovat.
-//   NEHÁDEJ — ZKONTROLUJ KÓD!
-//
 // PRAVIDLO #4 — PŘI KAŽDÉM NOVÉM BUILDU POVINNĚ AKTUALIZOVAT:
 //   a) Třetí řádek souboru:  // BUILD: DATUM_buildXXXX
 //   b) Řetězec v HISTORY:    BUILD0XXX — popis
-//   c) Konstanta APP_BUILD (řádek ~272): const APP_BUILD = "buildXXXX";
-//      UI ji zobrazí automaticky — nikde jinde se číslo buildu nemění!
-//
-//   stavby-app_DATUM_buildXXXX.jsx
-//   stavby-app_DATUM_buildXXXX_changelog.txt
-//   Třetí řádek souboru: // BUILD: DATUM_buildXXXX
-//   Po každém buildu aktualizovat sekci HISTORY níže.
+//   c) Konstanta APP_BUILD (~řádek 275): const APP_BUILD = "buildXXXX"
+//      UI ji zobrazí automaticky — nikde jinde se číslo buildu NEMĚNÍ!
+//   + VŽDY vytvořit changelog soubor stavby-app_DATUM_buildXXXX_changelog.txt
 //
 // DEPLOY: Vercel + GitHub (doco1971/stavby-znojmo)
 //   Větve: main (produkce) + staging (testování)
 //   Soubor patří do: src/App.jsx
-//   Postup: staging první → otestovat → main
+//   Postup: staging první → otestovat → merge do main
 //
 // TRANSCRIPT: /mnt/transcripts/ — přečíst pro kontext předchozích session
+// LOG:        stavby-znojmo-log-2026-03-20-FINAL.txt — kompletní dokumentace
+//
+// ============================================================
+// AKTUÁLNÍ STAV APLIKACE (session 2026-03-20, build0186)
+// ============================================================
+//
+// ✅ Poslední build staging: build0186
+// ✅ Poslední build main (produkce): build0143 (merge pending)
+// ✅ Supabase staging: wgrdhqkkjhtrkweiqxvo.supabase.co
+// ✅ Supabase produkce: cleifbyyhpbdjbrgzrkv.supabase.co
+// ✅ GitHub heartbeat: .github/workflows/supabase-heartbeat.yml
+//    Schedule: 45 4 * * * (probouzí SB 15 min před pg_cron emailem)
+// ✅ Email notifikace: pg_cron job "stavby-deadline-emails-v3" (jobid=5)
+//    Schedule: 0 5 * * * = 5:00 UTC = 6:00 CZ zimní / 7:00 CZ letní
+// ✅ Warmup job: "stavby-warmup-edge" (jobid=6)
+//    Schedule: 50 4 * * * = 4:50 UTC = probouzí Edge Function runtime
+//    OPRAVA 2026-03-20: pg_net timeout 5s — warmup job řeší probouzení EF runtime
+// ✅ vercel.json + index.html no-cache headers
+// ✅ Stavby Helper: localhost:47891 (PowerShell, autostart)
+//    Instalace: Nastavení → 💡 → Stáhnout instalátor → install.bat
+//    Port: 47891 (3210 byl obsazen Windows System procesem PID 4)
+// ✅ Tisk/PDF: window.print() + @media print (build0180-0186)
+//    Před tiskem přepne na světlý motiv, po tisku vrátí zpět
+//
+// ============================================================
+// TLAČÍTKO 💡 — SLOŽKA ZAKÁZKY
+// ============================================================
+// Umožňuje přiřadit síťovou cestu ke každé stavbě a otevřít ji klikem.
+//
+// FUNKCE:
+//   Šedá 💡 (bez cesty) + klik → popup pro zadání cesty
+//   Žlutá 💡 (s cestou) + klik → otevře složku nebo zkopíruje cestu
+//   Cesta lze zadat i v editaci stavby (sekce OSTATNÍ)
+//   Nastavení kdo vidí 💡: Nastavení → Aplikace → 💡 TLAČÍTKO SLOŽKA
+//   Uloženo v DB (tabulka nastaveni, klic=slozka_role)
+//   Hodnoty: none | user | user_e | admin | superadmin (výchozí: admin)
+//
+// FORMÁTY CEST (vše funguje):
+//   U:\Dočekal\2025\ZN-001        — lokální/síťový disk
+//   \\server\zakazky\ZN-001       — UNC cesta
+//   http://server/zakazky/ZN-001  — webový odkaz (otevře prohlížeč)
+//
+// STAV TESTOVÁNÍ:
+//   ✅ Lokální síť (LAN) — Opera + Firefox
+//   ⚠️  Chrome — minimalizuje okno (omezení prohlížeče)
+//   ⏳ VPN — zatím netestováno
+//
+// STAVBY HELPER — PowerShell HTTP server na localhost:47891:
+//   Soubor:    C:\Stavby\stavby-helper.ps1
+//   Autostart: Startup složka Windows
+//   Ping:      http://localhost:47891/ping → 'OK'
+//   Open:      http://localhost:47891/open?path=CESTA
+//   Instalace: Nastavení → 💡 → Stáhnout instalátor → install.bat (bez admin práv)
+//
+// ============================================================
+// EMAIL NOTIFIKACE
+// ============================================================
+// ✅ Resend.com nakonfigurován, doména zmes.cz ověřena
+//   DNS záznamy (přidal IT správce Forpsi):
+//     TXT  resend._domainkey.zmes.cz  → DKIM klíč
+//     MX   send.zmes.cz               → feedback-smtp.eu-west-1.amazonses.com (priorita 10)
+//     TXT  send.zmes.cz               → v=spf1 include:amazonses.com ~all
+// ✅ FROM_EMAIL: stavby_znojmo@zmes.cz
+// ✅ Edge Function načítá emaily z DB (tabulka nastaveni, klic=notify_emails)
+// ✅ Emaily lze spravovat: Nastavení → Aplikace → 📧 EMAIL NOTIFIKACE
+//
+// SUPABASE SECRETS (Edge Functions → Secrets):
+//   RESEND_API_KEY            — API klíč z resend.com
+//   FROM_EMAIL                — stavby_znojmo@zmes.cz
+//   SUPABASE_URL              — automaticky dostupná
+//   SUPABASE_SERVICE_ROLE_KEY — automaticky dostupná
+//   ⚠️  POZOR: SUPABASE_SERVICE_ROLE_KEY (ne SERVICE_ROLE_KEY!)
+//       Chyba v názvu = žádné emaily (opraveno build0154, 5 dní výpadek)
+//
+// ============================================================
+// TISK / PDF (build0180–0186)
+// ============================================================
+// Přístup: window.print() + @media print CSS — bez nového okna, bez závislostí
+//
+// exportPDF() postup:
+//   1. Uloží aktuální motiv (prevTheme)
+//   2. Pokud tmavý motiv → setTheme("light") — jinak tisk = černé pozadí!
+//   3. Počká 150ms → React překreslí světlý motiv
+//   4. Přidá třídu "printing" na <html> element
+//   5. window.print() → dialog prohlížeče
+//   6. Po tisku: odebere třídu + obnoví původní motiv
+//
+// CSS třídy:
+//   .no-print         — header, filtry, pagination, footer (skryto při tisku)
+//   .print-hide-col   — sloupce AKCE vlevo+vpravo (col + th + td)
+//   .print-hide-symbol — symboly ⠿ (drag) a ⟺ (resize) v hlavičkách
+//
+// @media print: A4 landscape, margin 4mm, table zoom 0.55, font-size 7px
+// firmaColorCache.bgLight = světlá varianta barvy (pro --print-bg CSS var na <tr>)
+//
+// ============================================================
+// SUPABASE — VŠECHNY DB MIGRACE (spustit na obou DB: prod + staging)
+// ============================================================
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS poznamka TEXT;
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS cislo_faktury_2 TEXT;
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS castka_bez_dph_2 NUMERIC;
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS splatna_2 TEXT;
+//   ALTER TABLE stavby ADD COLUMN IF NOT EXISTS slozka_url TEXT;
+//   ALTER TABLE log_aktivit ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT false;
+//   UPDATE log_aktivit SET hidden = false WHERE hidden IS NULL;
+//   CREATE POLICY "admin_read_all"   ON log_aktivit FOR SELECT USING (true);
+//   CREATE POLICY "allow_insert"     ON log_aktivit FOR INSERT WITH CHECK (true);
+//   CREATE POLICY "admin_delete_log" ON log_aktivit FOR DELETE USING (true);
+//   CREATE POLICY "allow_update_log" ON log_aktivit FOR UPDATE USING (true) WITH CHECK (true);
+//
+// ============================================================
+// TECHNICKÉ DETAILY
+// ============================================================
+//
+// SUPABASE: tabulky stavby, ciselniky, uzivatele, log_aktivit, nastaveni
+//   sb() helper — fetch wrapper s Bearer tokenem + AbortController 10s timeout
+//   XLSX export: HTML blob (.xls) — NE import("xlsx"), nefunguje v bundlu!
+//   XLSX import: XLSX.read(..., { raw: true, cellDates: true }) — raw:true nutné!
+//
+// ROLE: user (čtení), user_e (editor), admin, superadmin
+//   user        — čtení, filtrování, export dat
+//   user_e      — vše výše + přidání, editace, kopírování staveb
+//   admin       — vše výše + smazání, správa číselníků/uživatelů, log, záloha
+//   superadmin  — vše výše + nastavení aplikace, import DB, šířky sloupců
+//
+// DEMO: email=demo / heslo=demo
+//   role=admin, max 15 staveb, jen v paměti — NESMÍ zapisovat do DB!
+//
+// ZÁLOHA JSON (version:2):
+//   stavby + ciselniky + uzivatele (bez hesel) + log_aktivit
+//   Automatická záloha: první přihlášení superadmina každý den (po 3s)
+//   Import: jen superadmin, smaže celou DB → varování + nutné napsat POTVRDIT
+//
+// SKRÝVÁNÍ LOGŮ (hidden=true místo DELETE):
+//   Záznamy se nikdy fyzicky nemažou
+//   superadmin: vidí Aktivní/Skryté/Vše + může obnovit (↩)
+//
+// useDraggable: vrací { pos, onMouseDown, reset }
+//   Memory leak opraven (build0179): useCallback + useEffect cleanup
+//   posRef sleduje aktuální pos pro správný offset při dragování
+//
+// TABULKA — sloupce:
+//   Faktura 2 (cislo_faktury_2, castka_bez_dph_2, splatna_2): hidden:true
+//   ale zobrazují se jako druhý řádek v buňkách faktury (dashed border)
+//   Zelený řádek (isFaktura): č.faktury + castka_bez_dph + splatna vyplněny
+//   Červené ukončení (isOverdue): termín v minulosti, jen pokud !isFaktura
+//
+// ============================================================
+// PENDING FUNKCE
+// ============================================================
+// [HOTOVO] 💡 Otevírání složek — localhost helper port 47891
+// [HOTOVO] 🖨️  Tisk/PDF — window.print() + @media print (build0180-0186)
+// [HOTOVO] ⚡ sb() timeout + useDraggable memory leak (build0179)
+// [PENDING] ⚠️  Roletové menu za obrazovkou (user/user_e) — opravit
+// [PENDING] 💡 VPN — otestovat otevírání složek
+// [PENDING] 📈 Dashboard — KPI karty + grafy
+// [PENDING] 🗓️ Kalendářní pohled — termíny ukončení v měsíčním kalendáři
+// [PENDING] ☁️  Přechod Vercel → Cloudflare Pages (Hobby = nekomerční!)
+// [PENDING] 🔐 Přechod na Supabase Auth (hesla plain text → JWT)
+// [PENDING] 🔐 Hashování hesel v tabulce uzivatele
+// [PENDING] 🧹 Refaktoring App.jsx (5200 řádků → komponenty)
+// [PENDING] 🔀 Merge staging (build0186) → main
+//
+// ============================================================
+// HISTORY BUILDŮ
+// ============================================================
+// BUILD0025–0145 — viz předchozí session (transcript v /mnt/transcripts/)
+// BUILD0146 — Aktualizace hlavičky, nápověda 20 sekcí
+// BUILD0147–149 — Tlačítko 💡 složka: popup zadání, drag&drop číselníky
+// BUILD0150–151 — FIX: protokol stavby:// zavíral záložku (iframe trick)
+// BUILD0152 — Chrome/Opera rozšíření pro otevírání složek
+// BUILD0153 — Aktualizace hlavičky + dokumentace
+// BUILD0154 — OPRAVA Edge Function: SERVICE_ROLE_KEY → SUPABASE_SERVICE_ROLE_KEY
+// BUILD0155 — openFolder: stavby:// protokol jako primární metoda
+// BUILD0156 — openFolder: localhost helper (http://localhost:47891/open?path=...)
+// BUILD0157 — ping helperu každých 30s, pravidlo #1 do hlavičky
+// BUILD0158 — tooltips na toolbar tlačítka
+// BUILD0159 — tooltips Stránky/Vše, fix okna přidání stavby
+// BUILD0160 — fix useDraggable calcPos, dynamický maxHeight
+// BUILD0161 — kompaktní layout editace/přidání stavby
+// BUILD0162 — okna vystředěna, maxHeight 90vh
+// BUILD0163 — okna: top=10px
+// BUILD0164 — Log širší (1100px), bez overflow-x scrollbaru
+// BUILD0165 — TEST banner červený+větší, auto záloha přepínač
+// BUILD0166 — Log datum zkráceno, přepínač zálohy v Nastavení
+// BUILD0167 — Log: table-layout fixed, bez horizontálního scrollbaru
+// BUILD0168 — Nastavení: okno 1000px
+// BUILD0169 — OPRAVA E-MAILŮ (main): warmup job pg_cron
+// BUILD0170 — Log Akce sloupec wider, nowrap
+// BUILD0171 — Log sloupce percentuální šířky
+// BUILD0172 — Log Detail: celý text (wordBreak), Pravidlo #2
+// BUILD0173 — NativeSelect: dropdown nepřesahuje pravý okraj
+// BUILD0174 — Nastavení Aplikace: 2 sloupce, záloha role
+// BUILD0175 — Nápověda aktualizována, Pravidlo #3
+// BUILD0176 — Nápověda filtrována dle role
+// BUILD0177 — Odstraněna sekce Oprávnění dle role
+// BUILD0178 — Aktualizace hlavičky, update dokumentace
+// BUILD0179 — sb() AbortController 10s + useDraggable memory leak + APP_BUILD konstanta
+// BUILD0180 — Tisk/PDF: window.print() + @media print (žádné nové okno)
+// BUILD0181 — Fix INP issue: setTimeout 50ms před window.print()
+// BUILD0182 — Tisk: skryty sloupce AKCE (print-hide-col) + oprava broken build
+// BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
+// BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
+// BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0186 — Tisk: před tiskem přepnout na světlý motiv, po tisku vrátit zpět
 //
 // ============================================================
 // AKTUÁLNÍ STAV APLIKACE (session 2026-03-19, build0156)
