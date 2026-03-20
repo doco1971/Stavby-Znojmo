@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0191
+// BUILD: 2026_03_20_build0192
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0192 — Viditelnost sloupců per role (sloupce_role) v Nastavení → Aplikace
 // BUILD0191 — Povinná pole (cislo_stavby, nazev, ukonceni, sod, ze_dne) + Prefix číslování staveb
 // BUILD0190 — Název aplikace z DB, počet dní termínů z DB, demo max stavby z DB
 // BUILD0189 — Výchozí motiv světlý, timeout odhlášení z DB (auto_logout_minutes)
@@ -482,7 +483,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0191";
+const APP_BUILD = "build0192";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2324,7 +2325,7 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   );
 }
 
-function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha, zalohaRole = "superadmin", onSaveZalohaRole, onImportXLS, autoLogoutMinutesProp = 15, onSaveAutoLogoutMinutes, appNazevProp = "Stavby Znojmo", onSaveAppNazev, deadlineDaysProp = 30, onSaveDeadlineDays, demoMaxStavbyProp = 15, onSaveDemoMaxStavby, povinnaPole = {}, onSavePovinnaPole, prefixEnabled = false, prefixValue = "ZN-", onSaveCisloPrefix }) {
+function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha, zalohaRole = "superadmin", onSaveZalohaRole, onImportXLS, autoLogoutMinutesProp = 15, onSaveAutoLogoutMinutes, appNazevProp = "Stavby Znojmo", onSaveAppNazev, deadlineDaysProp = 30, onSaveDeadlineDays, demoMaxStavbyProp = 15, onSaveDemoMaxStavby, povinnaPole = {}, onSavePovinnaPole, prefixEnabled = false, prefixValue = "ZN-", onSaveCisloPrefix, sloupceRole = {}, onSaveSloupceRole }) {
   const [tab, setTab] = useState("ciselniky");
   const [f, setF] = useState([...firmy]);
   const [o, setO] = useState([...objednatele]);
@@ -2425,6 +2426,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const [editPovinnaPole, setEditPovinnaPole] = useState({ ...povinnaPole });
   const [editPrefixEnabled, setEditPrefixEnabled] = useState(prefixEnabled);
   const [editPrefixValue, setEditPrefixValue] = useState(prefixValue || "ZN-");
+  const [editSloupceRole, setEditSloupceRole] = useState({ ...sloupceRole });
 
   const modalBg = isDark ? "#1e293b" : "#ffffff";
   const modalBorder = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
@@ -2708,6 +2710,38 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                       <button onClick={() => { onResetColOrder(); }} style={{ padding: "9px 16px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.35)", borderRadius: 8, color: "#60a5fa", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↺ Reset pořadí</button>
                     </div>
                     <div style={{ color: modalMuted, fontSize: 11, marginTop: 8 }}>Obnoví původní šířky a pořadí sloupců tabulky.</div>
+                  </div>
+
+                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
+                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>👁 VIDITELNOST SLOUPCŮ</div>
+                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Minimální role která vidí daný sloupec. Výchozí = Všichni.</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                      {COLUMNS.filter(c => !c.hidden && c.key !== "id").map(col => {
+                        const LOCKED_KEYS = ["firma", "cislo_stavby", "nazev_stavby"];
+                        const isLocked = LOCKED_KEYS.includes(col.key);
+                        const curRole = editSloupceRole[col.key] || "user";
+                        return (
+                          <div key={col.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <span style={{ color: modalText, fontSize: 11, minWidth: 110 }}>{col.label}</span>
+                            {isLocked ? (
+                              <span style={{ color: modalMuted, fontSize: 11 }}>vždy</span>
+                            ) : (
+                              <div style={{ display: "flex", gap: 3 }}>
+                                {[["superadmin","SA"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, lbl]) => (
+                                  <button key={val} onClick={() => {
+                                    const next = { ...editSloupceRole, [col.key]: val === "user" ? undefined : val };
+                                    if (val === "user") delete next[col.key];
+                                    setEditSloupceRole(next);
+                                    onSaveSloupceRole(next);
+                                  }} style={{ padding: "3px 7px", background: curRole === val ? "rgba(37,99,235,0.3)" : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"), border: `1px solid ${curRole === val ? "rgba(37,99,235,0.6)" : modalBorder}`, borderRadius: 5, color: curRole === val ? "#60a5fa" : modalMuted, cursor: "pointer", fontSize: 10, fontWeight: curRole === val ? 700 : 400, whiteSpace: "nowrap" }}>{lbl}</button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button onClick={() => { setEditSloupceRole({}); onSaveSloupceRole({}); }} style={{ marginTop: 10, padding: "7px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>↺ Reset — vše Všichni</button>
                   </div>
 
                   <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
@@ -3193,6 +3227,8 @@ export default function App() {
   // Prefix číslování
   const [prefixEnabled, setPrefixEnabled] = useState(false);
   const [prefixValue, setPrefixValue] = useState("ZN-");
+  // Viditelnost sloupců per role: { key: "user"|"user_e"|"admin"|"superadmin" }
+  const [sloupceRole, setSloupceRole] = useState({});
   // ── Browser notifikace ───────────────────────────────────
   const notifPermission = useRef(null);
   const notifSentRef = useRef(false);
@@ -3349,11 +3385,18 @@ export default function App() {
     saveColOrder(defaultColOrder);
   };
 
-  // orderedCols — COLUMNS seřazené dle colOrder
+  // orderedCols — COLUMNS seřazené dle colOrder, filtrované dle role uživatele
+  const ROLE_ORDER = ["user", "user_e", "admin", "superadmin"];
+  const userRoleIdx = ROLE_ORDER.indexOf(user?.role || "user");
   const orderedCols = colOrder
     .map(key => COLUMNS.find(c => c.key === key))
     .filter(Boolean)
-    .filter(c => !c.hidden);
+    .filter(c => !c.hidden)
+    .filter(c => {
+      const minRole = sloupceRole[c.key];
+      if (!minRole) return true; // výchozí = vidí všichni
+      return userRoleIdx >= ROLE_ORDER.indexOf(minRole);
+    });
 
   useEffect(() => {
     sb("nastaveni?klic=eq.app_info").then(res => {
@@ -3412,6 +3455,9 @@ export default function App() {
     sb("nastaveni?klic=eq.cislo_prefix").then(res => {
       if (res && res[0]) { try { const v = JSON.parse(res[0].hodnota); setPrefixEnabled(!!v.enabled); setPrefixValue(v.value || "ZN-"); } catch {} }
     }).catch(() => {});
+    sb("nastaveni?klic=eq.sloupce_role").then(res => {
+      if (res && res[0]) { try { setSloupceRole(JSON.parse(res[0].hodnota)); } catch {} }
+    }).catch(() => {});
   }, [isDemo]);
 
   const saveZalohaRole = async (val) => {
@@ -3469,6 +3515,14 @@ export default function App() {
     if (isDemo) return;
     try {
       await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "cislo_prefix", hodnota: JSON.stringify({ enabled, value }) }), prefer: "resolution=merge-duplicates,return=minimal" });
+    } catch {}
+  };
+
+  const saveSloupceRole = async (next) => {
+    setSloupceRole(next);
+    if (isDemo) return;
+    try {
+      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "sloupce_role", hodnota: JSON.stringify(next) }), prefer: "resolution=merge-duplicates,return=minimal" });
     } catch {}
   };
 
@@ -5406,7 +5460,7 @@ export default function App() {
       {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={handleAdd} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} povinnaPole={povinnaPole} />}
       {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={handleSave} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} povinnaPole={povinnaPole} />}
       {copyRow && <FormModal title="📋 Kopírovat stavbu" initial={copyRow} onSave={handleCopySave} onClose={() => setCopyRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} povinnaPole={povinnaPole} />}
-      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} autoZaloha={autoZaloha} onSaveAutoZaloha={(v) => { setAutoZaloha(v); try { localStorage.setItem("autoZaloha", v ? "true" : "false"); } catch {} }} zalohaRole={zalohaRole} onSaveZalohaRole={saveZalohaRole} onImportXLS={() => importRef.current?.click()} autoLogoutMinutesProp={autoLogoutMinutes} onSaveAutoLogoutMinutes={saveAutoLogoutMinutes} appNazevProp={appNazev} onSaveAppNazev={saveAppNazev} deadlineDaysProp={deadlineDays} onSaveDeadlineDays={saveDeadlineDays} demoMaxStavbyProp={demoMaxStavby} onSaveDemoMaxStavby={saveDemoMaxStavby} povinnaPole={povinnaPole} onSavePovinnaPole={savePovinnaPole} prefixEnabled={prefixEnabled} prefixValue={prefixValue} onSaveCisloPrefix={saveCisloPrefix} />}
+      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} autoZaloha={autoZaloha} onSaveAutoZaloha={(v) => { setAutoZaloha(v); try { localStorage.setItem("autoZaloha", v ? "true" : "false"); } catch {} }} zalohaRole={zalohaRole} onSaveZalohaRole={saveZalohaRole} onImportXLS={() => importRef.current?.click()} autoLogoutMinutesProp={autoLogoutMinutes} onSaveAutoLogoutMinutes={saveAutoLogoutMinutes} appNazevProp={appNazev} onSaveAppNazev={saveAppNazev} deadlineDaysProp={deadlineDays} onSaveDeadlineDays={saveDeadlineDays} demoMaxStavbyProp={demoMaxStavby} onSaveDemoMaxStavby={saveDemoMaxStavby} povinnaPole={povinnaPole} onSavePovinnaPole={savePovinnaPole} prefixEnabled={prefixEnabled} prefixValue={prefixValue} onSaveCisloPrefix={saveCisloPrefix} sloupceRole={sloupceRole} onSaveSloupceRole={saveSloupceRole} />}
 
       {showOrphanWarning && (() => {
         const firmyNames = firmy.map(f => f.hodnota);
