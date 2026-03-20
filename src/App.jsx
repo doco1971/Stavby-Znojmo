@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0179
+// BUILD: 2026_03_20_build0180
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -225,6 +225,7 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0180 — Tisk/PDF: window.print() + @media print, žádné nové okno
 // BUILD0179 — sb() AbortController timeout 10s + useDraggable memory leak fix
 // BUILD0178 — Aktualizace hlavičky: stav aplikace 2026-03-20
 // BUILD0177 — Nápověda: odstraněna sekce Oprávnění dle role (redundantní)
@@ -266,7 +267,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0179";
+const APP_BUILD = "build0180";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -3478,7 +3479,12 @@ export default function App() {
 
   const exportCSV = () => { setConfirmExport({ type: "csv", label: "CSV (.csv)" }); setShowExport(false); };
   const exportXLS = () => { setConfirmExport({ type: "xls", label: "Excel (.xlsx)" }); setShowExport(false); };
-  const exportPDF = () => { setConfirmExport({ type: "pdf", label: "PDF tisk" }); setShowExport(false); };
+  const exportPDF = () => {
+    setShowExport(false);
+    document.documentElement.classList.add("printing");
+    window.print();
+    setTimeout(() => document.documentElement.classList.remove("printing"), 1000);
+  };
   const exportXLSColor = () => { setConfirmExport({ type: "xls-color", label: "Barevný Excel (.xls)" }); setShowExport(false); };
 
   const exportLog = async () => {
@@ -3955,6 +3961,35 @@ export default function App() {
         .lg-panel::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent);pointer-events:none;z-index:0}
         .lg-shimmer-bar{content:'';position:absolute;top:0;left:0;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);animation:lgShimmer 4s ease-in-out infinite;pointer-events:none;z-index:0}
         ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}
+
+        /* ── TISK / PDF ─────────────────────────────────────── */
+        @media print {
+          @page { size: A4 landscape; margin: 6mm; }
+          .no-print { display: none !important; }
+          * { overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+        /* Světlý motiv při tisku — přepíše tmavý theme */
+        html.printing, html.printing body { background: white !important; color: black !important; overflow: visible !important; height: auto !important; }
+        html.printing .no-print { display: none !important; }
+        html.printing * { background-color: transparent !important; color: black !important; border-color: #cccccc !important; overflow: visible !important; }
+        /* Zachovat barvy firem a zvýraznění buněk */
+        html.printing [style*="color:#3b82f6"], html.printing [style*="color: #3b82f6"] { color: #1d4ed8 !important; }
+        html.printing [style*="color:#10b981"], html.printing [style*="color: #10b981"] { color: #047857 !important; }
+        html.printing [style*="color:#f59e0b"], html.printing [style*="color: #f59e0b"] { color: #b45309 !important; }
+        html.printing [style*="color:#ef4444"], html.printing [style*="color: #ef4444"] { color: #b91c1c !important; }
+        html.printing [style*="color:#f87171"], html.printing [style*="color: #f87171"] { color: #b91c1c !important; }
+        html.printing [style*="color:#4ade80"], html.printing [style*="color: #4ade80"] { color: #166534 !important; }
+        html.printing [style*="color:#fbbf24"], html.printing [style*="color: #fbbf24"] { color: #854d0e !important; }
+        html.printing [style*="color:#60a5fa"], html.printing [style*="color: #60a5fa"] { color: #1d4ed8 !important; }
+        html.printing [style*="background:rgba(34,197,94"]  { background-color: #dcfce7 !important; }
+        html.printing [style*="background:rgba(239,68,68"]  { background-color: #fee2e2 !important; }
+        html.printing [style*="background:rgba(251,191,36"] { background-color: #fef9c3 !important; }
+        html.printing [style*="background:rgba(59,130,246"] { background-color: #dbeafe !important; }
+        html.printing [style*="background:rgba(37,99,235"]  { background-color: #dbeafe !important; }
+        html.printing [style*="background:rgba(16,185,129"] { background-color: #d1fae5 !important; }
+        html.printing [style*="background:rgba(139,92,246"] { background-color: #ede9fe !important; }
+        html.printing [style*="background:#1e293b"], html.printing [style*="background: #1e293b"] { background-color: #f8fafc !important; }
+        html.printing [style*="background:#0f172a"], html.printing [style*="background: #0f172a"] { background-color: white !important; }
       `}</style>
 
       {/* Liquid Glass — animované orby na pozadí */}
@@ -4005,7 +4040,7 @@ export default function App() {
       )}
 
       {/* HEADER */}
-      <div ref={headerRef} className={liquidGlass ? "lg-panel" : ""} style={{ background: T.headerBg, borderBottom: `1px solid ${T.headerBorder}`, padding: isMobile ? "8px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, backdropFilter: T.backdropFilter, WebkitBackdropFilter: T.backdropFilter, boxShadow: T.boxShadow, position: "relative", zIndex: 10 }}>
+      <div ref={headerRef} className={`no-print${liquidGlass ? " lg-panel" : ""}`} style={{ background: T.headerBg, borderBottom: `1px solid ${T.headerBorder}`, padding: isMobile ? "8px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, backdropFilter: T.backdropFilter, WebkitBackdropFilter: T.backdropFilter, boxShadow: T.boxShadow, position: "relative", zIndex: 10 }}>
         {liquidGlass && <div className="lg-shimmer-bar" style={{ position: "absolute", top: 0, left: 0, width: "40%", height: "100%", pointerEvents: "none" }} />}
         {/* Levá část: logo */}
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14 }}>
@@ -4124,10 +4159,10 @@ export default function App() {
       )}
 
       {/* SUMMARY */}
-      <div ref={cardsRef}><SummaryCards data={data} firmy={firmy.map(f => f.hodnota)} isDark={isDark} firmaColors={Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#2563eb"]))} isMobile={isMobile} /></div>
+      <div ref={cardsRef} className="no-print"><SummaryCards data={data} firmy={firmy.map(f => f.hodnota)} isDark={isDark} firmaColors={Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#2563eb"]))} isMobile={isMobile} /></div>
 
       {/* FILTERS */}
-      <div ref={filtersRef} className={liquidGlass ? "lg-panel" : ""} style={{ padding: "4px 6px", display: "flex", flexDirection: "column", gap: 3, background: T.filterBg, borderBottom: `1px solid ${T.cellBorder}`, minHeight: 38, backdropFilter: T.backdropFilter, WebkitBackdropFilter: T.backdropFilter, position: "relative", zIndex: 9 }}>
+      <div ref={filtersRef} className={`no-print${liquidGlass ? " lg-panel" : ""}`} style={{ padding: "4px 6px", display: "flex", flexDirection: "column", gap: 3, background: T.filterBg, borderBottom: `1px solid ${T.cellBorder}`, minHeight: 38, backdropFilter: T.backdropFilter, WebkitBackdropFilter: T.backdropFilter, position: "relative", zIndex: 9 }}>
         {/* Řádek 1: hledání + firma + filtr + ▦ */}
         <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "nowrap", overflowX: isMobile ? "visible" : "auto" }}>
           <input placeholder="🔍 Hledat..." onMouseEnter={e => showTooltip(e, "Hledat podle názvu nebo čísla stavby")} onMouseLeave={hideTooltip} value={filterText} onChange={e => setFilterText(e.target.value)} style={{ ...inputSx, width: isMobile ? 110 : 150, minWidth: 80, background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.text, padding: "4px 8px", fontSize: 11 }} />
@@ -4374,7 +4409,7 @@ export default function App() {
         </table>
       </div>
 
-      <div ref={paginationRef} style={{ display: cardView || viewMode === "scroll" ? "none" : "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "6px 18px", borderTop: `1px solid ${T.cellBorder}`, background: T.filterBg, flexShrink: 0, minHeight: 44 }}>
+      <div ref={paginationRef} className="no-print" style={{ display: cardView || viewMode === "scroll" ? "none" : "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "6px 18px", borderTop: `1px solid ${T.cellBorder}`, background: T.filterBg, flexShrink: 0, minHeight: 44 }}>
         {totalPages > 1 && <>
           <button onClick={() => setPage(0)} disabled={page === 0} style={{ padding: "4px 9px", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 6, color: T.textMuted, cursor: page === 0 ? "default" : "pointer", opacity: page === 0 ? 0.4 : 1, fontSize: 13 }}>«</button>
           <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ padding: "4px 9px", background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 6, color: T.textMuted, cursor: page === 0 ? "default" : "pointer", opacity: page === 0 ? 0.4 : 1, fontSize: 13 }}>‹</button>
@@ -4392,7 +4427,7 @@ export default function App() {
         </span>
       </div>
 
-      <div ref={footerRef} style={{ textAlign: "center", padding: "4px", borderTop: `1px solid ${T.cellBorder}`, color: T.textFaint, fontSize: 11, flexShrink: 0 }}>
+      <div ref={footerRef} className="no-print" style={{ textAlign: "center", padding: "4px", borderTop: `1px solid ${T.cellBorder}`, color: T.textFaint, fontSize: 11, flexShrink: 0 }}>
         © {appDatum} Stavby Znojmo – Martin Dočekal &amp; Claude AI &nbsp;|&nbsp; v{appVerze}
       </div>
 
