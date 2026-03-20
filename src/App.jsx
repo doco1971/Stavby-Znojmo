@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0200
+// BUILD: 2026_03_20_build0201
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0201 — FIX: handleCardDragEnd — cols nedostupné v closure, nahrazeno cardsOrder
 // BUILD0200 — FIX: drag&drop karet — isDraggingCard state, placeholder 80px při dragu
 // BUILD0199 — FIX: drag&drop karet — DragEnter+DragEnd vzor, dragOverRef, placeholder na konci
 // BUILD0198 — FIX: drag&drop karet — sloupec jako drop target, detekce pozice dle Y souřadnice
@@ -491,7 +492,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0200";
+const APP_BUILD = "build0201";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2499,9 +2500,15 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
         const ci = parseInt(targetId.replace("__end_", "").replace("__", ""));
         setCardsOrder(prev => {
           const next = prev.filter(id => id !== srcId);
-          const colItems = cols[ci]?.filter(id => id !== srcId) || [];
-          if (colItems.length === 0) { next.splice(ci, 0, srcId); }
-          else { const lastIdx = next.indexOf(colItems[colItems.length - 1]); next.splice(lastIdx + 1, 0, srcId); }
+          // Najdi všechny karty v sloupci ci z aktuálního pořadí (bez srcId)
+          const colItems = next.filter((_, idx) => idx % appCardsCols === ci);
+          if (colItems.length === 0) {
+            next.splice(ci, 0, srcId);
+          } else {
+            const lastInCol = colItems[colItems.length - 1];
+            const lastIdx = next.indexOf(lastInCol);
+            next.splice(lastIdx + 1, 0, srcId);
+          }
           try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
           return next;
         });
