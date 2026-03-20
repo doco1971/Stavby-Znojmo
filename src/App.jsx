@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0186
+// BUILD: 2026_03_20_build0187
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0187 — Toolbar: Export+Tisk odděleny, Data roletka (Záloha+Obnova JSON), Import XLS→Nastavení, Export logu→Log modal, Graf: +Koláč +Trend
 // BUILD0186 — Tisk: před tiskem přepnout na světlý motiv, po tisku vrátit zpět
 //
 // ============================================================
@@ -477,7 +478,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0186";
+const APP_BUILD = "build0187";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -1245,6 +1246,22 @@ function LogModal({ isDark, firmy, onClose, isDemo, isAdmin, isSuperAdmin }) {
             <button onClick={doXLSX}     style={{ padding: "7px 14px", background: "rgba(34,197,94,0.12)",  border: "1px solid rgba(34,197,94,0.3)",  borderRadius: 7, color: "#4ade80", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📊 XLSX</button>
             <button onClick={doXLSColor} style={{ padding: "7px 14px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🎨 Barevný Excel</button>
             <button onClick={doPDF}      style={{ padding: "7px 14px", background: "rgba(239,68,68,0.12)",  border: "1px solid rgba(239,68,68,0.3)",  borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🖨️ PDF tisk</button>
+            <button onClick={() => {
+              const headers = `<tr><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Akce</th><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Datum a čas</th><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Uživatel</th><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Název stavby</th><th style="background:#1E3A8A;color:#fff;padding:7px 10px;border:1px solid #2563EB;font-size:11px">Detail změn</th></tr>`;
+              const AKCE_BG = { "Přidání stavby":"#dcfce7","Editace stavby":"#fef9c3","Smazání stavby":"#fee2e2" };
+              const rows = filtered.map((z, i) => {
+                const diff = (() => { try { const s = z.detail?.indexOf("{"); return s>=0 ? JSON.parse(z.detail.slice(s)) : null; } catch { return null; } })();
+                const zmenyText = diff?.zmeny?.map(x => `${FIELD_LABELS[x.pole]||x.pole}: ${x.stare} → ${x.nove}`).join("; ") || z.detail || "";
+                const nazev = diff?.nazev || z.detail?.replace(/^ID:\s*\d+,\s*/,"").split(" {")[0] || "";
+                const bg = AKCE_BG[z.akce] || (i%2===0?"#f8fafc":"#fff");
+                const cas = z.cas ? new Date(z.cas).toLocaleString("cs-CZ") : "";
+                return `<tr><td style="padding:5px 10px;background:${bg};border:1px solid #E2E8F0;font-size:10px;font-weight:700">${z.akce||""}</td><td style="padding:5px 10px;background:${i%2===0?"#f8fafc":"#fff"};border:1px solid #E2E8F0;font-size:10px;white-space:nowrap">${cas}</td><td style="padding:5px 10px;background:${i%2===0?"#f8fafc":"#fff"};border:1px solid #E2E8F0;font-size:10px">${z.uzivatel||""}</td><td style="padding:5px 10px;background:${i%2===0?"#f8fafc":"#fff"};border:1px solid #E2E8F0;font-size:10px">${nazev}</td><td style="padding:5px 10px;background:${i%2===0?"#f8fafc":"#fff"};border:1px solid #E2E8F0;font-size:10px">${zmenyText}</td></tr>`;
+              }).join("");
+              const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"></head><body><table><thead>${headers}</thead><tbody>${rows}</tbody></table></body></html>`;
+              const ts = new Date().toISOString().slice(0,10);
+              const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+              const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `log_zakazek_${ts}.xls`; a.click();
+            }} style={{ padding: "7px 14px", background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 7, color: "#60a5fa", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📜 Export logu</button>
           </div>
           <button onClick={onClose} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Zavřít</button>
         </div>
@@ -1272,7 +1289,7 @@ function LogModal({ isDark, firmy, onClose, isDemo, isAdmin, isSuperAdmin }) {
 // GRAF MODAL
 // ============================================================
 function GrafModal({ data, firmy, isDark, onClose }) {
-  const [mode, setMode] = useState("firma"); // "firma" | "mesic" | "kat"
+  const [mode, setMode] = useState("firma"); // "firma" | "mesic" | "kat" | "kolac" | "trend"
   const { pos, onMouseDown: onDragStart } = useDraggable(1100, 560);
 
   const firmaColorMap = Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || "#3b82f6"]));
@@ -1542,6 +1559,115 @@ function GrafModal({ data, firmy, isDark, onClose }) {
     );
   };
 
+  const renderKolac = () => {
+    const map = {};
+    data.forEach(r => {
+      const key = r.firma || "Bez firmy";
+      if (!map[key]) map[key] = 0;
+      map[key] += Number(r.nabidka) || 0;
+    });
+    const items = Object.entries(map).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]);
+    const total = items.reduce((s,[,v]) => s+v, 0);
+    if (total === 0) return <div style={{ textAlign:"center", color: mutedC, padding: 48 }}>Žádná data k zobrazení</div>;
+    const CX = 110, CY = 110, R = 90, IR = 45;
+    let angle = -Math.PI / 2;
+    const slices = items.map(([name, val]) => {
+      const frac = val / total;
+      const a1 = angle, a2 = angle + frac * 2 * Math.PI;
+      angle = a2;
+      const x1 = CX + R * Math.cos(a1), y1 = CY + R * Math.sin(a1);
+      const x2 = CX + R * Math.cos(a2), y2 = CY + R * Math.sin(a2);
+      const lg = frac > 0.5 ? 1 : 0;
+      return { name, val, frac, x1, y1, x2, y2, lg, a1, a2 };
+    });
+    const colors = items.map(([name]) => firmaColorMap[name] || "#3b82f6");
+    return (
+      <div style={{ display:"flex", gap: 32, alignItems:"center", flexWrap:"wrap", padding:"8px 0" }}>
+        <svg width={220} height={220} viewBox="0 0 220 220" style={{ flexShrink:0 }}>
+          {slices.map((s, i) => (
+            <path key={i}
+              d={`M${CX},${CY} L${s.x1},${s.y1} A${R},${R} 0 ${s.lg},1 ${s.x2},${s.y2} Z`}
+              fill={colors[i]} opacity={0.88}
+            />
+          ))}
+          <circle cx={CX} cy={CY} r={IR} fill={modalBg}/>
+          <text x={CX} y={CY-6} textAnchor="middle" fontSize={13} fontWeight={600} fill={isDark?"#fff":"#1e293b"}>{fmtTick(total)}</text>
+          <text x={CX} y={CY+10} textAnchor="middle" fontSize={10} fill={mutedC}>celkem</text>
+        </svg>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {items.map(([name, val], i) => (
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13 }}>
+              <div style={{ width:11, height:11, borderRadius:3, background:colors[i], flexShrink:0 }}/>
+              <span style={{ color: isDark?"#e2e8f0":"#1e293b", fontWeight:600 }}>{name}</span>
+              <span style={{ color: mutedC, marginLeft:"auto", paddingLeft:16 }}>{Math.round((val/total)*100)} % · {fmtTick(val)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTrend = () => {
+    const map = {};
+    data.forEach(r => {
+      if (!r.ze_dne) return;
+      const parts = r.ze_dne.trim().split(".");
+      if (parts.length < 3) return;
+      const key = `${parts[2]}-${parts[1].padStart(2,"0")}`;
+      const label = `${parts[1]}/${parts[2]}`;
+      if (!map[key]) map[key] = { name: label, _sort: key, vyfakturovano: 0, nabidka: 0 };
+      map[key].vyfakturovano += Number(r.vyfakturovano) || 0;
+      map[key].nabidka += Number(r.nabidka) || 0;
+    });
+    const pts = Object.values(map).sort((a,b) => a._sort.localeCompare(b._sort));
+    if (pts.length < 2) return <div style={{ textAlign:"center", color: mutedC, padding: 48 }}>Nedostatek dat pro trend (potřeba alespoň 2 měsíce s datem SOD)</div>;
+    const maxVal = Math.max(...pts.map(p => Math.max(p.vyfakturovano, p.nabidka)), 1);
+    const W = 700, H = 240, PL = 70, PB = 30, PT = 20, PR = 20;
+    const cW = W - PL - PR, cH = H - PT - PB;
+    const xPos = (i) => PL + i * (cW / (pts.length - 1));
+    const yPos = (v) => PT + cH - (v / maxVal) * cH;
+    const lineD = (key) => pts.map((p,i) => `${i===0?"M":"L"}${xPos(i)},${yPos(p[key])}`).join(" ");
+    const gridC = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+    return (
+      <div>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", height:240, minWidth:400 }}>
+          {[0,0.25,0.5,0.75,1].map(p => {
+            const y = PT + p * cH;
+            return <g key={p}>
+              <line x1={PL} x2={W-PR} y1={y} y2={y} stroke={gridC} strokeWidth={1}/>
+              <text x={PL-6} y={y+4} textAnchor="end" fill={mutedC} fontSize={9}>{fmtTick(maxVal*(1-p))}</text>
+            </g>;
+          })}
+          <line x1={PL} x2={W-PR} y1={PT+cH} y2={PT+cH} stroke={isDark?"rgba(255,255,255,0.2)":"rgba(0,0,0,0.2)"} strokeWidth={1}/>
+          {/* area nabídka */}
+          <polygon points={pts.map((p,i) => `${xPos(i)},${yPos(p.nabidka)}`).join(" ")+` ${xPos(pts.length-1)},${PT+cH} ${PL},${PT+cH}`}
+            fill="#60a5fa" fillOpacity={0.1}/>
+          {/* area vyfakturováno */}
+          <polygon points={pts.map((p,i) => `${xPos(i)},${yPos(p.vyfakturovano)}`).join(" ")+` ${xPos(pts.length-1)},${PT+cH} ${PL},${PT+cH}`}
+            fill="#4ade80" fillOpacity={0.15}/>
+          {/* linie nabídka */}
+          <path d={lineD("nabidka")} fill="none" stroke="#60a5fa" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>
+          {/* linie vyfakturováno */}
+          <path d={lineD("vyfakturovano")} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>
+          {/* body */}
+          {pts.map((p,i) => <g key={i}>
+            <circle cx={xPos(i)} cy={yPos(p.nabidka)} r={3.5} fill="#60a5fa"/>
+            <circle cx={xPos(i)} cy={yPos(p.vyfakturovano)} r={3.5} fill="#4ade80"/>
+            <text x={xPos(i)} y={H-PB+16} textAnchor="middle" fill={mutedC} fontSize={10}>{p.name}</text>
+          </g>)}
+        </svg>
+        <div style={{ display:"flex", gap:18, padding:"6px 0 0 70px", flexWrap:"wrap" }}>
+          {[["#60a5fa","Nabídka"],["#4ade80","Vyfakturováno"]].map(([c,l]) => (
+            <div key={l} style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ width:11, height:11, borderRadius:3, background:c }}/>
+              <span style={{ fontSize:12, color:mutedC }}>{l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1200, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: modalBg, borderRadius: 16, width: "min(1100px,97vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`, boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
@@ -1550,12 +1676,12 @@ function GrafModal({ data, firmy, isDark, onClose }) {
           <div>
             <span style={{ color: isDark ? "#fff" : "#1e293b", fontWeight: 700, fontSize: 15 }}>📊 Graf nákladů{dragHint}</span>
             <div style={{ color: mutedC, fontSize: 11, marginTop: 2 }}>
-              {mode === "kat" ? "Kat. I (Plán.+SNK+Běžné op.) vs Kat. II (Plán.+Běžné op.+Poruchy)" : "Nabídka · Vyfakturováno · Zrealizováno"}
+              {mode === "kat" ? "Kat. I (Plán.+SNK+Běžné op.) vs Kat. II (Plán.+Běžné op.+Poruchy)" : mode === "kolac" ? "Podíl firem na celkové nabídce" : mode === "trend" ? "Vývoj vyfakturování v čase (měsíčně)" : "Nabídka · Vyfakturováno · Zrealizováno"}
             </div>
           </div>
           <div onMouseDown={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ display: "flex", background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, overflow: "hidden" }}>
-              {[["firma","🏢 Firma"],["mesic","📅 Měsíc"],["kat","📂 Kat. I / II"]].map(([val, lbl]) => (
+              {[["firma","🏢 Firma"],["mesic","📅 Měsíc"],["kat","📂 Kat. I / II"],["kolac","🥧 Podíl firem"],["trend","📈 Trend"]].map(([val, lbl]) => (
                 <button key={val} onClick={() => setMode(val)} style={{ padding: "6px 13px", background: mode === val ? (isDark ? "rgba(37,99,235,0.4)" : "rgba(37,99,235,0.15)") : "transparent", border: "none", borderRight: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"}`, color: mode === val ? "#60a5fa" : mutedC, cursor: "pointer", fontSize: 12, fontWeight: mode === val ? 700 : 400, transition: "all 0.15s", whiteSpace: "nowrap" }}>{lbl}</button>
               ))}
             </div>
@@ -1564,15 +1690,19 @@ function GrafModal({ data, firmy, isDark, onClose }) {
         </div>
         {/* graf */}
         <div style={{ padding: "16px 22px 8px", overflowX: "hidden", overflowY: "hidden", flexShrink: 0 }}>
-          {grafData.length === 0
+          {mode === "kolac" ? renderKolac()
+          : mode === "trend" ? renderTrend()
+          : grafData.length === 0
             ? <div style={{ textAlign: "center", color: mutedC, padding: 48 }}>Žádná data k zobrazení</div>
             : renderBars()
           }
         </div>
-        {/* tabulka */}
-        <div style={{ padding: "0 22px 18px", flex: 1, overflowY: "auto", overflowX: "hidden" }}>
-          {renderTable()}
-        </div>
+        {/* tabulka — skryta pro koláč a trend */}
+        {mode !== "kolac" && mode !== "trend" && (
+          <div style={{ padding: "0 22px 18px", flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+            {renderTable()}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2181,7 +2311,7 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   );
 }
 
-function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha, zalohaRole = "superadmin", onSaveZalohaRole }) {
+function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha, zalohaRole = "superadmin", onSaveZalohaRole, onImportXLS }) {
   const [tab, setTab] = useState("ciselniky");
   const [f, setF] = useState([...firmy]);
   const [o, setO] = useState([...objednatele]);
@@ -2488,6 +2618,12 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                       <button onClick={() => { onResetColOrder(); }} style={{ padding: "9px 16px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.35)", borderRadius: 8, color: "#60a5fa", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↺ Reset pořadí</button>
                     </div>
                     <div style={{ color: modalMuted, fontSize: 11, marginTop: 8 }}>Obnoví původní šířky a pořadí sloupců tabulky.</div>
+                  </div>
+
+                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
+                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>📥 IMPORT Z PŮVODNÍ TABULKY (XLS)</div>
+                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Jednorázový import staveb z původního Excel formátu. Smaže stávající data a nahradí je importem.</div>
+                    <button onClick={() => onImportXLS()} style={{ padding: "9px 16px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 8, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS</button>
                   </div>
 
                 </div>
@@ -4409,14 +4545,16 @@ export default function App() {
               <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
                 <span style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, padding: "0 8px", height: 28, display: "inline-flex", alignItems: "center", color: T.text, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>{filtered.length} záz.</span>
                 <button onClick={() => setShowGraf(true)} onMouseEnter={e => showTooltip(e, "Sloupcový graf nákladů")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>📊 Graf</button>
-                <NativeSelect value="⬇ Export" onChange={v => { if (v === "📄 CSV (.csv)") exportCSV(); else if (v === "📊 Excel (.xlsx)") exportXLS(); else if (v === "🎨 Barevný Excel") exportXLSColor(); else if (v === "📜 Export logu") exportLog(); else if (v === "🖨️ PDF tisk") exportPDF(); }} options={["⬇ Export", "📄 CSV (.csv)", "📊 Excel (.xlsx)", "🎨 Barevný Excel", ...(isAdmin ? ["📜 Export logu"] : []), "🖨️ PDF tisk"]} isDark={isDark} style={{ flexShrink: 0 }} />
-                {(isSuperAdmin || (isAdmin && ["admin","user_e","user"].includes(zalohaRole)) || (isEditor && ["user_e","user"].includes(zalohaRole)) || zalohaRole === "user") && !isDemo && <button onClick={zalohaJSON} onMouseEnter={e => showTooltip(e, "Záloha celé DB jako JSON: stavby + číselníky + uživatelé + logy")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>💾 Záloha</button>}
-                {isSuperAdmin && <>
+                <NativeSelect value="⬇ Export" onChange={v => { if (v === "📄 CSV (.csv)") exportCSV(); else if (v === "📊 Excel (.xlsx)") exportXLS(); else if (v === "🎨 Barevný Excel") exportXLSColor(); }} options={["⬇ Export", "📄 CSV (.csv)", "📊 Excel (.xlsx)", "🎨 Barevný Excel"]} isDark={isDark} style={{ flexShrink: 0 }} />
+                <button onClick={exportPDF} onMouseEnter={e => showTooltip(e, "Tisk / PDF — vytiskne aktuální tabulku")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>🖨 Tisk</button>
+                {(isSuperAdmin || (isAdmin && ["admin","user_e","user"].includes(zalohaRole)) || (isEditor && ["user_e","user"].includes(zalohaRole)) || zalohaRole === "user") && !isDemo && (
+                  <NativeSelect value="🗄 Data" onChange={v => {
+                    if (v === "💾 Záloha ( JSON )") zalohaJSON();
+                    else if (v === "📥 Obnova zálohy ( JSON )") importRef2.current?.click();
+                  }} options={["🗄 Data", "💾 Záloha ( JSON )", "📥 Obnova zálohy ( JSON )"]} isDark={isDark} style={{ flexShrink: 0 }} />
+                )}
                 <input ref={importRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: "none" }} />
                 <input ref={importRef2} type="file" accept=".json" onChange={handleImportJSON} style={{ display: "none" }} />
-                <button onClick={() => importRef.current?.click()} onMouseEnter={e => showTooltip(e, "Import staveb z původní tabulky nebo zálohy DB (Excel)")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(251,191,36,0.1)" : "rgba(251,191,36,0.15)", border: `1px solid ${isDark ? "rgba(251,191,36,0.3)" : "rgba(251,191,36,0.5)"}`, borderRadius: 7, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>📥 Import XLS</button>
-                <button onClick={() => importRef2.current?.click()} onMouseEnter={e => showTooltip(e, "Import staveb ze zálohy JSON")} onMouseLeave={hideTooltip} style={{ padding: "0 10px", height: 28, background: isDark ? "rgba(16,185,129,0.1)" : "rgba(16,185,129,0.15)", border: `1px solid ${isDark ? "rgba(16,185,129,0.3)" : "rgba(16,185,129,0.5)"}`, borderRadius: 7, color: "#10b981", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>📥 Import JSON</button>
-              </>}
                 {isEditor && <button onMouseEnter={e => showTooltip(e, "Přidat novou stavbu")} onMouseLeave={hideTooltip} onClick={() => { if (isDemo && data.length >= DEMO_MAX_STAVBY) { showToast(`Demo verze: maximum ${DEMO_MAX_STAVBY} staveb.`, "error"); return; } setAdding(true); }} style={{ padding: "0 14px", height: 28, background: isDemo && data.length >= DEMO_MAX_STAVBY ? "rgba(100,116,139,0.4)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", borderRadius: 7, color: "#fff", cursor: isDemo && data.length >= DEMO_MAX_STAVBY ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600 }}>{isDemo ? `+ Přidat stavbu (${data.length}/${DEMO_MAX_STAVBY})` : "+ Přidat stavbu"}</button>}
               </div>
             </>
@@ -4434,7 +4572,7 @@ export default function App() {
             </div>
             <span style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, padding: "0 7px", height: 28, display: "inline-flex", alignItems: "center", color: T.text, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>{filtered.length} záz.</span>
             <button onClick={() => setShowGraf(true)} style={{ padding: "0 8px", height: 28, background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)"}`, borderRadius: 7, color: T.text, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", flexShrink: 0 }}>📊</button>
-            <NativeSelect value="⬇" onChange={v => { if (v === "📄 CSV (.csv)") exportCSV(); else if (v === "📊 Excel (.xlsx)") exportXLS(); else if (v === "🎨 Barevný Excel") exportXLSColor(); else if (v === "📜 Export logu") exportLog(); else if (v === "🖨️ PDF tisk") exportPDF(); }} options={["⬇", "📄 CSV (.csv)", "📊 Excel (.xlsx)", "🎨 Barevný Excel", ...(isAdmin ? ["📜 Export logu"] : []), "🖨️ PDF tisk"]} isDark={isDark} style={{ flexShrink: 0, width: 55 }} />
+            <NativeSelect value="⬇" onChange={v => { if (v === "📄 CSV (.csv)") exportCSV(); else if (v === "📊 Excel (.xlsx)") exportXLS(); else if (v === "🎨 Barevný Excel") exportXLSColor(); else if (v === "🖨️ Tisk") exportPDF(); }} options={["⬇", "📄 CSV (.csv)", "📊 Excel (.xlsx)", "🎨 Barevný Excel", "🖨️ Tisk"]} isDark={isDark} style={{ flexShrink: 0, width: 55 }} />
             {isEditor && (
               <button onClick={() => { if (isDemo && data.length >= DEMO_MAX_STAVBY) { showToast(`Demo: max ${DEMO_MAX_STAVBY} staveb.`, "error"); return; } setAdding(true); }} style={{ marginLeft: "auto", padding: "0 12px", height: 28, background: isDemo && data.length >= DEMO_MAX_STAVBY ? "rgba(100,116,139,0.4)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", borderRadius: 7, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>+ Přidat</button>
             )}
@@ -5017,7 +5155,7 @@ export default function App() {
       {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={handleAdd} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={handleSave} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
       {copyRow && <FormModal title="📋 Kopírovat stavbu" initial={copyRow} onSave={handleCopySave} onClose={() => setCopyRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} />}
-      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} autoZaloha={autoZaloha} onSaveAutoZaloha={(v) => { setAutoZaloha(v); try { localStorage.setItem("autoZaloha", v ? "true" : "false"); } catch {} }} zalohaRole={zalohaRole} onSaveZalohaRole={saveZalohaRole} />}
+      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} autoZaloha={autoZaloha} onSaveAutoZaloha={(v) => { setAutoZaloha(v); try { localStorage.setItem("autoZaloha", v ? "true" : "false"); } catch {} }} zalohaRole={zalohaRole} onSaveZalohaRole={saveZalohaRole} onImportXLS={() => importRef.current?.click()} />}
 
       {showOrphanWarning && (() => {
         const firmyNames = firmy.map(f => f.hodnota);
