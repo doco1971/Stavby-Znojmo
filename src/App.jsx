@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0180
+// BUILD: 2026_03_20_build0181
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -225,6 +225,7 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0181 — Fix tisk PDF: setTimeout 50ms před window.print() (INP issue)
 // BUILD0180 — Tisk/PDF: window.print() + @media print, žádné nové okno
 // BUILD0179 — sb() AbortController timeout 10s + useDraggable memory leak fix
 // BUILD0178 — Aktualizace hlavičky: stav aplikace 2026-03-20
@@ -267,7 +268,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0180";
+const APP_BUILD = "build0181";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -3481,9 +3482,11 @@ export default function App() {
   const exportXLS = () => { setConfirmExport({ type: "xls", label: "Excel (.xlsx)" }); setShowExport(false); };
   const exportPDF = () => {
     setShowExport(false);
-    document.documentElement.classList.add("printing");
-    window.print();
-    setTimeout(() => document.documentElement.classList.remove("printing"), 1000);
+    setTimeout(() => {
+      document.documentElement.classList.add("printing");
+      window.print();
+      setTimeout(() => document.documentElement.classList.remove("printing"), 1000);
+    }, 50);
   };
   const exportXLSColor = () => { setConfirmExport({ type: "xls-color", label: "Barevný Excel (.xls)" }); setShowExport(false); };
 
