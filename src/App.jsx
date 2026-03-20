@@ -2631,18 +2631,18 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                   content: (
                     <div>
                       <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Minimální role která vidí daný sloupec. Výchozí = Všichni.</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 220, overflowY: "auto" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingRight: 4 }}>
                         {COLUMNS.filter(c => !c.hidden && c.key !== "id").map(col => {
                           const LOCKED_KEYS = ["firma","cislo_stavby","nazev_stavby"];
                           const isLocked = LOCKED_KEYS.includes(col.key);
                           const curRole = editSloupceRole[col.key] || "user";
                           return (
-                            <div key={col.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                              <span style={{ color: modalText, fontSize: 11, minWidth: 100 }}>{col.label}</span>
-                              {isLocked ? <span style={{ color: modalMuted, fontSize: 10 }}>vždy</span> : (
-                                <div style={{ display: "flex", gap: 2 }}>
+                            <div key={col.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "4px 0", borderBottom: `1px solid ${modalBorder}` }}>
+                              <span style={{ color: isDark ? "#e2e8f0" : "#1e293b", fontSize: 12, fontWeight: 500, minWidth: 130, flexShrink: 0 }}>{col.label}</span>
+                              {isLocked ? <span style={{ color: modalMuted, fontSize: 11, fontStyle: "italic" }}>vždy viditelný</span> : (
+                                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                                   {[["superadmin","SA"],["admin","A+"],["user_e","E+"],["user","Vš"]].map(([val, lbl]) => (
-                                    <button key={val} onClick={() => { const next = { ...editSloupceRole }; if (val === "user") delete next[col.key]; else next[col.key] = val; setEditSloupceRole(next); onSaveSloupceRole(next); }} style={{ padding: "2px 6px", background: curRole === val ? "rgba(37,99,235,0.3)" : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"), border: `1px solid ${curRole === val ? "rgba(37,99,235,0.6)" : modalBorder}`, borderRadius: 4, color: curRole === val ? "#60a5fa" : modalMuted, cursor: "pointer", fontSize: 10, fontWeight: curRole === val ? 700 : 400 }}>{lbl}</button>
+                                    <button key={val} onClick={() => { const next = { ...editSloupceRole }; if (val === "user") delete next[col.key]; else next[col.key] = val; setEditSloupceRole(next); onSaveSloupceRole(next); }} style={{ padding: "3px 8px", background: curRole === val ? "rgba(37,99,235,0.3)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${curRole === val ? "rgba(37,99,235,0.6)" : modalBorder}`, borderRadius: 5, color: curRole === val ? "#60a5fa" : modalMuted, cursor: "pointer", fontSize: 11, fontWeight: curRole === val ? 700 : 400, minWidth: 28, textAlign: "center" }}>{lbl}</button>
                                   ))}
                                 </div>
                               )}
@@ -2650,7 +2650,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                           );
                         })}
                       </div>
-                      <button onClick={() => { setEditSloupceRole({}); onSaveSloupceRole({}); }} style={{ marginTop: 8, padding: "6px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>↺ Reset — vše Všichni</button>
+                      <button onClick={() => { setEditSloupceRole({}); onSaveSloupceRole({}); }} style={{ marginTop: 10, padding: "6px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>↺ Reset — vše Všichni</button>
                     </div>
                   )
                 },
@@ -2832,9 +2832,9 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                               onDrop={e => handleCardDrop(e, id)}
                               onDragEnd={handleCardDragEnd}
                             >
-                              <div style={{ padding: "9px 14px 8px", borderBottom: `1px solid ${modalBorder}`, display: "flex", alignItems: "center", gap: 7, cursor: "grab", userSelect: "none", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)", borderRadius: "10px 10px 0 0" }}>
-                                <span style={{ color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)", fontSize: 13 }}>⠿</span>
-                                <span style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>{card.title}</span>
+                              <div style={{ padding: "9px 14px 8px", borderBottom: `1px solid ${modalBorder}`, display: "flex", alignItems: "center", gap: 7, cursor: "grab", userSelect: "none", background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", borderRadius: "10px 10px 0 0" }}>
+                                <span style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)", fontSize: 13 }}>⠿</span>
+                                <span style={{ color: isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.65)", fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>{card.title}</span>
                               </div>
                               <div style={{ padding: "12px 14px" }}>{card.content}</div>
                             </div>
