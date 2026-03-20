@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0176
+// BUILD: 2026_03_20_build0177
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -202,6 +202,7 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0177 — Nápověda: odstraněna sekce Oprávnění dle role (redundantní)
 // BUILD0176 — Nápověda filtrována dle role přihlášeného uživatele
 // BUILD0175 — Nápověda aktualizována: záloha role, složka helper. Pravidlo #3.
 // BUILD0174 — Nastavení Aplikace: 2 sloupce, záloha role volba, export dropdown fix
@@ -3986,7 +3987,7 @@ export default function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
             <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: isSuperAdmin ? "rgba(168,85,247,0.2)" : isAdmin ? "rgba(245,158,11,0.2)" : isEditor ? "rgba(34,197,94,0.2)" : "rgba(100,116,139,0.2)", color: isSuperAdmin ? "#c084fc" : isAdmin ? "#fbbf24" : isEditor ? "#4ade80" : "#94a3b8" }}>{isSuperAdmin ? "SUPERADMIN" : isAdmin ? "ADMIN" : isEditor ? "USER EDITOR" : "USER"}</span>
-            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0176</span>}
+            {isSuperAdmin && <span onMouseEnter={e => showTooltip(e, "Číslo buildu aplikace")} onMouseLeave={hideTooltip} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", letterSpacing: 0.5, cursor: "default", userSelect: "none" }}>build0177</span>}
             <button onClick={() => { resetHelp(); setShowHelp(true); }} onMouseEnter={e => showTooltip(e, "Nápověda k aplikaci")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); if (!isDemo) loadLog(isSuperAdmin); }} onMouseEnter={e => showTooltip(e, "Nastavení aplikace — firmy, číselníky, uživatelé, emaily")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => setShowLog(true)} onMouseEnter={e => showTooltip(e, "Log aktivit uživatelů")} onMouseLeave={hideTooltip} style={{ padding: "5px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 12 }}>📜 Log</button>}
@@ -4412,20 +4413,7 @@ export default function App() {
                 { role: "all", icon: "📱", title: "Mobilní zobrazení — kartičky", text: "Na mobilu (šířka < 768px) se automaticky přepne do kartičkového pohledu. Tlačítko ▦/☰ v liště přepíná mezi kartičkami a tabulkou. Každá kartička zobrazuje: firmu (barevná tečka), číslo stavby, název, 3 finanční metriky (nabídka / vyfakturováno / rozdíl), termín s barevným stavem (žlutý = do 10 dní, červený = prošlý, zelený = vyfakturováno), poznámku a faktury. Akce (🕐 hist, 📋 kopie, ✏️ editovat, 🗑️ smazat) jsou dostupné dle role." },
                 { role: "all", icon: "☰", title: "Mobilní menu (hamburger)", text: "Na mobilu jsou tlačítka hlavičky (Nastavení, Nápověda, Odhlásit...) skryta za tlačítkem ☰ vpravo nahoře. Kliknutím se rozbalí dropdown s: jménem a rolí uživatele, přepínačem tmavý/světlý režim, Nápovědou, Nastavením (admin), Logem (admin) a tlačítkem Odhlásit." },
                 { role: "all", icon: "⋯", title: "Mobilní filtr — rozbalovací řádek", text: "Filtrovací lišta na mobilu má dva řádky. Řádek 1 (vždy viditelný): Hledat · Firmy · Filtr▼ · ▦ (kartičky) · ⋯. Kliknutím na ⋯ se zobrazí řádek 2: Objednatel · Stavbyvedoucí · Stránky/Vše · počet záznamů · 📊 Graf · ⬇ Export · + Přidat stavbu." },
-                { role: "all", icon: "🔐", title: "Oprávnění dle role", text: <span>
-                  <span style={{display:"block",marginBottom:6,color:"rgba(255,255,255,0.5)",fontSize:11}}>Co smí která role:</span>
-                  {[
-                    { role: "USER", color: "#94a3b8", ops: "Čtení tabulky, filtrování, export dat" },
-                    { role: "USER EDITOR", color: "#60a5fa", ops: "Vše výše + přidání, editace a kopírování staveb" },
-                    { role: "ADMIN", color: "#a78bfa", ops: "Vše výše + smazání staveb, správa uživatelů, log zakázek, export logu" },
-                    { role: "SUPERADMIN", color: "#f59e0b", ops: "Vše výše + nastavení aplikace, záloha DB, import staveb, šířky a pořadí sloupců, reset nastavení" },
-                  ].map(({ role, color, ops }) => (
-                    <div key={role} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:5}}>
-                      <span style={{background:color+"22",color,border:`1px solid ${color}44`,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700,whiteSpace:"nowrap",flexShrink:0,marginTop:1}}>{role}</span>
-                      <span style={{color:"rgba(255,255,255,0.55)",fontSize:12}}>{ops}</span>
-                    </div>
-                  ))}
-                </span> },
+
               ].filter(({ role }) => {
                   if (role === "all") return true;
                   if (role === "editor") return isEditor || isAdmin || isSuperAdmin;
