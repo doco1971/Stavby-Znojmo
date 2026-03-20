@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0193
+// BUILD: 2026_03_20_build0194
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0194 — Nastavení Aplikace: volitelný počet sloupců 1–5 (localStorage)
 // BUILD0193 — Nastavení Aplikace: optimální 3 sloupce, drag&drop karet, reset pořadí
 // BUILD0192 — Viditelnost sloupců per role (sloupce_role) v Nastavení → Aplikace
 // BUILD0191 — Povinná pole (cislo_stavby, nazev, ukonceni, sod, ze_dne) + Prefix číslování staveb
@@ -484,7 +485,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0193";
+const APP_BUILD = "build0194";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2442,6 +2443,9 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
     } catch {}
     return DEFAULT_CARDS_ORDER;
   });
+  const [appCardsCols, setAppCardsCols] = useState(() => {
+    try { const v = parseInt(localStorage.getItem("aplikace_cols") || "3"); return (v >= 1 && v <= 5) ? v : 3; } catch { return 3; }
+  });
   const dragCardRef = useRef(null);
   const [dragOverCard, setDragOverCard] = useState(null);
 
@@ -2464,7 +2468,8 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const handleCardDragEnd = () => { dragCardRef.current = null; setDragOverCard(null); };
   const resetCardsOrder = () => {
     setCardsOrder(DEFAULT_CARDS_ORDER);
-    try { localStorage.removeItem("aplikace_layout"); } catch {}
+    setAppCardsCols(3);
+    try { localStorage.removeItem("aplikace_layout"); localStorage.setItem("aplikace_cols", "3"); } catch {}
   };
 
   const modalBg = isDark ? "#1e293b" : "#ffffff";
@@ -2785,9 +2790,9 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                 },
               };
 
-              // Rozdělení do 3 sloupců (dle cardsOrder)
-              const cols = [[], [], []];
-              cardsOrder.forEach((id, i) => cols[i % 3].push(id));
+              // Rozdělení do N sloupců (dle cardsOrder)
+              const cols = Array.from({ length: appCardsCols }, () => []);
+              cardsOrder.forEach((id, i) => cols[i % appCardsCols].push(id));
 
               const cardStyle = (id) => ({
                 background: modalCardBg,
@@ -2800,11 +2805,19 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
               return (
                 <div style={{ padding: "10px 0" }}>
-                  {/* Reset tlačítko */}
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+                  {/* Reset tlačítko + přepínač sloupců */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: modalMuted, fontSize: 11 }}>Sloupce:</span>
+                      <div style={{ display: "flex", background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", borderRadius: 7, overflow: "hidden", border: `1px solid ${modalBorder}` }}>
+                        {[1,2,3,4,5].map(n => (
+                          <button key={n} onClick={() => { setAppCardsCols(n); try { localStorage.setItem("aplikace_cols", String(n)); } catch {} }} style={{ padding: "4px 10px", background: appCardsCols === n ? (isDark ? "rgba(37,99,235,0.4)" : "rgba(37,99,235,0.15)") : "transparent", border: "none", color: appCardsCols === n ? "#60a5fa" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: appCardsCols === n ? 700 : 400, minWidth: 28 }}>{n}</button>
+                        ))}
+                      </div>
+                    </div>
                     <button onClick={resetCardsOrder} style={{ padding: "5px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>↺ Obnovit výchozí rozvržení</button>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, alignItems: "start" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${appCardsCols}, 1fr)`, gap: 16, alignItems: "start" }}>
                     {cols.map((col, ci) => (
                       <div key={ci}>
                         {col.map(id => {
