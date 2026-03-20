@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0192
+// BUILD: 2026_03_20_build0193
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0193 — Nastavení Aplikace: optimální 3 sloupce, drag&drop karet, reset pořadí
 // BUILD0192 — Viditelnost sloupců per role (sloupce_role) v Nastavení → Aplikace
 // BUILD0191 — Povinná pole (cislo_stavby, nazev, ukonceni, sod, ze_dne) + Prefix číslování staveb
 // BUILD0190 — Název aplikace z DB, počet dní termínů z DB, demo max stavby z DB
@@ -483,7 +484,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0192";
+const APP_BUILD = "build0193";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2428,6 +2429,44 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const [editPrefixValue, setEditPrefixValue] = useState(prefixValue || "ZN-");
   const [editSloupceRole, setEditSloupceRole] = useState({ ...sloupceRole });
 
+  // Drag & drop pořadí karet v záložce Aplikace
+  const DEFAULT_CARDS_ORDER = [
+    "slozka","zaloha","viditelnost",
+    "nazev","timeout","terminy","demo","prefix","povinna",
+    "email","verze","sirky","import"
+  ];
+  const [cardsOrder, setCardsOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("aplikace_layout") || "null");
+      if (Array.isArray(saved) && saved.length === DEFAULT_CARDS_ORDER.length) return saved;
+    } catch {}
+    return DEFAULT_CARDS_ORDER;
+  });
+  const dragCardRef = useRef(null);
+  const [dragOverCard, setDragOverCard] = useState(null);
+
+  const handleCardDragStart = (e, id) => { dragCardRef.current = id; e.dataTransfer.effectAllowed = "move"; };
+  const handleCardDragOver = (e, id) => { e.preventDefault(); setDragOverCard(id); };
+  const handleCardDrop = (e, targetId) => {
+    e.preventDefault();
+    const srcId = dragCardRef.current;
+    if (!srcId || srcId === targetId) { setDragOverCard(null); return; }
+    setCardsOrder(prev => {
+      const next = [...prev];
+      const fi = next.indexOf(srcId), ti = next.indexOf(targetId);
+      if (fi === -1 || ti === -1) return prev;
+      next.splice(fi, 1); next.splice(ti, 0, srcId);
+      try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    dragCardRef.current = null; setDragOverCard(null);
+  };
+  const handleCardDragEnd = () => { dragCardRef.current = null; setDragOverCard(null); };
+  const resetCardsOrder = () => {
+    setCardsOrder(DEFAULT_CARDS_ORDER);
+    try { localStorage.removeItem("aplikace_layout"); } catch {}
+  };
+
   const modalBg = isDark ? "#1e293b" : "#ffffff";
   const modalBorder = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
   const modalText = isDark ? "#fff" : "#1e293b";
@@ -2539,290 +2578,261 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
             </div>
           )}
 
-                    {tab === "aplikace" && isSuperAdmin && (
-            <div style={{ padding: "10px 0" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, alignItems: "start" }}>
-
-                {/* SLOUPEC 1: Složka + Záloha */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>💡 TLAČÍTKO SLOŽKA</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo vidí tlačítko 💡 u každé stavby pro otevření složky zakázky.</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                      {[["superadmin","Superadmin"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
-                        <button key={val} onClick={() => { setEditSlozkaRole(val); onSaveSlozkaRole(val); }} style={{ padding: "7px 12px", background: editSlozkaRole === val ? "rgba(251,191,36,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${editSlozkaRole === val ? "rgba(251,191,36,0.6)" : modalBorder}`, borderRadius: 7, color: editSlozkaRole === val ? "#fbbf24" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: editSlozkaRole === val ? 700 : 400 }}>{label}</button>
-                      ))}
+                    {tab === "aplikace" && isSuperAdmin && (() => {
+              // Obsah jednotlivých karet
+              const CARDS = {
+                slozka: {
+                  title: "💡 TLAČÍTKO SLOŽKA",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo vidí tlačítko 💡 u každé stavby pro otevření složky zakázky.</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                        {[["superadmin","Superadmin"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
+                          <button key={val} onClick={() => { setEditSlozkaRole(val); onSaveSlozkaRole(val); }} style={{ padding: "6px 11px", background: editSlozkaRole === val ? "rgba(251,191,36,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${editSlozkaRole === val ? "rgba(251,191,36,0.6)" : modalBorder}`, borderRadius: 7, color: editSlozkaRole === val ? "#fbbf24" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: editSlozkaRole === val ? 700 : 400 }}>{label}</button>
+                        ))}
+                      </div>
+                      <div style={{ padding: "10px 12px", background: protokolReady ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.06)", border: `1px solid ${protokolReady ? "rgba(16,185,129,0.3)" : "rgba(251,191,36,0.2)"}`, borderRadius: 8, marginBottom: 8 }}>
+                        <div style={{ color: protokolReady ? "#34d399" : "#fbbf24", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{protokolReady ? "✅ Stavby Helper aktivní — klik otevře složku" : "⚠️ Nutná jednorázová instalace Stavby Helper"}</div>
+                        <div style={{ color: modalMuted, fontSize: 11, marginBottom: protokolReady ? 0 : 10 }}>{protokolReady ? "Protokol je nainstalován. Klik na 💡 otevře složku přímo v Průzkumníku Windows." : "Stáhněte ZIP, rozbalte a spusťte install.bat (trvá ~10 sekund). Funguje i přes VPN."}</div>
+                        {!protokolReady && (<a href="/stavby-helper-installer.zip" download="stavby-helper-installer.zip" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 16px", background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🖥 Stáhnout instalátor (Windows)</a>)}
+                        {extensionReady && <div style={{ marginTop: 6, color: "#34d399", fontSize: 11, fontWeight: 600 }}>✅ Rozšíření prohlížeče také aktivní</div>}
+                      </div>
+                      <div style={{ color: modalMuted, fontSize: 11 }}>Cesta se zadává kliknutím na šedou 💡 nebo v editaci stavby.</div>
                     </div>
-                    <div style={{ padding: "10px 12px", background: protokolReady ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.06)", border: `1px solid ${protokolReady ? "rgba(16,185,129,0.3)" : "rgba(251,191,36,0.2)"}`, borderRadius: 8, marginBottom: 8 }}>
-                      <div style={{ color: protokolReady ? "#34d399" : "#fbbf24", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                        {protokolReady ? "✅ Stavby Helper aktivní — klik otevře složku" : "⚠️ Nutná jednorázová instalace Stavby Helper"}
+                  )
+                },
+                zaloha: {
+                  title: "💾 ZÁLOHA DO JSON",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo může stáhnout zálohu celé DB (stavby + číselníky + uživatelé + logy).</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                        {[["superadmin","Superadmin"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
+                          <button key={val} onClick={() => onSaveZalohaRole(val)} style={{ padding: "6px 11px", background: zalohaRole === val ? "rgba(5,150,105,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${zalohaRole === val ? "rgba(5,150,105,0.6)" : modalBorder}`, borderRadius: 7, color: zalohaRole === val ? "#34d399" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: zalohaRole === val ? 700 : 400 }}>{label}</button>
+                        ))}
                       </div>
-                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: protokolReady ? 0 : 10 }}>
-                        {protokolReady ? "Protokol je nainstalován. Klik na 💡 otevře složku přímo v Průzkumníku Windows." : "Stáhněte ZIP, rozbalte a spusťte install.bat (trvá ~10 sekund). Funguje i přes VPN."}
+                      <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 12 }}>
+                        <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, marginBottom: 8 }}>AUTOMATICKÁ ZÁLOHA</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <button onClick={() => onSaveAutoZaloha(!autoZaloha)} style={{ padding: "7px 14px", background: autoZaloha ? "linear-gradient(135deg,#059669,#047857)" : "rgba(255,255,255,0.05)", border: `1px solid ${autoZaloha ? "#059669" : modalBorder}`, borderRadius: 8, color: autoZaloha ? "#fff" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{autoZaloha ? "✅ Zapnuta" : "⚪ Vypnuta"}</button>
+                          <div style={{ color: modalMuted, fontSize: 11 }}>Při prvním přihlášení superadmina každý den.</div>
+                        </div>
                       </div>
-                      {!protokolReady && (
-                        <a href="/stavby-helper-installer.zip" download="stavby-helper-installer.zip"
-                          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 16px", background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
-                          🖥 Stáhnout instalátor (Windows)
-                        </a>
+                    </div>
+                  )
+                },
+                viditelnost: {
+                  title: "👁 VIDITELNOST SLOUPCŮ",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Minimální role která vidí daný sloupec. Výchozí = Všichni.</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 220, overflowY: "auto" }}>
+                        {COLUMNS.filter(c => !c.hidden && c.key !== "id").map(col => {
+                          const LOCKED_KEYS = ["firma","cislo_stavby","nazev_stavby"];
+                          const isLocked = LOCKED_KEYS.includes(col.key);
+                          const curRole = editSloupceRole[col.key] || "user";
+                          return (
+                            <div key={col.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                              <span style={{ color: modalText, fontSize: 11, minWidth: 100 }}>{col.label}</span>
+                              {isLocked ? <span style={{ color: modalMuted, fontSize: 10 }}>vždy</span> : (
+                                <div style={{ display: "flex", gap: 2 }}>
+                                  {[["superadmin","SA"],["admin","A+"],["user_e","E+"],["user","Vš"]].map(([val, lbl]) => (
+                                    <button key={val} onClick={() => { const next = { ...editSloupceRole }; if (val === "user") delete next[col.key]; else next[col.key] = val; setEditSloupceRole(next); onSaveSloupceRole(next); }} style={{ padding: "2px 6px", background: curRole === val ? "rgba(37,99,235,0.3)" : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"), border: `1px solid ${curRole === val ? "rgba(37,99,235,0.6)" : modalBorder}`, borderRadius: 4, color: curRole === val ? "#60a5fa" : modalMuted, cursor: "pointer", fontSize: 10, fontWeight: curRole === val ? 700 : 400 }}>{lbl}</button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <button onClick={() => { setEditSloupceRole({}); onSaveSloupceRole({}); }} style={{ marginTop: 8, padding: "6px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>↺ Reset — vše Všichni</button>
+                    </div>
+                  )
+                },
+                nazev: {
+                  title: "🏷️ NÁZEV APLIKACE",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Zobrazí se v hlavičce, na přihlašovací obrazovce a ve footeru.</div>
+                      <input value={editAppNazev} onChange={e => setEditAppNazev(e.target.value)} placeholder="Stavby Znojmo" style={{ width: "100%", padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box", marginBottom: 8 }} />
+                      <button onClick={() => onSaveAppNazev(editAppNazev)} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>💾 Uložit název</button>
+                    </div>
+                  )
+                },
+                timeout: {
+                  title: "⏱️ TIMEOUT ODHLÁŠENÍ",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Automatické odhlášení po nečinnosti. Platí okamžitě pro všechny.</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <input type="number" min="1" max="480" value={editAutoLogout} onChange={e => setEditAutoLogout(e.target.value)} style={{ width: 70, padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }} />
+                        <span style={{ color: modalMuted, fontSize: 12 }}>minut</span>
+                      </div>
+                      <button onClick={() => { const v = parseInt(editAutoLogout); if (!isNaN(v) && v > 0) onSaveAutoLogoutMinutes(v); }} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>💾 Uložit</button>
+                      <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Výchozí: 15 min. Rozsah: 1–480 min.</div>
+                    </div>
+                  )
+                },
+                terminy: {
+                  title: "⚠️ DNY PRO UPOZORNĚNÍ TERMÍNŮ",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Stavby s termínem do N dní se zobrazí v ⚠️ Termíny. Platí okamžitě.</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <input type="number" min="1" max="365" value={editDeadlineDays} onChange={e => setEditDeadlineDays(e.target.value)} style={{ width: 70, padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }} />
+                        <span style={{ color: modalMuted, fontSize: 12 }}>dní</span>
+                      </div>
+                      <button onClick={() => { const v = parseInt(editDeadlineDays); if (!isNaN(v) && v > 0) onSaveDeadlineDays(v); }} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#dc2626,#b91c1c)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>💾 Uložit</button>
+                      <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Výchozí: 30 dní.</div>
+                    </div>
+                  )
+                },
+                demo: {
+                  title: "🎮 DEMO — MAX. POČET STAVEB",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Maximální počet staveb v demo režimu.</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <input type="number" min="0" max="50" value={editDemoMax} onChange={e => setEditDemoMax(e.target.value)} style={{ width: 70, padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }} />
+                        <span style={{ color: modalMuted, fontSize: 12 }}>staveb</span>
+                      </div>
+                      <button onClick={() => { const v = parseInt(editDemoMax); if (!isNaN(v) && v >= 0 && v <= 50) onSaveDemoMaxStavby(v); }} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>💾 Uložit</button>
+                      <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Výchozí: 15. Rozsah: 0–50.</div>
+                    </div>
+                  )
+                },
+                prefix: {
+                  title: "🔢 PREFIX ČÍSLOVÁNÍ STAVEB",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Automaticky předvyplní číslo stavby při přidání nové zakázky.</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <button onClick={() => { const next = !editPrefixEnabled; setEditPrefixEnabled(next); onSaveCisloPrefix(next, editPrefixValue); }} style={{ padding: "7px 14px", background: editPrefixEnabled ? "linear-gradient(135deg,#059669,#047857)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${editPrefixEnabled ? "#059669" : modalBorder}`, borderRadius: 7, color: editPrefixEnabled ? "#fff" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{editPrefixEnabled ? "✅ Zapnut" : "⚪ Vypnut"}</button>
+                      </div>
+                      {editPrefixEnabled && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <input value={editPrefixValue} onChange={e => setEditPrefixValue(e.target.value)} placeholder="ZN-" style={{ width: 90, padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }} />
+                          <button onClick={() => onSaveCisloPrefix(editPrefixEnabled, editPrefixValue)} style={{ padding: "8px 12px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", border: "none", borderRadius: 7, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>💾</button>
+                        </div>
                       )}
-                      {extensionReady && <div style={{ marginTop: 6, color: "#34d399", fontSize: 11, fontWeight: 600 }}>✅ Rozšíření prohlížeče také aktivní</div>}
                     </div>
-                    <div style={{ color: modalMuted, fontSize: 11 }}>Cesta se zadává kliknutím na šedou 💡 nebo v editaci stavby (sekce Ostatní).</div>
-                  </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>💾 ZÁLOHA DO JSON</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo může stáhnout zálohu celé DB (stavby + číselníky + uživatelé + logy).</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                      {[["superadmin","Superadmin"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
-                        <button key={val} onClick={() => onSaveZalohaRole(val)} style={{ padding: "7px 12px", background: zalohaRole === val ? "rgba(5,150,105,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${zalohaRole === val ? "rgba(5,150,105,0.6)" : modalBorder}`, borderRadius: 7, color: zalohaRole === val ? "#34d399" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: zalohaRole === val ? 700 : 400 }}>{label}</button>
+                  )
+                },
+                povinna: {
+                  title: "✅ POVINNÁ POLE",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Název stavby je vždy povinný. Ostatní lze zapnout/vypnout.</div>
+                      {[["nazev_stavby","Název stavby",true],["cislo_stavby","Číslo stavby",false],["ukonceni","Ukončení",false],["sod","SOD",false],["ze_dne","Ze dne",false]].map(([key, label, locked]) => (
+                        <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${modalBorder}` }}>
+                          <span style={{ color: locked ? modalMuted : modalText, fontSize: 12 }}>{label}{locked && <span style={{ color: modalMuted, fontSize: 10, marginLeft: 4 }}>(vždy)</span>}</span>
+                          <button disabled={locked} onClick={() => { const next = { ...editPovinnaPole, [key]: !editPovinnaPole[key] }; setEditPovinnaPole(next); onSavePovinnaPole(next); }} style={{ padding: "4px 10px", background: (locked || editPovinnaPole[key]) ? "linear-gradient(135deg,#059669,#047857)" : (isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"), border: `1px solid ${(locked || editPovinnaPole[key]) ? "#059669" : modalBorder}`, borderRadius: 6, color: (locked || editPovinnaPole[key]) ? "#fff" : modalMuted, cursor: locked ? "default" : "pointer", fontSize: 11, fontWeight: 600 }}>{(locked || editPovinnaPole[key]) ? "✅ Ano" : "⚪ Ne"}</button>
+                        </div>
                       ))}
                     </div>
-                    <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 12 }}>
-                      <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, marginBottom: 8 }}>AUTOMATICKÁ ZÁLOHA</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <button onClick={() => onSaveAutoZaloha(!autoZaloha)}
-                          style={{ padding: "7px 14px", background: autoZaloha ? "linear-gradient(135deg,#059669,#047857)" : "rgba(255,255,255,0.05)", border: `1px solid ${autoZaloha ? "#059669" : modalBorder}`, borderRadius: 8, color: autoZaloha ? "#fff" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                          {autoZaloha ? "✅ Zapnuta" : "⚪ Vypnuta"}
-                        </button>
-                        <div style={{ color: modalMuted, fontSize: 11 }}>Při prvním přihlášení superadmina každý den.</div>
-                      </div>
+                  )
+                },
+                email: {
+                  title: "📧 EMAIL NOTIFIKACE — TERMÍNY",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Emaily pro denní souhrn termínů. Oddělte čárkou nebo novým řádkem.</div>
+                      <textarea value={editNotifyEmails} onChange={e => setEditNotifyEmails(e.target.value)} placeholder={"jan@firma.cz\neva@firma.cz"} rows={4} style={{ width: "100%", padding: "9px 12px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 8, color: modalText, fontSize: 13, boxSizing: "border-box", resize: "vertical", fontFamily: "monospace" }} />
+                      <button onClick={() => onSaveNotifyEmails(editNotifyEmails)} style={{ marginTop: 8, padding: "9px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>💾 Uložit emaily</button>
+                      <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>DB: nastaveni, klic = notify_emails</div>
                     </div>
-                  </div>
+                  )
+                },
+                verze: {
+                  title: "VERZE APLIKACE",
+                  content: (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                        <div>
+                          <div style={{ color: modalMuted, fontSize: 10, marginBottom: 4 }}>VERZE</div>
+                          <input value={editVerze} onChange={e => setEditVerze(e.target.value)} placeholder="1.0.0" style={{ width: "100%", padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }}/>
+                        </div>
+                        <div>
+                          <div style={{ color: modalMuted, fontSize: 10, marginBottom: 4 }}>ROK / DATUM</div>
+                          <input value={editDatum} onChange={e => setEditDatum(e.target.value)} placeholder="2025" style={{ width: "100%", padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }}/>
+                        </div>
+                      </div>
+                      <button onClick={() => onSaveAppInfo(editVerze, editDatum)} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>💾 Uložit verzi</button>
+                      <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Footer: © {editDatum} {appNazevProp} – Martin Dočekal & Claude AI | v{editVerze}</div>
+                    </div>
+                  )
+                },
+                sirky: {
+                  title: "ŠÍŘKY SLOUPCŮ",
+                  content: (
+                    <div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button onClick={() => setConfirmResetCols(true)} style={{ padding: "9px 16px", background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.35)", borderRadius: 8, color: "#c084fc", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↺ Reset šířek</button>
+                        <button onClick={() => onResetColOrder()} style={{ padding: "9px 16px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.35)", borderRadius: 8, color: "#60a5fa", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↺ Reset pořadí</button>
+                      </div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginTop: 8 }}>Obnoví původní šířky a pořadí sloupců tabulky.</div>
+                    </div>
+                  )
+                },
+                import: {
+                  title: "📥 IMPORT Z PŮVODNÍ TABULKY (XLS)",
+                  content: (
+                    <div>
+                      <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Jednorázový import staveb z původního Excel formátu. Před importem zobrazí potvrzovací dialog.</div>
+                      <button onClick={() => onImportXLS()} style={{ padding: "9px 16px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 8, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS</button>
+                    </div>
+                  )
+                },
+              };
 
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>✅ POVINNÁ POLE</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Název stavby je vždy povinný. Ostatní pole lze zapnout/vypnout.</div>
-                    {[
-                      ["nazev_stavby", "Název stavby", true],
-                      ["cislo_stavby", "Číslo stavby", false],
-                      ["ukonceni", "Ukončení", false],
-                      ["sod", "SOD", false],
-                      ["ze_dne", "Ze dne", false],
-                    ].map(([key, label, locked]) => (
-                      <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${modalBorder}` }}>
-                        <span style={{ color: locked ? modalMuted : modalText, fontSize: 12 }}>{label}{locked && <span style={{ color: modalMuted, fontSize: 10, marginLeft: 6 }}>(vždy)</span>}</span>
-                        <button
-                          disabled={locked}
-                          onClick={() => {
-                            const next = { ...editPovinnaPole, [key]: !editPovinnaPole[key] };
-                            setEditPovinnaPole(next);
-                            onSavePovinnaPole(next);
-                          }}
-                          style={{ padding: "4px 12px", background: (locked || editPovinnaPole[key]) ? "linear-gradient(135deg,#059669,#047857)" : (isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"), border: `1px solid ${(locked || editPovinnaPole[key]) ? "#059669" : modalBorder}`, borderRadius: 6, color: (locked || editPovinnaPole[key]) ? "#fff" : modalMuted, cursor: locked ? "default" : "pointer", fontSize: 11, fontWeight: 600 }}
-                        >
-                          {(locked || editPovinnaPole[key]) ? "✅ Ano" : "⚪ Ne"}
-                        </button>
+              // Rozdělení do 3 sloupců (dle cardsOrder)
+              const cols = [[], [], []];
+              cardsOrder.forEach((id, i) => cols[i % 3].push(id));
+
+              const cardStyle = (id) => ({
+                background: modalCardBg,
+                borderRadius: 10,
+                border: `1px solid ${dragOverCard === id ? "#3b82f6" : modalBorder}`,
+                marginBottom: 14,
+                transition: "border-color 0.1s",
+                opacity: dragCardRef.current === id ? 0.5 : 1,
+              });
+
+              return (
+                <div style={{ padding: "10px 0" }}>
+                  {/* Reset tlačítko */}
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+                    <button onClick={resetCardsOrder} style={{ padding: "5px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>↺ Obnovit výchozí rozvržení</button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, alignItems: "start" }}>
+                    {cols.map((col, ci) => (
+                      <div key={ci}>
+                        {col.map(id => {
+                          const card = CARDS[id];
+                          if (!card) return null;
+                          return (
+                            <div key={id}
+                              style={cardStyle(id)}
+                              draggable
+                              onDragStart={e => handleCardDragStart(e, id)}
+                              onDragOver={e => handleCardDragOver(e, id)}
+                              onDrop={e => handleCardDrop(e, id)}
+                              onDragEnd={handleCardDragEnd}
+                            >
+                              <div style={{ padding: "9px 14px 8px", borderBottom: `1px solid ${modalBorder}`, display: "flex", alignItems: "center", gap: 7, cursor: "grab", userSelect: "none", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)", borderRadius: "10px 10px 0 0" }}>
+                                <span style={{ color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)", fontSize: 13 }}>⠿</span>
+                                <span style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>{card.title}</span>
+                              </div>
+                              <div style={{ padding: "12px 14px" }}>{card.content}</div>
+                            </div>
+                          );
+                        })}
                       </div>
                     ))}
                   </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>🔢 PREFIX ČÍSLOVÁNÍ STAVEB</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Automaticky předvyplní číslo stavby při přidání nové zakázky.</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                      <button
-                        onClick={() => { const next = !editPrefixEnabled; setEditPrefixEnabled(next); onSaveCisloPrefix(next, editPrefixValue); }}
-                        style={{ padding: "7px 14px", background: editPrefixEnabled ? "linear-gradient(135deg,#059669,#047857)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${editPrefixEnabled ? "#059669" : modalBorder}`, borderRadius: 7, color: editPrefixEnabled ? "#fff" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                        {editPrefixEnabled ? "✅ Zapnut" : "⚪ Vypnut"}
-                      </button>
-                    </div>
-                    {editPrefixEnabled && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <input
-                          value={editPrefixValue}
-                          onChange={e => setEditPrefixValue(e.target.value)}
-                          placeholder="ZN-"
-                          style={{ width: 100, padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }}
-                        />
-                        <button onClick={() => onSaveCisloPrefix(editPrefixEnabled, editPrefixValue)} style={{ padding: "8px 14px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", border: "none", borderRadius: 7, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>💾 Uložit</button>
-                        <span style={{ color: modalMuted, fontSize: 11 }}>např. ZN-I-2025-</span>
-                      </div>
-                    )}
-                  </div>
-
                 </div>
-
-                {/* SLOUPEC 2: Emaily + Verze */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>📧 EMAIL NOTIFIKACE — TERMÍNY</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Emaily pro denní souhrn termínů. Oddělte čárkou nebo novým řádkem.</div>
-                    <textarea value={editNotifyEmails} onChange={e => setEditNotifyEmails(e.target.value)}
-                      placeholder={"jan@firma.cz\neva@firma.cz"} rows={4}
-                      style={{ width: "100%", padding: "9px 12px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 8, color: modalText, fontSize: 13, boxSizing: "border-box", resize: "vertical", fontFamily: "monospace" }} />
-                    <button onClick={() => { onSaveNotifyEmails(editNotifyEmails); }}
-                      style={{ marginTop: 8, padding: "9px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                      💾 Uložit emaily
-                    </button>
-                    <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Uloženo v DB (tabulka nastaveni, klic = notify_emails)</div>
-                  </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>VERZE APLIKACE</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                      <div>
-                        <div style={{ color: modalMuted, fontSize: 10, marginBottom: 4 }}>VERZE</div>
-                        <input value={editVerze} onChange={e => setEditVerze(e.target.value)} placeholder="1.0.0"
-                          style={{ width: "100%", padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }}/>
-                      </div>
-                      <div>
-                        <div style={{ color: modalMuted, fontSize: 10, marginBottom: 4 }}>ROK / DATUM</div>
-                        <input value={editDatum} onChange={e => setEditDatum(e.target.value)} placeholder="2025"
-                          style={{ width: "100%", padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }}/>
-                      </div>
-                    </div>
-                    <button onClick={() => { onSaveAppInfo(editVerze, editDatum); }}
-                      style={{ padding: "8px 16px", background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                      💾 Uložit verzi
-                    </button>
-                    <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>
-                      Footer: © {editDatum} {appNazevProp} – Martin Dočekal &amp; Claude AI | v{editVerze}
-                    </div>
-                  </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>🏷️ NÁZEV APLIKACE</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Zobrazí se v hlavičce, na přihlašovací obrazovce a ve footeru.</div>
-                    <input
-                      value={editAppNazev}
-                      onChange={e => setEditAppNazev(e.target.value)}
-                      placeholder="Stavby Znojmo"
-                      style={{ width: "100%", padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box", marginBottom: 8 }}
-                    />
-                    <button onClick={() => onSaveAppNazev(editAppNazev)} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                      💾 Uložit název
-                    </button>
-                  </div>
-
-                </div>
-
-                {/* SLOUPEC 3: Šířky sloupců + Import XLS */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>ŠÍŘKY SLOUPCŮ</div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button onClick={() => setConfirmResetCols(true)} style={{ padding: "9px 16px", background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.35)", borderRadius: 8, color: "#c084fc", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↺ Reset šířek</button>
-                      <button onClick={() => { onResetColOrder(); }} style={{ padding: "9px 16px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.35)", borderRadius: 8, color: "#60a5fa", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↺ Reset pořadí</button>
-                    </div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginTop: 8 }}>Obnoví původní šířky a pořadí sloupců tabulky.</div>
-                  </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>👁 VIDITELNOST SLOUPCŮ</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Minimální role která vidí daný sloupec. Výchozí = Všichni.</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
-                      {COLUMNS.filter(c => !c.hidden && c.key !== "id").map(col => {
-                        const LOCKED_KEYS = ["firma", "cislo_stavby", "nazev_stavby"];
-                        const isLocked = LOCKED_KEYS.includes(col.key);
-                        const curRole = editSloupceRole[col.key] || "user";
-                        return (
-                          <div key={col.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                            <span style={{ color: modalText, fontSize: 11, minWidth: 110 }}>{col.label}</span>
-                            {isLocked ? (
-                              <span style={{ color: modalMuted, fontSize: 11 }}>vždy</span>
-                            ) : (
-                              <div style={{ display: "flex", gap: 3 }}>
-                                {[["superadmin","SA"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, lbl]) => (
-                                  <button key={val} onClick={() => {
-                                    const next = { ...editSloupceRole, [col.key]: val === "user" ? undefined : val };
-                                    if (val === "user") delete next[col.key];
-                                    setEditSloupceRole(next);
-                                    onSaveSloupceRole(next);
-                                  }} style={{ padding: "3px 7px", background: curRole === val ? "rgba(37,99,235,0.3)" : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"), border: `1px solid ${curRole === val ? "rgba(37,99,235,0.6)" : modalBorder}`, borderRadius: 5, color: curRole === val ? "#60a5fa" : modalMuted, cursor: "pointer", fontSize: 10, fontWeight: curRole === val ? 700 : 400, whiteSpace: "nowrap" }}>{lbl}</button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <button onClick={() => { setEditSloupceRole({}); onSaveSloupceRole({}); }} style={{ marginTop: 10, padding: "7px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>↺ Reset — vše Všichni</button>
-                  </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>📥 IMPORT Z PŮVODNÍ TABULKY (XLS)</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Jednorázový import staveb z původního Excel formátu. Před importem zobrazí potvrzovací dialog.</div>
-                    <button onClick={() => onImportXLS()} style={{ padding: "9px 16px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 8, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS</button>
-                  </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>⏱️ TIMEOUT ODHLÁŠENÍ</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Automatické odhlášení po nečinnosti. Platí okamžitě pro všechny uživatele.</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <input
-                        type="number"
-                        min="1"
-                        max="480"
-                        value={editAutoLogout}
-                        onChange={e => setEditAutoLogout(e.target.value)}
-                        style={{ width: 80, padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }}
-                      />
-                      <span style={{ color: modalMuted, fontSize: 12 }}>minut</span>
-                    </div>
-                    <button onClick={() => {
-                      const v = parseInt(editAutoLogout);
-                      if (!isNaN(v) && v > 0) onSaveAutoLogoutMinutes(v);
-                    }} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                      💾 Uložit
-                    </button>
-                    <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Výchozí: 15 minut. Rozsah: 1–480 minut.</div>
-                  </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>⚠️ DNY PRO UPOZORNĚNÍ TERMÍNŮ</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Stavby s termínem ukončení do N dní se zobrazí v ⚠️ Termíny. Platí okamžitě.</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <input
-                        type="number"
-                        min="1"
-                        max="365"
-                        value={editDeadlineDays}
-                        onChange={e => setEditDeadlineDays(e.target.value)}
-                        style={{ width: 80, padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }}
-                      />
-                      <span style={{ color: modalMuted, fontSize: 12 }}>dní</span>
-                    </div>
-                    <button onClick={() => {
-                      const v = parseInt(editDeadlineDays);
-                      if (!isNaN(v) && v > 0) onSaveDeadlineDays(v);
-                    }} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#dc2626,#b91c1c)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                      💾 Uložit
-                    </button>
-                    <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Výchozí: 30 dní. Rozsah: 1–365 dní.</div>
-                  </div>
-
-                  <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
-                    <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>🎮 DEMO — MAX. POČET STAVEB</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Maximální počet staveb v demo režimu.</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <input
-                        type="number"
-                        min="0"
-                        max="50"
-                        value={editDemoMax}
-                        onChange={e => setEditDemoMax(e.target.value)}
-                        style={{ width: 80, padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${modalBorder}`, borderRadius: 7, color: modalText, fontSize: 13, boxSizing: "border-box" }}
-                      />
-                      <span style={{ color: modalMuted, fontSize: 12 }}>staveb</span>
-                    </div>
-                    <button onClick={() => {
-                      const v = parseInt(editDemoMax);
-                      if (!isNaN(v) && v >= 0 && v <= 50) onSaveDemoMaxStavby(v);
-                    }} style={{ padding: "8px 16px", background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                      💾 Uložit
-                    </button>
-                    <div style={{ color: modalMuted, fontSize: 10, marginTop: 6 }}>Výchozí: 15. Rozsah: 0–50 staveb.</div>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          )}
+              );
+            })()}
 
           {tab === "log" && (
             <div>
