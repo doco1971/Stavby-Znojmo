@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0187
+// BUILD: 2026_03_20_build0188
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0188 — Nastavení Aplikace: 3 sloupce, Složka role Superadmin+, Import XLS potvrzovací dialog
 // BUILD0187 — Toolbar: Export+Tisk odděleny, Data roletka (Záloha+Obnova JSON), Import XLS→Nastavení, Export logu→Log modal, Graf: +Koláč +Trend
 // BUILD0186 — Tisk: před tiskem přepnout na světlý motiv, po tisku vrátit zpět
 //
@@ -478,7 +479,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0187";
+const APP_BUILD = "build0188";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2519,17 +2520,17 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
                     {tab === "aplikace" && isSuperAdmin && (
             <div style={{ padding: "10px 0" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, alignItems: "start" }}>
 
-                {/* LEVÝ SLOUPEC: Složka + Záloha */}
+                {/* SLOUPEC 1: Složka + Záloha */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
                   <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
                     <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>💡 TLAČÍTKO SLOŽKA</div>
                     <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo vidí tlačítko 💡 u každé stavby pro otevření složky zakázky.</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                      {[["none","Nikdo"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
-                        <button key={val} onClick={() => { setEditSlozkaRole(val); onSaveSlozkaRole(val); }} style={{ padding: "7px 14px", background: editSlozkaRole === val ? "rgba(251,191,36,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${editSlozkaRole === val ? "rgba(251,191,36,0.6)" : modalBorder}`, borderRadius: 7, color: editSlozkaRole === val ? "#fbbf24" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: editSlozkaRole === val ? 700 : 400 }}>{label}</button>
+                      {[["superadmin","Superadmin"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
+                        <button key={val} onClick={() => { setEditSlozkaRole(val); onSaveSlozkaRole(val); }} style={{ padding: "7px 12px", background: editSlozkaRole === val ? "rgba(251,191,36,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${editSlozkaRole === val ? "rgba(251,191,36,0.6)" : modalBorder}`, borderRadius: 7, color: editSlozkaRole === val ? "#fbbf24" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: editSlozkaRole === val ? 700 : 400 }}>{label}</button>
                       ))}
                     </div>
                     <div style={{ padding: "10px 12px", background: protokolReady ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.06)", border: `1px solid ${protokolReady ? "rgba(16,185,129,0.3)" : "rgba(251,191,36,0.2)"}`, borderRadius: 8, marginBottom: 8 }}>
@@ -2555,7 +2556,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                     <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Kdo může stáhnout zálohu celé DB (stavby + číselníky + uživatelé + logy).</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
                       {[["superadmin","Superadmin"],["admin","Admin+"],["user_e","Editor+"],["user","Všichni"]].map(([val, label]) => (
-                        <button key={val} onClick={() => onSaveZalohaRole(val)} style={{ padding: "7px 14px", background: zalohaRole === val ? "rgba(5,150,105,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${zalohaRole === val ? "rgba(5,150,105,0.6)" : modalBorder}`, borderRadius: 7, color: zalohaRole === val ? "#34d399" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: zalohaRole === val ? 700 : 400 }}>{label}</button>
+                        <button key={val} onClick={() => onSaveZalohaRole(val)} style={{ padding: "7px 12px", background: zalohaRole === val ? "rgba(5,150,105,0.25)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), border: `1px solid ${zalohaRole === val ? "rgba(5,150,105,0.6)" : modalBorder}`, borderRadius: 7, color: zalohaRole === val ? "#34d399" : modalMuted, cursor: "pointer", fontSize: 12, fontWeight: zalohaRole === val ? 700 : 400 }}>{label}</button>
                       ))}
                     </div>
                     <div style={{ borderTop: `1px solid ${modalBorder}`, paddingTop: 12 }}>
@@ -2572,7 +2573,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
                 </div>
 
-                {/* PRAVÝ SLOUPEC: Emaily + Verze + Sloupce */}
+                {/* SLOUPEC 2: Emaily + Verze */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
                   <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
@@ -2611,6 +2612,11 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                     </div>
                   </div>
 
+                </div>
+
+                {/* SLOUPEC 3: Šířky sloupců + Import XLS */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
                   <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
                     <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>ŠÍŘKY SLOUPCŮ</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -2622,7 +2628,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
                   <div style={{ background: modalCardBg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${modalBorder}` }}>
                     <div style={{ color: modalMuted, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>📥 IMPORT Z PŮVODNÍ TABULKY (XLS)</div>
-                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Jednorázový import staveb z původního Excel formátu. Smaže stávající data a nahradí je importem.</div>
+                    <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Jednorázový import staveb z původního Excel formátu. Před importem zobrazí potvrzovací dialog.</div>
                     <button onClick={() => onImportXLS()} style={{ padding: "9px 16px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 8, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS</button>
                   </div>
 
@@ -3895,6 +3901,8 @@ export default function App() {
   const [importLog, setImportLog] = useState(null); // { ok, chyby, zprava }
   const [importConfirm, setImportConfirm] = useState(null); // { payload, fileName, prostrediZalohy, prostrediAktualni, mismatch, stavbyVDB }
   const [importConfirmText, setImportConfirmText] = useState("");
+  const [importXLSConfirm, setImportXLSConfirm] = useState(null); // { file, stavbyVDB }
+  const [importXLSConfirmText, setImportXLSConfirmText] = useState("");
 
   const fmtDateFromXls = (v) => {
     if (!v) return "";
@@ -4037,10 +4045,22 @@ export default function App() {
     }
   };
 
-  const handleImport = (e) => {
+  const handleImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    e.target.value = ""; // reset aby šel znovu vybrat stejný soubor
+    e.target.value = "";
+    // Zjisti počet staveb v DB a zobraz confirm dialog
+    let stavbyVDB = "?";
+    try { const res = await sb("stavby?select=id"); stavbyVDB = res.length; } catch {}
+    setImportXLSConfirmText("");
+    setImportXLSConfirm({ file, stavbyVDB });
+  };
+
+  const doImportXLS = () => {
+    if (!importXLSConfirm) return;
+    const { file } = importXLSConfirm;
+    setImportXLSConfirm(null);
+    setImportXLSConfirmText("");
     const reader = new FileReader();
     reader.onload = async (ev) => {
       try {
@@ -4152,7 +4172,7 @@ export default function App() {
     };
     reader.readAsArrayBuffer(file);
   };
-  const isDark = isDarkComputed(theme);
+
 
   // ── Cache barev firem – useMemo, přepočítá se jen při změně firem/tématu ──
   const firmaColorCache = useMemo(() => {
@@ -5433,6 +5453,57 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* IMPORT XLS — POTVRZOVACÍ DIALOG */}
+      {importXLSConfirm && (() => {
+        const { file, stavbyVDB } = importXLSConfirm;
+        const prostrediAktualni = (typeof window !== "undefined" && (window.location.hostname.includes("staging") || window.location.hostname.includes("preview") || window.location.hostname === "localhost")) ? "STAGING" : "PRODUKCE";
+        const confirmed = importXLSConfirmText.trim().toUpperCase() === "POTVRDIT";
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9100, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
+            <div style={{ background: "#1e293b", borderRadius: 16, padding: "28px 32px", width: 440, border: "1px solid rgba(251,191,36,0.4)", boxShadow: "0 24px 60px rgba(0,0,0,0.7)" }}>
+              <div style={{ fontSize: 36, textAlign: "center", marginBottom: 10 }}>⚠️</div>
+              <h3 style={{ color: "#fff", margin: "0 0 18px", fontSize: 16, textAlign: "center" }}>Potvrdit import z původní tabulky XLS</h3>
+              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "14px 16px", marginBottom: 14, fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "rgba(255,255,255,0.45)" }}>Soubor:</span>
+                  <span style={{ color: "#e2e8f0" }}>{file.name}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "rgba(255,255,255,0.45)" }}>Aktuální prostředí:</span>
+                  <span style={{ color: prostrediAktualni === "PRODUKCE" ? "#4ade80" : "#60a5fa", fontWeight: 700 }}>{prostrediAktualni}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "rgba(255,255,255,0.45)" }}>Staveb aktuálně v DB:</span>
+                  <span style={{ color: "#e2e8f0", fontWeight: 700 }}>{stavbyVDB}</span>
+                </div>
+              </div>
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "#fca5a5" }}>
+                ⚠️ Všechna stávající data v DB budou <strong>trvale smazána</strong> a nahrazena daty ze souboru. Tato akce je <strong>nevratná</strong>.
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 6 }}>Pro pokračování napište <strong style={{ color: "#fbbf24" }}>POTVRDIT</strong>:</div>
+                <input
+                  value={importXLSConfirmText}
+                  onChange={e => setImportXLSConfirmText(e.target.value)}
+                  placeholder="POTVRDIT"
+                  autoFocus
+                  style={{ width: "100%", padding: "9px 12px", background: "#0f172a", border: `1px solid ${confirmed ? "rgba(34,197,94,0.5)" : "rgba(255,255,255,0.15)"}`, borderRadius: 8, color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box", textAlign: "center", letterSpacing: 2, fontWeight: 700 }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setImportXLSConfirm(null); setImportXLSConfirmText(""); }} style={{ flex: 1, padding: "10px 0", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
+                <button
+                  onClick={doImportXLS}
+                  disabled={!confirmed}
+                  style={{ flex: 1, padding: "10px 0", background: confirmed ? "linear-gradient(135deg,#d97706,#b45309)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, color: confirmed ? "#fff" : "rgba(255,255,255,0.2)", cursor: confirmed ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700, transition: "all 0.15s" }}>
+                  ✅ Importovat
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* IMPORT JSON — POTVRZOVACÍ DIALOG */}
       {importConfirm && (() => {
