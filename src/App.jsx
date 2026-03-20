@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0178
+// BUILD: 2026_03_20_build0179
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -191,6 +191,24 @@ import * as XLSX from "xlsx";
 // [PENDING] 📈 Dashboard — KPI karty + grafy
 // [PENDING] 🗓️ Kalendářní pohled — termíny ukončení v měsíčním kalendáři
 // [PENDING] ☁️  Přechod Vercel → Cloudflare Pages
+// [PENDING] 🔐 Přechod na Supabase Auth (hesla plain text → JWT)
+// [PENDING] 🖨️  Tisk/PDF — přepsat na window.print() + css @media print
+//
+// ============================================================
+// INSPIRACE — Kalkulace stavby (Next.js projekt, 20.3.2026)
+// ============================================================
+// 1. TISK/PDF bez závislostí:
+//    document.documentElement.classList.add('printing')
+//    window.print()
+//    setTimeout(() => document.documentElement.classList.remove('printing'), 1000)
+//    + @media print CSS: skrýt .no-print, přepsat tmavé barvy na světlé
+//    VÝHODA: žádné závislosti (jsPDF/html2canvas), čisté, funguje vždy
+//
+// 2. BEZPEČNOST — Supabase Auth:
+//    - Nyní: hesla plain text v tabulce uzivatele → RIZIKO!
+//    - Cíl: Supabase Auth (JWT, refresh token, session management)
+//    - Vytváření uživatelů: server-side API route, SERVICE_ROLE_KEY na serveru
+//    - Role zachovat stejné (user/user_e/admin/superadmin) v tabulce profiles
 //
 // ============================================================
 // HISTORY BUILDŮ
@@ -202,6 +220,7 @@ import * as XLSX from "xlsx";
 // BUILD0152 — Chrome/Opera rozšíření pro otevírání složek bez zavření záložky
 //   Detekce extensionReady, openFolder() s fallback na clipboard
 //   stavby-rozsireni.zip: extension + native helper (Python)
+// BUILD0179 — sb() AbortController timeout 10s + useDraggable memory leak fix
 // BUILD0178 — Aktualizace hlavičky: stav aplikace 2026-03-20
 // BUILD0177 — Nápověda: odstraněna sekce Oprávnění dle role (redundantní)
 // BUILD0176 — Nápověda filtrována dle role přihlášeného uživatele
@@ -245,19 +264,29 @@ const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
 
 const sb = async (path, options = {}) => {
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
-    headers: {
-      "apikey": SB_KEY,
-      "Authorization": `Bearer ${SB_KEY}`,
-      "Content-Type": "application/json",
-      "Prefer": options.prefer || "return=representation",
-      ...options.headers,
-    },
-    ...options,
-  });
-  if (!res.ok) { const e = await res.text(); throw new Error(e); }
-  const text = await res.text();
-  return text ? JSON.parse(text) : [];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+      signal: controller.signal,
+      headers: {
+        "apikey": SB_KEY,
+        "Authorization": `Bearer ${SB_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": options.prefer || "return=representation",
+        ...options.headers,
+      },
+      ...options,
+    });
+    if (!res.ok) { const e = await res.text(); throw new Error(e); }
+    const text = await res.text();
+    return text ? JSON.parse(text) : [];
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("Připojení k DB selhalo (timeout 10s)");
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 const logAkce = async (uzivatel, akce, detail = "") => {
@@ -353,25 +382,36 @@ function useDraggable(w = 600, h = 500) {
   const reset = useCallback(() => setPos(calcPos()), []);
   const dragging = useRef(false);
   const offset = useRef({ x: 0, y: 0 });
-  const onMouseDown = (e) => {
-    if (e.button !== 0) return;
-    dragging.current = true;
-    offset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
-    const onMove = (ev) => {
-      if (!dragging.current) return;
-      setPos({
-        x: Math.max(0, Math.min(window.innerWidth - 60, ev.clientX - offset.current.x)),
-        y: Math.max(0, Math.min(window.innerHeight - 40, ev.clientY - offset.current.y)),
-      });
-    };
-    const onUp = () => {
-      dragging.current = false;
+  const posRef = useRef(pos);
+  useEffect(() => { posRef.current = pos; }, [pos]);
+
+  const onMove = useCallback((ev) => {
+    if (!dragging.current) return;
+    setPos({
+      x: Math.max(0, Math.min(window.innerWidth - 60, ev.clientX - offset.current.x)),
+      y: Math.max(0, Math.min(window.innerHeight - 40, ev.clientY - offset.current.y)),
+    });
+  }, []);
+
+  const onUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  };
+  }, [onMove, onUp]);
+
+  const onMouseDown = useCallback((e) => {
+    if (e.button !== 0) return;
+    dragging.current = true;
+    offset.current = { x: e.clientX - posRef.current.x, y: e.clientY - posRef.current.y };
+  }, []);
+
   return { pos, onMouseDown, reset };
 }
 
