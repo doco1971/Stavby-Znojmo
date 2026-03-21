@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0211
+// BUILD: 2026_03_20_build0213
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -16,6 +16,9 @@ import * as XLSX from "xlsx";
 //   NEHÁDEJ — ZKONTROLUJ KÓD!
 //   Příklad: build číslo "natvrdo" → nekontrolovat = špatné řešení
 //            zkontrolovat kód = najít natvrdo → správné řešení = konstanta APP_BUILD
+//   PRAVIDLO #1b — KDYŽ OPRAVA NEFUNGUJE PO 2-3 POKUSECH:
+//   Je to signál že problém je v ARCHITEKTUŘE, ne v detailech.
+//   Zastavit se, přehodnotit, navrhnout správné řešení — NE pokračovat v záplatování!
 //
 // PRAVIDLO #2 — TEXTY V TABULKÁCH:
 //   Nikdy nepoužívat textOverflow:ellipsis tam kde je dost místa.
@@ -245,6 +248,8 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0213 — FIX: saveSlozkaRole — setSlozkaRole přesunuto před await (jako ostatní save fce)
+// BUILD0212 — Přidáno pravidlo #1b: po 2-3 neúspěšných opravách = architektura
 // BUILD0211 — REFACTOR: cardsOrder string[] → string[][] (pole polí), drag&drop bez modulo
 // BUILD0210 — FIX: null výplně pro zachování ci = insertAt % appCardsCols při přetečení
 // BUILD0209 — FIX: insertAt = countInTargetCol * appCardsCols + ci (dle rady internetu)
@@ -502,7 +507,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0211";
+const APP_BUILD = "build0213";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -3681,9 +3686,9 @@ export default function App() {
 
   const saveSlozkaRole = async (val) => {
     if (isDemo) return;
+    setSlozkaRole(val); // okamžitá aktualizace UI
     try {
       await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "slozka_role", hodnota: val }), prefer: "resolution=merge-duplicates,return=minimal" });
-      setSlozkaRole(val);
     } catch {}
   };
 
