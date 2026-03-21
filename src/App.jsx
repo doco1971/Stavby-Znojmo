@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0214
+// BUILD: 2026_03_20_build0215
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -248,6 +248,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0215 — DEBUG: console.log v saveSlozkaRole a saveCisloPrefix
 // BUILD0214 — FIX: render cols — normalizovat na appCardsCols bez round-robin
 // BUILD0213 — FIX: saveSlozkaRole — setSlozkaRole přesunuto před await (jako ostatní save fce)
 // BUILD0212 — Přidáno pravidlo #1b: po 2-3 neúspěšných opravách = architektura
@@ -508,7 +509,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0214";
+const APP_BUILD = "build0215";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -3664,8 +3665,10 @@ export default function App() {
     setPrefixValue(value);
     if (isDemo) return;
     try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "cislo_prefix", hodnota: JSON.stringify({ enabled, value }) }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+      console.log("[saveCisloPrefix] ukládám:", { enabled, value });
+      const res = await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "cislo_prefix", hodnota: JSON.stringify({ enabled, value }) }), prefer: "resolution=merge-duplicates,return=minimal" });
+      console.log("[saveCisloPrefix] OK:", res);
+    } catch(e) { console.error("[saveCisloPrefix] CHYBA:", e); }
   };
 
   const saveSloupceRole = async (next) => {
@@ -3680,8 +3683,10 @@ export default function App() {
     if (isDemo) return;
     setSlozkaRole(val); // okamžitá aktualizace UI
     try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "slozka_role", hodnota: val }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+      console.log("[saveSlozkaRole] ukládám:", val);
+      const res = await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "slozka_role", hodnota: val }), prefer: "resolution=merge-duplicates,return=minimal" });
+      console.log("[saveSlozkaRole] OK:", res);
+    } catch(e) { console.error("[saveSlozkaRole] CHYBA:", e); }
   };
 
   // Detekce rozšíření Stavby Znojmo
