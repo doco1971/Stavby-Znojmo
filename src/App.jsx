@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0207
+// BUILD: 2026_03_20_build0208
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0208 — FIX: insertAt = indexOf(lastInCol)+1, prázdný sloupec před prvkem sloupce ci+1
 // BUILD0207 — FIX: colItems sestaveno z next pomocí colsFromNext algoritmu (stejný jako render)
 // BUILD0206 — FIX: colItems počítán z next pomocí appCardsCols (ne z col closure)
 // BUILD0205 — DEBUG: log do setCardsOrder, oprava colItems filter
@@ -498,7 +499,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0207";
+const APP_BUILD = "build0208";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2936,14 +2937,24 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                                 const colsFromNext = Array.from({ length: appCardsCols }, () => []);
                                 next.forEach((id, i) => colsFromNext[i % appCardsCols].push(id));
                                 const colItems = colsFromNext[ci] || [];
-                                console.log("[Drop-placeholder] next=", next, "colItems=", colItems, "ci=", ci, "appCardsCols=", appCardsCols);
-                                if (colItems.length === 0) {
-                                  next.splice(Math.min(ci, next.length), 0, srcId);
-                                } else {
+                                console.log("[Drop-placeholder] next=", [...next], "colItems=", colItems, "ci=", ci, "appCardsCols=", appCardsCols);
+                                // Najdi správnou insertAt pozici:
+                                // Chceme vložit srcId tak aby se zobrazil ve sloupci ci
+                                // = vložit za posledním prvkem sloupce ci v next
+                                let insertAt = next.length; // default: na konec
+                                if (colItems.length > 0) {
                                   const lastInCol = colItems[colItems.length - 1];
-                                  const lastIdx = next.lastIndexOf(lastInCol);
-                                  next.splice(lastIdx + 1, 0, srcId);
+                                  insertAt = next.indexOf(lastInCol) + 1;
+                                } else {
+                                  // Prázdný sloupec — najdi první pozici která by dala ci
+                                  // Pro N sloupců: pozice ci, ci+N, ci+2N...
+                                  // Chceme vložit před prvek sloupce ci+1
+                                  const nextColItems = colsFromNext[ci + 1] || [];
+                                  if (nextColItems.length > 0) {
+                                    insertAt = next.indexOf(nextColItems[0]);
+                                  }
                                 }
+                                next.splice(insertAt, 0, srcId);
                                 console.log("[Drop-placeholder] result=", [...next]);
                                 try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
                                 return next;
