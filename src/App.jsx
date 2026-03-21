@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0205
+// BUILD: 2026_03_20_build0206
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0206 — FIX: colItems počítán z next pomocí appCardsCols (ne z col closure)
 // BUILD0205 — DEBUG: log do setCardsOrder, oprava colItems filter
 // BUILD0204 — FIX: dragCardRef vyčistit až v onDrop (ne v onDragEnd), setTimeout 100ms
 // BUILD0203 — DEBUG: console.log v handleCardDragEnd a placeholder onDrop
@@ -496,7 +497,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0205";
+const APP_BUILD = "build0206";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2930,15 +2931,17 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                               if (!srcId) { console.log("[Drop-placeholder] ABORT - srcId je null"); return; }
                               setCardsOrder(prev => {
                                 const next = prev.filter(id => id !== srcId);
-                                const colItems = col.filter(id => id !== srcId && next.includes(id));
-                                console.log("[Drop-placeholder] prev=", prev, "next=", next, "col=", col, "colItems=", colItems, "ci=", ci);
+                                // Najdi poslední kartu v sloupci ci podle appCardsCols
+                                const colItems = next.filter((_, idx) => idx % appCardsCols === ci);
+                                console.log("[Drop-placeholder] next=", next, "colItems=", colItems, "ci=", ci, "appCardsCols=", appCardsCols);
                                 if (colItems.length === 0) {
                                   next.splice(Math.min(ci, next.length), 0, srcId);
                                 } else {
-                                  const lastIdx = next.indexOf(colItems[colItems.length - 1]);
+                                  const lastInCol = colItems[colItems.length - 1];
+                                  const lastIdx = next.lastIndexOf(lastInCol);
                                   next.splice(lastIdx + 1, 0, srcId);
                                 }
-                                console.log("[Drop-placeholder] result=", next);
+                                console.log("[Drop-placeholder] result=", [...next]);
                                 try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
                                 return next;
                               });
