@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0215
+// BUILD: 2026_03_20_build0216
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -248,6 +248,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0216 — FIX: všechny save funkce nastaveni — POST merge-duplicates → PATCH ?klic=eq.X
 // BUILD0215 — DEBUG: console.log v saveSlozkaRole a saveCisloPrefix
 // BUILD0214 — FIX: render cols — normalizovat na appCardsCols bez round-robin
 // BUILD0213 — FIX: saveSlozkaRole — setSlozkaRole přesunuto před await (jako ostatní save fce)
@@ -509,7 +510,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0215";
+const APP_BUILD = "build0216";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -3573,7 +3574,7 @@ export default function App() {
   const saveNotifyEmails = async (val) => {
     if (isDemo) return;
     try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "notify_emails", hodnota: val }), prefer: "resolution=merge-duplicates,return=minimal" });
+      await sb("nastaveni?klic=eq.notify_emails", { method: "PATCH", body: JSON.stringify({ hodnota: val }) });
       setNotifyEmails(val);
     } catch {}
   };
@@ -3614,78 +3615,58 @@ export default function App() {
   const saveZalohaRole = async (val) => {
     setZalohaRole(val);
     if (isDemo) return;
-    try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "zaloha_role", hodnota: val }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+    try { await sb("nastaveni?klic=eq.zaloha_role", { method: "PATCH", body: JSON.stringify({ hodnota: val }) }); } catch {}
   };
 
   const saveAutoLogoutMinutes = async (val) => {
     setAutoLogoutMinutes(val);
     if (isDemo) return;
-    try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "auto_logout_minutes", hodnota: String(val) }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+    try { await sb("nastaveni?klic=eq.auto_logout_minutes", { method: "PATCH", body: JSON.stringify({ hodnota: String(val) }) }); } catch {}
   };
 
   const saveAppNazev = async (val) => {
     setAppNazev(val || "Stavby Znojmo");
     if (isDemo) return;
-    try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "app_nazev", hodnota: val }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+    try { await sb("nastaveni?klic=eq.app_nazev", { method: "PATCH", body: JSON.stringify({ hodnota: val }) }); } catch {}
   };
 
   const saveDeadlineDays = async (val) => {
     setDeadlineDays(val);
     if (isDemo) return;
-    try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "deadline_days", hodnota: String(val) }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+    try { await sb("nastaveni?klic=eq.deadline_days", { method: "PATCH", body: JSON.stringify({ hodnota: String(val) }) }); } catch {}
   };
 
   const saveDemoMaxStavby = async (val) => {
     setDemoMaxStavby(val);
     if (isDemo) return;
-    try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "demo_max_stavby", hodnota: String(val) }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+    try { await sb("nastaveni?klic=eq.demo_max_stavby", { method: "PATCH", body: JSON.stringify({ hodnota: String(val) }) }); } catch {}
   };
 
   const savePovinnaPole = async (pole) => {
-    const next = { ...pole, nazev_stavby: true }; // nazev_stavby vždy povinný
+    const next = { ...pole, nazev_stavby: true };
     setPovinnaPole(next);
     if (isDemo) return;
-    try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "povinna_pole", hodnota: JSON.stringify(next) }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+    try { await sb("nastaveni?klic=eq.povinna_pole", { method: "PATCH", body: JSON.stringify({ hodnota: JSON.stringify(next) }) }); } catch {}
   };
 
   const saveCisloPrefix = async (enabled, value) => {
     setPrefixEnabled(enabled);
     setPrefixValue(value);
     if (isDemo) return;
-    try {
-      console.log("[saveCisloPrefix] ukládám:", { enabled, value });
-      const res = await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "cislo_prefix", hodnota: JSON.stringify({ enabled, value }) }), prefer: "resolution=merge-duplicates,return=minimal" });
-      console.log("[saveCisloPrefix] OK:", res);
-    } catch(e) { console.error("[saveCisloPrefix] CHYBA:", e); }
+    try { await sb("nastaveni?klic=eq.cislo_prefix", { method: "PATCH", body: JSON.stringify({ hodnota: JSON.stringify({ enabled, value }) }) }); } catch {}
   };
 
   const saveSloupceRole = async (next) => {
     setSloupceRole(next);
     if (isDemo) return;
-    try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "sloupce_role", hodnota: JSON.stringify(next) }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+    try { await sb("nastaveni?klic=eq.sloupce_role", { method: "PATCH", body: JSON.stringify({ hodnota: JSON.stringify(next) }) }); } catch {}
   };
 
   const saveSlozkaRole = async (val) => {
     if (isDemo) return;
-    setSlozkaRole(val); // okamžitá aktualizace UI
+    setSlozkaRole(val);
     try {
-      console.log("[saveSlozkaRole] ukládám:", val);
-      const res = await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "slozka_role", hodnota: val }), prefer: "resolution=merge-duplicates,return=minimal" });
-      console.log("[saveSlozkaRole] OK:", res);
+      await sb("nastaveni?klic=eq.slozka_role", { method: "PATCH", body: JSON.stringify({ hodnota: val }) });
     } catch(e) { console.error("[saveSlozkaRole] CHYBA:", e); }
   };
 
@@ -3777,7 +3758,7 @@ export default function App() {
   const saveAppInfo = async (verze, datum) => {
     if (isDemo) { setAppVerze(verze); setAppDatum(datum); return; }
     try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "app_info", hodnota: JSON.stringify({ verze, datum }) }), prefer: "resolution=merge-duplicates,return=minimal" });
+      await sb("nastaveni?klic=eq.app_info", { method: "PATCH", body: JSON.stringify({ hodnota: JSON.stringify({ verze, datum }) }) });
       setAppVerze(verze);
       setAppDatum(datum);
     } catch {}
@@ -3794,10 +3775,8 @@ export default function App() {
   }, [isSuperAdmin, isDemo]);
 
   const saveColWidths = async (widths) => {
-    if (isDemo) return; // demo — neukládat šířky do DB
-    try {
-      await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic: "col_widths", hodnota: JSON.stringify(widths) }), prefer: "resolution=merge-duplicates,return=minimal" });
-    } catch {}
+    if (isDemo) return;
+    try { await sb("nastaveni?klic=eq.col_widths", { method: "PATCH", body: JSON.stringify({ hodnota: JSON.stringify(widths) }) }); } catch {}
   };
 
   const [editingColWidth, setEditingColWidth] = useState(null);
