@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0208
+// BUILD: 2026_03_20_build0209
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0209 — FIX: insertAt = countInTargetCol * appCardsCols + ci (dle rady internetu)
 // BUILD0208 — FIX: insertAt = indexOf(lastInCol)+1, prázdný sloupec před prvkem sloupce ci+1
 // BUILD0207 — FIX: colItems sestaveno z next pomocí colsFromNext algoritmu (stejný jako render)
 // BUILD0206 — FIX: colItems počítán z next pomocí appCardsCols (ne z col closure)
@@ -499,7 +500,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0208";
+const APP_BUILD = "build0209";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2933,27 +2934,11 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                               if (!srcId) { console.log("[Drop-placeholder] ABORT - srcId je null"); return; }
                               setCardsOrder(prev => {
                                 const next = prev.filter(id => id !== srcId);
-                                // Sestavit cols ze next stejným algoritmem jako render
-                                const colsFromNext = Array.from({ length: appCardsCols }, () => []);
-                                next.forEach((id, i) => colsFromNext[i % appCardsCols].push(id));
-                                const colItems = colsFromNext[ci] || [];
-                                console.log("[Drop-placeholder] next=", [...next], "colItems=", colItems, "ci=", ci, "appCardsCols=", appCardsCols);
-                                // Najdi správnou insertAt pozici:
-                                // Chceme vložit srcId tak aby se zobrazil ve sloupci ci
-                                // = vložit za posledním prvkem sloupce ci v next
-                                let insertAt = next.length; // default: na konec
-                                if (colItems.length > 0) {
-                                  const lastInCol = colItems[colItems.length - 1];
-                                  insertAt = next.indexOf(lastInCol) + 1;
-                                } else {
-                                  // Prázdný sloupec — najdi první pozici která by dala ci
-                                  // Pro N sloupců: pozice ci, ci+N, ci+2N...
-                                  // Chceme vložit před prvek sloupce ci+1
-                                  const nextColItems = colsFromNext[ci + 1] || [];
-                                  if (nextColItems.length > 0) {
-                                    insertAt = next.indexOf(nextColItems[0]);
-                                  }
-                                }
+                                // Správný insertAt: nový index musí splňovat index % appCardsCols === ci
+                                const countInTargetCol = next.filter((_, idx) => idx % appCardsCols === ci).length;
+                                let insertAt = countInTargetCol * appCardsCols + ci;
+                                if (insertAt > next.length) insertAt = next.length;
+                                console.log("[Drop-placeholder] next=", [...next], "ci=", ci, "countInTargetCol=", countInTargetCol, "insertAt=", insertAt, "check=", insertAt % appCardsCols);
                                 next.splice(insertAt, 0, srcId);
                                 console.log("[Drop-placeholder] result=", [...next]);
                                 try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
