@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0210
+// BUILD: 2026_03_20_build0211
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -245,6 +245,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0211 — REFACTOR: cardsOrder string[] → string[][] (pole polí), drag&drop bez modulo
 // BUILD0210 — FIX: null výplně pro zachování ci = insertAt % appCardsCols při přetečení
 // BUILD0209 — FIX: insertAt = countInTargetCol * appCardsCols + ci (dle rady internetu)
 // BUILD0208 — FIX: insertAt = indexOf(lastInCol)+1, prázdný sloupec před prvkem sloupce ci+1
@@ -501,7 +502,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0210";
+const APP_BUILD = "build0211";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -2449,14 +2450,15 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
 
   // Drag & drop pořadí karet v záložce Aplikace
   const DEFAULT_CARDS_ORDER = [
-    "slozka","zaloha","viditelnost",
-    "nazev","timeout","terminy","demo","prefix","povinna",
-    "email","verze","sirky","import"
+    ["slozka","zaloha","viditelnost"],
+    ["nazev","timeout","terminy","demo"],
+    ["prefix","povinna","email","verze","sirky","import"]
   ];
   const [cardsOrder, setCardsOrder] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("aplikace_layout") || "null");
-      if (Array.isArray(saved) && saved.length === DEFAULT_CARDS_ORDER.length) return saved;
+      // Detekuj pole polí (nový formát)
+      if (Array.isArray(saved) && saved.length > 0 && Array.isArray(saved[0])) return saved;
     } catch {}
     return DEFAULT_CARDS_ORDER;
   });
@@ -2489,13 +2491,21 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
   const handleCardDrop = (e, targetId) => {
     e.preventDefault(); e.stopPropagation();
     const srcId = e.dataTransfer.getData("text/plain") || dragCardRef.current;
-    dragCardRef.current = null; // vyčisti okamžitě po přečtení
+    dragCardRef.current = null;
     if (!srcId || srcId === targetId) return;
     setCardsOrder(prev => {
-      const next = [...prev];
-      const fi = next.indexOf(srcId), ti = next.indexOf(targetId);
-      if (fi === -1 || ti === -1) return prev;
-      next.splice(fi, 1); next.splice(ti, 0, srcId);
+      // Najdi sloupec a pozici src a target
+      let srcCol = -1, srcIdx = -1, tgtCol = -1, tgtIdx = -1;
+      prev.forEach((col, ci) => {
+        const si = col.indexOf(srcId); if (si !== -1) { srcCol = ci; srcIdx = si; }
+        const ti = col.indexOf(targetId); if (ti !== -1) { tgtCol = ci; tgtIdx = ti; }
+      });
+      if (srcCol === -1 || tgtCol === -1) return prev;
+      const next = prev.map(col => [...col]);
+      next[srcCol].splice(srcIdx, 1);
+      // Přepočítej tgtIdx po odebrání (pokud ve stejném sloupci)
+      const newTgtIdx = next[tgtCol].indexOf(targetId);
+      next[tgtCol].splice(newTgtIdx === -1 ? tgtIdx : newTgtIdx, 0, srcId);
       try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
       return next;
     });
@@ -2837,9 +2847,17 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                 },
               };
 
-              // Rozdělení do N sloupců (dle cardsOrder)
+              // Rozdělení do N sloupců (dle cardsOrder - pole polí)
+              // Při změně počtu sloupců přerozdělit karty rovnoměrně
+              const allCards = cardsOrder.flat();
               const cols = Array.from({ length: appCardsCols }, () => []);
-              cardsOrder.forEach((id, i) => cols[i % appCardsCols].push(id));
+              // Pokud cardsOrder má správný počet sloupců, použij přímo
+              if (cardsOrder.length === appCardsCols) {
+                cardsOrder.forEach((col, i) => cols[i] = [...col]);
+              } else {
+                // Jinak přerozdělit rovnoměrně (round-robin)
+                allCards.forEach((id, i) => cols[i % appCardsCols].push(id));
+              }
 
               const cardStyle = (id) => ({
                 background: modalCardBg,
@@ -2878,15 +2896,17 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                         }}
                         onDrop={e => {
                           e.preventDefault();
-                          const srcId = dragCardRef.current;
+                          const srcId = e.dataTransfer.getData("text/plain") || dragCardRef.current;
                           if (!srcId || col.length > 0) return;
                           setCardsOrder(prev => {
-                            const next = prev.filter(id => id !== srcId);
-                            next.splice(ci, 0, srcId);
+                            const next = prev.map(c => c.filter(id => id !== srcId));
+                            while (next.length <= ci) next.push([]);
+                            next[ci].push(srcId);
                             try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
                             return next;
                           });
-                          dragCardRef.current = null; dragOverRef.current = null; setDragOverCard(null);
+                          dragCardRef.current = null; dragOverRef.current = null;
+                          setDragOverCard(null); setIsDraggingCard(false);
                         }}
                       >
                         {col.length === 0 && (
@@ -2934,21 +2954,15 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                               console.log("[Drop-placeholder] ci=", ci, "srcId=", srcId, "getData=", e.dataTransfer.getData("text/plain"));
                               if (!srcId) { console.log("[Drop-placeholder] ABORT - srcId je null"); return; }
                               setCardsOrder(prev => {
-                                const next = prev.filter(id => id !== srcId);
-                                const countInTargetCol = next.filter((_, idx) => idx % appCardsCols === ci).length;
-                                let insertAt = countInTargetCol * appCardsCols + ci;
-                                // Pokud insertAt přesáhne délku pole, přidáme na konec
-                                // ALE musíme zachovat ci = insertAt % appCardsCols
-                                // Přidáme null výplně aby insertAt % appCardsCols === ci
-                                while (insertAt > next.length) {
-                                  next.push(null); // dočasná výplň
-                                }
-                                next.splice(insertAt, 0, srcId);
-                                // Odstraníme null výplně
-                                const cleaned = next.filter(id => id !== null);
-                                console.log("[Drop-placeholder] ci=", ci, "insertAt=", insertAt, "check=", insertAt % appCardsCols, "result=", [...cleaned]);
-                                try { localStorage.setItem("aplikace_layout", JSON.stringify(cleaned)); } catch {}
-                                return cleaned;
+                                // Odeber srcId odkudkoliv
+                                const next = prev.map(col => col.filter(id => id !== srcId));
+                                // Zajisti že sloupec ci existuje
+                                while (next.length <= ci) next.push([]);
+                                // Přidej na konec sloupce ci
+                                next[ci].push(srcId);
+                                console.log("[Drop-placeholder] ci=", ci, "result=", next);
+                                try { localStorage.setItem("aplikace_layout", JSON.stringify(next)); } catch {}
+                                return next;
                               });
                               dragOverRef.current = null; setDragOverCard(null); setIsDraggingCard(false);
                             }}
