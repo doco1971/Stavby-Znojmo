@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0217
+// BUILD: 2026_03_20_build0218
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -248,6 +248,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0218 — FIX: sbUpsertNastaveni — PATCH vrací [] (ne výjimku) → kontrola res.length
 // BUILD0217 — FIX: sbUpsertNastaveni helper — PATCH pokud existuje, POST pokud ne
 // BUILD0216 — FIX: všechny save funkce nastaveni — POST merge-duplicates → PATCH
 // BUILD0215 — DEBUG: console.log v saveSlozkaRole a saveCisloPrefix
@@ -511,7 +512,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0217";
+const APP_BUILD = "build0218";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -544,9 +545,10 @@ const sb = async (path, options = {}) => {
 
 // Upsert do tabulky nastaveni — PATCH pokud řádek existuje, POST pokud ne
 const sbUpsertNastaveni = async (klic, hodnota) => {
-  try {
-    await sb(`nastaveni?klic=eq.${klic}`, { method: "PATCH", body: JSON.stringify({ hodnota }) });
-  } catch {
+  // PATCH vrátí [] pokud řádek neexistuje (HTTP 200 ale prázdné pole)
+  const res = await sb(`nastaveni?klic=eq.${klic}`, { method: "PATCH", body: JSON.stringify({ hodnota }) });
+  if (!res || (Array.isArray(res) && res.length === 0)) {
+    // Řádek neexistuje → INSERT
     await sb("nastaveni", { method: "POST", body: JSON.stringify({ klic, hodnota }), prefer: "return=minimal" });
   }
 };
