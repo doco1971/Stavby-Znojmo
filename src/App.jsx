@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_20_build0220
+// BUILD: 2026_03_23_build0221
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -248,7 +248,8 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
-// BUILD0220 — Odstraněny console.log z sbUpsertNastaveni (debug hotov)
+// BUILD0221 — Validace: max 1 pole z Kategorií I+II (KAT_FIELDS), chyba při pokusu vyplnit druhé
+// BUILD0220 — Odstraněny console.log, ukládání nastavení potvrzeno funkční
 // BUILD0219 — DEBUG: console.log v sbUpsertNastaveni
 // BUILD0218 — FIX: sbUpsertNastaveni — PATCH vrací [] (ne výjimku) → kontrola res.length
 // BUILD0217 — FIX: sbUpsertNastaveni helper — PATCH pokud existuje, POST pokud ne
@@ -514,7 +515,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0220";
+const APP_BUILD = "build0221";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -625,6 +626,7 @@ const inputSx = { width: "100%", padding: "9px 11px", background: "#0f172a", bor
 
 // ── Globální sdílené konstanty ─────────────────────────────
 const NUM_FIELDS = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","vyfakturovano","zrealizovano","nabidkova_cena","castka_bez_dph","castka_bez_dph_2"];
+const KAT_FIELDS = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch"]; // max 1 pole může být nenulové
 const DATE_FIELDS = ["ukonceni","splatna","ze_dne","splatna_2"];
 const TEXT_FIELDS_EXTRA = ["poznamka"]; // textarea pole – nepatří do NUM ani DATE
 const FIRMA_COLOR_FALLBACK = ["#3b82f6","#facc15","#a855f7","#ef4444","#0ea5e9","#f97316","#10b981","#ec4899"];
@@ -2016,7 +2018,24 @@ function FormSelectField({ label, value, onChange, options, allowEmpty }) {
 function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavbyvedouci: svList, povinnaPole = {} }) {
   const [form, setForm] = useState({ ...initial });
   const [saveErr, setSaveErr] = useState("");
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const [katErr, setKatErr] = useState(""); // chyba pro kategorie I/II
+  const set = (k, v) => {
+    // Validace: max 1 nenulové pole z KAT_FIELDS
+    if (KAT_FIELDS.includes(k) && v !== "" && v !== "0" && Number(v) !== 0) {
+      setForm(f => {
+        const occupied = KAT_FIELDS.filter(fk => fk !== k && Number(f[fk]) !== 0 && f[fk] !== "" && f[fk] != null);
+        if (occupied.length > 0) {
+          setKatErr("Lze vyplnit pouze jedno pole z Kategorií I a II.");
+          return f; // nezměníme form
+        }
+        setKatErr("");
+        return { ...f, [k]: v };
+      });
+    } else {
+      if (KAT_FIELDS.includes(k)) setKatErr("");
+      setForm(f => ({ ...f, [k]: v }));
+    }
+  };
   const computed = computeRow(form);
   const { pos, onMouseDown: onDragStart } = useDraggable(1100, 560);
 
@@ -2078,7 +2097,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             </div>
 
             {/* Kategorie I */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: `1px solid ${katErr ? "rgba(248,113,113,0.4)" : "rgba(255,255,255,0.07)"}` }}>
               <div style={{ color: "#818cf8", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #818cf8", paddingLeft: 8 }}>KATEGORIE I</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Plán. stavby I" value={form["ps_i"]} onChange={v => set("ps_i", v)} type="number" />
@@ -2087,8 +2106,10 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
               </div>
             </div>
 
+            {katErr && <div style={{ color: "#f87171", fontSize: 12, padding: "6px 10px", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 7 }}>⚠ {katErr}</div>}
+
             {/* Kategorie II */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: `1px solid ${katErr ? "rgba(248,113,113,0.4)" : "rgba(255,255,255,0.07)"}` }}>
               <div style={{ color: "#fb923c", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #fb923c", paddingLeft: 8 }}>KATEGORIE II</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Plán. stavby II" value={form["ps_ii"]} onChange={v => set("ps_ii", v)} type="number" />
