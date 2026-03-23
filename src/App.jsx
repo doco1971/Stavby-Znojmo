@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_23_build0221
+// BUILD: 2026_03_23_build0222
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -248,7 +248,8 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
-// BUILD0221 — Validace: max 1 pole z Kategorií I+II (KAT_FIELDS), chyba při pokusu vyplnit druhé
+// BUILD0222 — Smazaná firma: oranžový pulzující badge + přeškrtnutý text + tooltip
+// BUILD0221 — Validace: max 1 pole z Kategorií I+II (KAT_FIELDS)
 // BUILD0220 — Odstraněny console.log, ukládání nastavení potvrzeno funkční
 // BUILD0219 — DEBUG: console.log v sbUpsertNastaveni
 // BUILD0218 — FIX: sbUpsertNastaveni — PATCH vrací [] (ne výjimku) → kontrola res.length
@@ -515,7 +516,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0221";
+const APP_BUILD = "build0222";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -4764,6 +4765,11 @@ export default function App() {
   const getFirmaColor = (firmaName) => firmaColorCache[firmaName] || { bg: isDark ? "#1a2744" : "#e2e8f0", badge: "rgba(59,130,246,0.25)", badgeBorder: "rgba(59,130,246,0.6)", text: "#3b82f6", hex: "#3b82f6" };
 
   const firmaBadge = (firma) => {
+    const exists = firmy.some(f => f.hodnota === firma);
+    if (!exists && firma) {
+      // Smazaná firma — oranžový pulzující rámeček + přeškrtnutý text
+      return { display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "rgba(251,146,60,0.15)", color: "#fb923c", border: "2px solid rgba(251,146,60,0.9)", textDecoration: "line-through", animation: "pulse-firma-border 1.4s ease-in-out infinite", cursor: "help" };
+    }
     const c = getFirmaColor(firma);
     return { display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: c.badge, color: c.text, border: `1px solid ${c.badgeBorder}` };
   };
@@ -4819,6 +4825,10 @@ export default function App() {
         html.printing [style*="color:#60a5fa"], html.printing [style*="color: #60a5fa"] { color: #1d4ed8 !important; }
         /* Firma badge — zachovat barvy */
         html.printing .firma-badge { color: inherit !important; }
+        @keyframes pulse-firma-border {
+          0%,100% { border-color: rgba(251,146,60,0.9); }
+          50% { border-color: rgba(251,146,60,0.2); }
+        }
       `}</style>
 
       {/* Liquid Glass — animované orby na pozadí */}
@@ -5199,7 +5209,7 @@ export default function App() {
                     >
                       <div>
                         <div>
-                          {col.key === "firma" ? <span className="firma-badge" style={firmaBadge(row[col.key])}>{row[col.key]}</span>
+                          {col.key === "firma" ? (() => { const deleted = !firmy.some(f => f.hodnota === row[col.key]) && row[col.key]; return <span className="firma-badge" style={firmaBadge(row[col.key])} title={deleted ? `Firma byla smazána (původně: ${row[col.key]})` : undefined}>{deleted ? `⚠ ${row[col.key]}` : (row[col.key] || "—")}</span>; })()
                           : col.key === "nazev_stavby" ? <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
                               <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{row[col.key] ?? ""}</span>
                               {row.poznamka && row.poznamka.trim() !== "" && <span onMouseEnter={e => showTooltip(e, row.poznamka)} onMouseLeave={hideTooltip} style={{ cursor: "help", fontSize: 13, flexShrink: 0 }}>💬</span>}
