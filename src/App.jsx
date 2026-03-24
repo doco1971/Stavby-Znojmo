@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_24_build0223
+// BUILD: 2026_03_24_build0224
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -248,6 +248,7 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
+// BUILD0224 — Tabulka: prošlé termíny bez faktury — pulsující červený rámeček celého řádku
 // BUILD0223 — FIX: Popup Termíny zobrazuje i prošlé termíny bez faktury (stejně jako e-mail)
 // BUILD0222 — Smazaná firma: oranžový pulzující badge + přeškrtnutý text + tooltip
 // BUILD0221 — Validace: max 1 pole z Kategorií I+II (KAT_FIELDS)
@@ -517,7 +518,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0223";
+const APP_BUILD = "build0224";
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -4837,6 +4838,10 @@ export default function App() {
           0%,100% { border-color: rgba(251,146,60,0.9); }
           50% { border-color: rgba(251,146,60,0.2); }
         }
+        @keyframes pulse-overdue-row {
+          0%,100% { box-shadow: inset 0 0 0 2px rgba(239,68,68,0.85); background: rgba(239,68,68,0.07); }
+          50% { box-shadow: inset 0 0 0 2px rgba(239,68,68,0.15); background: rgba(239,68,68,0.02); }
+        }
       `}</style>
 
       {/* Liquid Glass — animované orby na pozadí */}
@@ -5152,13 +5157,14 @@ export default function App() {
               const globalIndex = page * PAGE_SIZE + i;
               const isFaktura = row.cislo_faktury && row.cislo_faktury.trim() !== "" && row.castka_bez_dph && Number(row.castka_bez_dph) !== 0 && row.splatna && row.splatna.trim() !== "";
               const isFaktura2 = !!(row.cislo_faktury_2 || row.castka_bez_dph_2 || row.splatna_2);
+              const isRowOverdue = !isFaktura && row.ukonceni && (() => { const parts = row.ukonceni.trim().split("."); if (parts.length !== 3) return false; const d = new Date(parts[2]+"-"+parts[1].padStart(2,"0")+"-"+parts[0].padStart(2,"0")); const dnes = new Date(); dnes.setHours(0,0,0,0); return !isNaN(d) && d < dnes; })();
               const baseBg = isFaktura ? "rgba(22,163,74,0.45)" : rowBg(row.firma);
               const printBg = isFaktura ? "#dcfce7" : (getFirmaColor(row.firma).bgLight || "#f8fafc");
               return (
               <tr key={row.id}
-                style={{ background: baseBg, transition: "background 0.1s", color: T.text, minHeight: 34, "--print-bg": printBg }}
-                onMouseEnter={e => e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.60)" : T.hoverBg}
-                onMouseLeave={e => e.currentTarget.style.background = baseBg}
+                style={{ background: baseBg, transition: "background 0.1s", color: T.text, minHeight: 34, "--print-bg": printBg, animation: isRowOverdue ? "pulse-overdue-row 1.4s ease-in-out infinite" : undefined }}
+                onMouseEnter={e => { if (!isRowOverdue) e.currentTarget.style.background = isFaktura ? "rgba(22,163,74,0.60)" : T.hoverBg; }}
+                onMouseLeave={e => { if (!isRowOverdue) e.currentTarget.style.background = baseBg; }}
               >
                 {/* # číslo řádku */}
                 <td style={{ padding: "7px 11px", textAlign: "center", border: `1px solid ${T.cellBorder}` }}>
