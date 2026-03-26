@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_24_build0224
+// BUILD: 2026_03_26_build0225
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -44,13 +44,14 @@ import * as XLSX from "xlsx";
 //   Postup: staging první → otestovat → merge do main
 //
 // TRANSCRIPT: /mnt/transcripts/ — přečíst pro kontext předchozích session
-// LOG:        stavby-znojmo-log-2026-03-20-FINAL.txt — kompletní dokumentace
+// LOG:        stavby-znojmo-log-2026-03-24.txt — kompletní dokumentace (aktualizováno 24.3.2026)
+// NAVOD:      stavby-znojmo-navod-2026-03-23-FINAL.docx — strukturovaná dokumentace projektu
 //
 // ============================================================
-// AKTUÁLNÍ STAV APLIKACE (session 2026-03-20, build0186)
+// AKTUÁLNÍ STAV APLIKACE (session 2026-03-24, build0224)
 // ============================================================
 //
-// ✅ Poslední build staging: build0186
+// ✅ Poslední build staging: build0224
 // ✅ Poslední build main (produkce): build0143 (merge pending)
 // ✅ Supabase staging: wgrdhqkkjhtrkweiqxvo.supabase.co
 // ✅ Supabase produkce: cleifbyyhpbdjbrgzrkv.supabase.co
@@ -197,15 +198,49 @@ import * as XLSX from "xlsx";
 // [HOTOVO] 💡 Otevírání složek — localhost helper port 47891
 // [HOTOVO] 🖨️  Tisk/PDF — window.print() + @media print (build0180-0186)
 // [HOTOVO] ⚡ sb() timeout + useDraggable memory leak (build0179)
-// [PENDING] ⚠️  Roletové menu za obrazovkou (user/user_e) — opravit
-// [PENDING] 💡 VPN — otestovat otevírání složek
-// [PENDING] 📈 Dashboard — KPI karty + grafy
-// [PENDING] 🗓️ Kalendářní pohled — termíny ukončení v měsíčním kalendáři
+// [HOTOVO] ⚙️  Drag & drop karet v Nastavení — cardsOrder string[][] (build0211)
+// [HOTOVO] 💾 Ukládání VŠECH 12 nastavení do DB — sbUpsertNastaveni (build0220)
+// [HOTOVO] ✅ Validace kategorií I+II — max 1 nenulové pole z KAT_FIELDS (build0221)
+// [HOTOVO] ⚠️  Smazaná firma — oranžový pulsující badge v tabulce (build0222)
+// [HOTOVO] ⏰ Popup Termíny — zobrazuje i prošlé termíny bez faktury (build0223)
+// [HOTOVO] 🔴 Prošlý termín — pulsující červený rámeček celého řádku (build0224)
+//
+// PRIORITA 1 — MERGE:
+// [PENDING] 🔀 Merge staging (build0224) → main
+//   Checklist: přihlášení, tabulka, drag&drop, uložení nastavení, e-mail notifikace
+//
+// PRIORITA 2 — BEZPEČNOST:
+// [PENDING] 🔐 Hesla plain text → Supabase Auth JWT (supabase.auth.signInWithPassword)
+//   ℹ Role (admin/user_e...) zůstat v tabulce nastaveni, propojit přes uuid
+// [PENDING] 🔐 RLS vypnuto na produkci → Edge Function proxy
+//
+// PRIORITA 3 — STABILITA:
+// [PENDING] 🧹 Refaktoring App.jsx (6100 řádků → komponenty)
+//   ℹ Návrh: src/api/db.js, src/utils/formatters.js, src/components/FormModal.jsx,
+//            src/components/SettingsModal.jsx, src/components/LogModal.jsx
+//   ℹ POZOR: dělat postupně, NIKDY najednou — Pravidlo #1b!
+// [PENDING] ⚠️  Race condition při ukládání nastavení — SLEDOVAT
+//   ℹ saveSlozkaRole a další dělají setState PŘED await sbUpsertNastaveni
+//   ℹ Pokud DB zápis selže, UI ukazuje změnu která se neuložila
+//   ℹ Oprava: setState až PO potvrzení + rollback na původní hodnotu při chybě
 // [PENDING] ☁️  Přechod Vercel → Cloudflare Pages (Hobby = nekomerční!)
-// [PENDING] 🔐 Přechod na Supabase Auth (hesla plain text → JWT)
-// [PENDING] 🔐 Hashování hesel v tabulce uzivatele
-// [PENDING] 🧹 Refaktoring App.jsx (5200 řádků → komponenty)
-// [PENDING] 🔀 Merge staging (build0186) → main
+//
+// PRIORITA 4 — NOVÉ FUNKCE:
+// [PENDING] 📈 Dashboard — KPI karty + grafy
+//   ℹ Navrhovány: počet staveb v realizaci, obrat, zisk, marže
+//   ℹ Graf cashflow predikce: osa X = měsíce, osa Y = smluvní ceny dle termínu
+//   ℹ Základ existuje v GrafModal — rozšířit, ne předělávat
+// [PENDING] 🗓️ Kalendářní pohled — termíny ukončení v měsíčním kalendáři
+//   ℹ Před implementací průzkum variant — Pravidlo #0! (Gemini zmiňuje FullCalendar)
+// [PENDING] 📱 Mobilní "výjezdový" pohled — jen termíny + poznámky pro techniky
+//   ℹ isMobile detekce již existuje — využít jako základ
+// [PENDING] 💡 VPN — otestovat otevírání složek přes VPN
+// [PENDING] 💡 Chrome — fix minimalizace okna při otevírání složek
+// [PENDING] 📧 Tlačítko "Odeslat testovací e-mail" v nastavení
+// [PENDING] 📦 Hromadné akce — označit více staveb, hromadně změnit technika/stav
+//
+// JIHLAVA:
+// [PENDING] 🏙️  Stavby Jihlava — nová větev "jihlava", nová Supabase DB, nový Vercel projekt
 //
 // ============================================================
 // HISTORY BUILDŮ
@@ -248,9 +283,19 @@ import * as XLSX from "xlsx";
 // BUILD0183 — Tisk: zoom 0.55 (všechny sloupce), skryty symboly ⠿ ⟺
 // BUILD0184 — Tisk: obnoveny barvy (odstraněn background-color:transparent)
 // BUILD0185 — Tisk: bgLight světlé barvy řádků, td transparent, th modrá
-// BUILD0224 — Tabulka: prošlé termíny bez faktury — pulsující červený rámeček celého řádku
-// BUILD0223 — FIX: Popup Termíny zobrazuje i prošlé termíny bez faktury (stejně jako e-mail)
+// BUILD0186 — (viz předchozí session)
+// BUILD0187–0194 — Nastavení Aplikace: drag&drop, 1-5 sloupců, viditelnost, prefix, povinná pole
+// BUILD0195 — FIX: useEffect pořadí + useDraggable reset(overrideW)
+// BUILD0196–0210 — FIX (15 buildů): drag&drop placeholder — modulo systém špatný
+// BUILD0211 — REFACTOR: cardsOrder string[] → string[][] — FUNKČNÍ
+// BUILD0212 — Pravidlo #1b do hlavičky
+// BUILD0213–0214 — FIX: saveSlozkaRole, render cols
+// BUILD0215–0220 — DEBUG + FIX: sbUpsertNastaveni — ukládání 12 nastavení do DB
+// BUILD0221 — Validace: max 1 pole z KAT_FIELDS (Kategorie I+II)
 // BUILD0222 — Smazaná firma: oranžový pulzující badge + přeškrtnutý text + tooltip
+// BUILD0223 — FIX: Popup Termíny — zobrazuje i prošlé termíny bez faktury
+// BUILD0224 — Tabulka: prošlé termíny bez faktury → pulsující červený rámeček řádku
+// BUILD0225 — TENANT detekce podle URL: Jihlava=zelená+stožáry, Znojmo=modrá+blesk (beze změny)
 // BUILD0221 — Validace: max 1 pole z Kategorií I+II (KAT_FIELDS)
 // BUILD0220 — Odstraněny console.log, ukládání nastavení potvrzeno funkční
 // BUILD0219 — DEBUG: console.log v sbUpsertNastaveni
@@ -518,7 +563,45 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0224";
+const APP_BUILD = "build0225";
+
+// ============================================================
+// TENANT DETEKCE — podle URL automaticky Znojmo nebo Jihlava
+// Znojmo: modrá (#2563eb), logo blesk, "kategorie 1 & 2"
+// Jihlava: zelená (#3B6D11), logo stožáry, "kategorie 2"
+// ============================================================
+const IS_JIHLAVA = typeof window !== "undefined" && window.location.hostname.includes("jihlava");
+const TENANT = IS_JIHLAVA ? {
+  nazev: "Stavby Jihlava",
+  kategorie: "kategorie 2",
+  primary: "#3B6D11",
+  primaryDark: "#27500A",
+  primaryLight: "#639922",
+  primaryLighter: "#97C459",
+  primaryLightest: "#C0DD97",
+  loginBg: "linear-gradient(135deg,#0a1f0a 0%,#0f2d1a 50%,#071510 100%)",
+  loginGradStop1: "#3B6D11",
+  loginGradStop2: "#0a1f0a",
+  btnBg: "linear-gradient(135deg,#3B6D11,#27500A)",
+  numColor: "#3B6D11",
+  orbColor1: "rgba(57,130,57,0.32)",
+  orbColor2: "rgba(80,160,60,0.22)",
+} : {
+  nazev: "Stavby Znojmo",
+  kategorie: "kategorie 1 & 2",
+  primary: "#2563eb",
+  primaryDark: "#1d4ed8",
+  primaryLight: "#3b82f6",
+  primaryLighter: "#60a5fa",
+  primaryLightest: "#93c5fd",
+  loginBg: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f2027 100%)",
+  loginGradStop1: "#2563eb",
+  loginGradStop2: "#0f172a",
+  btnBg: "linear-gradient(135deg,#2563eb,#1d4ed8)",
+  numColor: "#2563eb",
+  orbColor1: "rgba(59,130,246,0.35)",
+  orbColor2: "rgba(139,92,246,0.3)",
+};
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
@@ -1787,7 +1870,7 @@ function Login({ onLogin, users, onLogAction, appNazev = "Stavby Znojmo" }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f2027 100%)", display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "clamp(16px,5vh,60px) 0 24px", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, background: TENANT.loginBg, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "clamp(16px,5vh,60px) 0 24px", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <style>{`
         @keyframes loginStagingBlink{0%,100%{opacity:1;box-shadow:0 0 12px rgba(249,115,22,0.9)}50%{opacity:0.45;box-shadow:0 0 3px rgba(249,115,22,0.2)}}
         @keyframes loginStagingPulse{0%,100%{background:rgba(249,115,22,0.95)}50%{background:rgba(234,88,12,0.75)}}
@@ -1801,22 +1884,61 @@ function Login({ onLogin, users, onLogAction, appNazev = "Stavby Znojmo" }) {
       )}
       <div style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(20px)", border: isLoginStaging ? "1px solid rgba(249,115,22,0.4)" : "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "clamp(24px,5vw,48px) clamp(18px,5vw,40px)", width: "min(380px, 94vw)", boxShadow: isLoginStaging ? "0 32px 80px rgba(0,0,0,0.5), 0 0 0 2px rgba(249,115,22,0.25)" : "0 32px 80px rgba(0,0,0,0.5)", marginTop: isLoginStaging ? 20 : 0 }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <svg width="80" height="80" viewBox="0 0 80 80" fill="none" style={{ display: "block", margin: "0 auto 14px" }}>
-            <defs>
-              <radialGradient id="lgbg" cx="50%" cy="35%" r="70%">
-                <stop offset="0%" stopColor="#2563eb" />
-                <stop offset="100%" stopColor="#0f172a" />
-              </radialGradient>
-            </defs>
-            <circle cx="40" cy="40" r="38" fill="url(#lgbg)" stroke="#2563eb" strokeWidth="1.5" strokeOpacity="0.5" />
-            <polygon points="47,10 30,42 40,42 33,68 52,36 42,36" fill="#facc15" />
-            <circle cx="18" cy="24" r="2.2" fill="#facc15" opacity="0.55" />
-            <circle cx="62" cy="22" r="1.8" fill="#facc15" opacity="0.45" />
-            <circle cx="65" cy="56" r="2" fill="#facc15" opacity="0.4" />
-            <circle cx="15" cy="58" r="1.6" fill="#facc15" opacity="0.5" />
-          </svg>
-          <h1 style={{ color: "#fff", fontSize: 28, fontWeight: 800, margin: 0 }}>{appNazev}</h1>
-          <p style={{ color: "rgba(255,255,255,0.5)", margin: "6px 0 0", fontSize: 15, letterSpacing: 2, textTransform: "uppercase" }}>kategorie 1 & 2</p>
+          {IS_JIHLAVA ? (
+            <svg width="100" height="100" viewBox="0 0 100 100" fill="none" style={{ display: "block", margin: "0 auto 16px" }}>
+              {/* levý stožár */}
+              <line x1="28" y1="92" x2="28" y2="18" stroke="#97C459" strokeWidth="3" strokeLinecap="round"/>
+              {/* levý příčník horní */}
+              <line x1="12" y1="28" x2="44" y2="28" stroke="#97C459" strokeWidth="2.5" strokeLinecap="round"/>
+              {/* levý příčník dolní */}
+              <line x1="16" y1="42" x2="40" y2="42" stroke="#97C459" strokeWidth="2" strokeLinecap="round"/>
+              {/* levé izolátory horní */}
+              <circle cx="13" cy="28" r="3" fill="#C0DD97"/>
+              <circle cx="43" cy="28" r="3" fill="#C0DD97"/>
+              {/* levé izolátory dolní */}
+              <circle cx="17" cy="42" r="2.3" fill="#C0DD97"/>
+              <circle cx="39" cy="42" r="2.3" fill="#C0DD97"/>
+              {/* pravý stožár */}
+              <line x1="72" y1="92" x2="72" y2="24" stroke="#639922" strokeWidth="2.5" strokeLinecap="round"/>
+              {/* pravý příčník horní */}
+              <line x1="58" y1="34" x2="86" y2="34" stroke="#639922" strokeWidth="2" strokeLinecap="round"/>
+              {/* pravý příčník dolní */}
+              <line x1="61" y1="47" x2="83" y2="47" stroke="#639922" strokeWidth="1.8" strokeLinecap="round"/>
+              {/* pravé izolátory */}
+              <circle cx="59" cy="34" r="2.3" fill="#97C459"/>
+              <circle cx="85" cy="34" r="2.3" fill="#97C459"/>
+              <circle cx="62" cy="47" r="1.9" fill="#97C459"/>
+              <circle cx="82" cy="47" r="1.9" fill="#97C459"/>
+              {/* vedení mezi stožáry horní */}
+              <path d="M13,28 Q40,36 59,34" fill="none" stroke="#C0DD97" strokeWidth="1.6" strokeLinecap="round"/>
+              <path d="M43,28 Q60,33 85,34" fill="none" stroke="#C0DD97" strokeWidth="1.4" strokeLinecap="round"/>
+              {/* vedení dolní */}
+              <path d="M17,42 Q40,50 62,47" fill="none" stroke="#97C459" strokeWidth="1.3" strokeLinecap="round"/>
+              <path d="M39,42 Q60,48 82,47" fill="none" stroke="#97C459" strokeWidth="1.1" strokeLinecap="round"/>
+              {/* hvězdičky */}
+              <circle cx="55" cy="14" r="1.3" fill="#C0DD97" opacity="0.5"/>
+              <circle cx="8" cy="58" r="1.1" fill="#97C459" opacity="0.4"/>
+              <circle cx="90" cy="62" r="1.3" fill="#C0DD97" opacity="0.35"/>
+              <circle cx="88" cy="18" r="1" fill="#97C459" opacity="0.45"/>
+            </svg>
+          ) : (
+            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" style={{ display: "block", margin: "0 auto 14px" }}>
+              <defs>
+                <radialGradient id="lgbg" cx="50%" cy="35%" r="70%">
+                  <stop offset="0%" stopColor="#2563eb" />
+                  <stop offset="100%" stopColor="#0f172a" />
+                </radialGradient>
+              </defs>
+              <circle cx="40" cy="40" r="38" fill="url(#lgbg)" stroke="#2563eb" strokeWidth="1.5" strokeOpacity="0.5" />
+              <polygon points="47,10 30,42 40,42 33,68 52,36 42,36" fill="#facc15" />
+              <circle cx="18" cy="24" r="2.2" fill="#facc15" opacity="0.55" />
+              <circle cx="62" cy="22" r="1.8" fill="#facc15" opacity="0.45" />
+              <circle cx="65" cy="56" r="2" fill="#facc15" opacity="0.4" />
+              <circle cx="15" cy="58" r="1.6" fill="#facc15" opacity="0.5" />
+            </svg>
+          )}
+          <h1 style={{ color: "#fff", fontSize: 32, fontWeight: 800, margin: 0 }}>{appNazev}</h1>
+          <p style={{ color: "rgba(255,255,255,0.5)", margin: "6px 0 0", fontSize: 15, letterSpacing: 2, textTransform: "uppercase" }}>{TENANT.kategorie}</p>
         </div>
 
         <div style={{ marginBottom: 14 }}><Lbl>Email</Lbl><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="vas@email.cz" style={inputSx} onKeyDown={e => e.key === "Enter" && handle()} /></div>
@@ -1824,7 +1946,7 @@ function Login({ onLogin, users, onLogAction, appNazev = "Stavby Znojmo" }) {
 
         {err && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 14, textAlign: "center" }}>{err}</div>}
 
-        <button onClick={handle} disabled={loading} style={{ width: "100%", padding: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 10, color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
+        <button onClick={handle} disabled={loading} style={{ width: "100%", padding: 14, background: TENANT.btnBg, border: "none", borderRadius: 10, color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
           {loading ? "Přihlašuji..." : "Přihlásit se →"}
         </button>
         <div style={{ marginTop: 16, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
@@ -4762,7 +4884,7 @@ export default function App() {
     modalBg: lgS > 0 ? `rgba(255,255,255,${(0.55 + lgS * 0.28).toFixed(3)})` : "#ffffff",
     dropdownBg: lgS > 0 ? `rgba(255,255,255,${(0.7 + lgS * 0.25).toFixed(3)})` : "#ffffff",
     hoverBg: lgS > 0 ? `rgba(255,255,255,${(0.4 + lgS * 0.35).toFixed(3)})` : "rgba(0,0,0,0.04)",
-    numColor: "#2563eb",
+    numColor: TENANT.numColor,
     backdropFilter: lgS > 0 ? `blur(${(8 + lgS * 22).toFixed(1)}px) saturate(${(130 + lgS * 60).toFixed(0)}%) brightness(${(1 + lgS * 0.05).toFixed(3)})` : "none",
     boxShadow: lgS > 0 ? `0 2px 0 rgba(255,255,255,${(0.6 + lgS * 0.38).toFixed(3)}) inset, 0 -1px 0 rgba(0,0,0,0.06) inset, 0 4px 24px rgba(0,0,0,${(0.04 + lgS * 0.1).toFixed(3)})` : "none",
     orbOpacity: lgS,
@@ -4896,14 +5018,37 @@ export default function App() {
         {liquidGlass && <div className="lg-shimmer-bar" style={{ position: "absolute", top: 0, left: 0, width: "40%", height: "100%", pointerEvents: "none" }} />}
         {/* Levá část: logo */}
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14 }}>
-          <svg width={isMobile ? 32 : 46} height={isMobile ? 32 : 46} viewBox="0 0 80 80" fill="none">
-            <circle cx="40" cy="40" r="38" fill="#1e3a8a" />
-            <polygon points="47,10 30,42 40,42 33,68 52,36 42,36" fill="#facc15" />
-          </svg>
+          {IS_JIHLAVA ? (
+            <svg width={isMobile ? 36 : 52} height={isMobile ? 36 : 52} viewBox="0 0 100 100" fill="none">
+              <line x1="28" y1="92" x2="28" y2="18" stroke="#97C459" strokeWidth="3" strokeLinecap="round"/>
+              <line x1="12" y1="28" x2="44" y2="28" stroke="#97C459" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="16" y1="42" x2="40" y2="42" stroke="#97C459" strokeWidth="2" strokeLinecap="round"/>
+              <circle cx="13" cy="28" r="3" fill="#C0DD97"/>
+              <circle cx="43" cy="28" r="3" fill="#C0DD97"/>
+              <circle cx="17" cy="42" r="2.3" fill="#C0DD97"/>
+              <circle cx="39" cy="42" r="2.3" fill="#C0DD97"/>
+              <line x1="72" y1="92" x2="72" y2="24" stroke="#639922" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="58" y1="34" x2="86" y2="34" stroke="#639922" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="61" y1="47" x2="83" y2="47" stroke="#639922" strokeWidth="1.8" strokeLinecap="round"/>
+              <circle cx="59" cy="34" r="2.3" fill="#97C459"/>
+              <circle cx="85" cy="34" r="2.3" fill="#97C459"/>
+              <circle cx="62" cy="47" r="1.9" fill="#97C459"/>
+              <circle cx="82" cy="47" r="1.9" fill="#97C459"/>
+              <path d="M13,28 Q40,36 59,34" fill="none" stroke="#C0DD97" strokeWidth="1.6" strokeLinecap="round"/>
+              <path d="M43,28 Q60,33 85,34" fill="none" stroke="#C0DD97" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M17,42 Q40,50 62,47" fill="none" stroke="#97C459" strokeWidth="1.3" strokeLinecap="round"/>
+              <path d="M39,42 Q60,48 82,47" fill="none" stroke="#97C459" strokeWidth="1.1" strokeLinecap="round"/>
+            </svg>
+          ) : (
+            <svg width={isMobile ? 32 : 46} height={isMobile ? 32 : 46} viewBox="0 0 80 80" fill="none">
+              <circle cx="40" cy="40" r="38" fill="#1e3a8a" />
+              <polygon points="47,10 30,42 40,42 33,68 52,36 42,36" fill="#facc15" />
+            </svg>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 22 }}>{appNazev}</div>
-              {!isMobile && <div style={{ color: T.textMuted, fontSize: 16, textAlign: "center", letterSpacing: 1 }}>kategorie 1 & 2</div>}
+              {!isMobile && <div style={{ color: T.textMuted, fontSize: 16, textAlign: "center", letterSpacing: 1 }}>{TENANT.kategorie}</div>}
             </div>
             {isStaging && !isDemo && (
               <div style={{ animation: "stagingBlink 1.5s ease-in-out infinite", background: "rgba(220,38,38,0.9)", color: "#fff", fontWeight: 800, fontSize: 13, padding: "4px 12px", borderRadius: 6, letterSpacing: 1, border: "1px solid rgba(220,38,38,0.6)", flexShrink: 0 }}>
