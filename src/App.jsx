@@ -2200,8 +2200,9 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
 
   // Přepočítaná cena a termín podle vybraného dodatku
   const getCenaTermin = () => {
-    const zakladCena = Number(form["nabidkova_cena"]) || 0;
-    const zakladTermin = form["ukonceni"] || "";
+    // Vždy vycházíme z PŮVODNÍCH hodnot (před dodatky), ne z aktuálního form
+    const zakladCena = Number(originalForm.current.nabidkova_cena) || 0;
+    const zakladTermin = originalForm.current.ukonceni || "";
     if (vybranyDodatek === "zaklad" || dodatky.length === 0) return { cena: zakladCena, termin: zakladTermin };
     const idx = parseInt(vybranyDodatek);
     let cena = zakladCena;
@@ -2210,6 +2211,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
       cena += Number(dodatky[i].zmena_ceny) || 0;
       if (dodatky[i].novy_termin) termin = dodatky[i].novy_termin;
     }
+    cena = Math.round(cena * 100) / 100; // oprava plovoucí desetinné čárky
     return { cena, termin };
   };
 
@@ -2236,7 +2238,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
       return next;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vybranyDodatek, dodatky]);
+  }, [vybranyDodatek]); // ZÁMĚRNĚ bez "dodatky" — přepočet vychází z originalForm, ne z aktuálního form
 
   const handlePridatDodatek = async () => {
     const nazev = novyDodatekNazev.trim();
@@ -4735,7 +4737,7 @@ export default function App() {
         ciselniky: cisRes || [],
         uzivatele: (uzRes || []).map(u => ({ id: u.id, jmeno: u.jmeno, email: u.email, role: u.role })), // bez hesel
         log_aktivit: logRes || [],
-        nastaveni: (nastaveniRes || []).filter(r => r.klic !== "log_precteno"), // log_precteno se nezálohuje — po obnově tečky svítí správně
+        nastaveni: nastaveniRes || [], // včetně log_precteno — přiznaky přečtení se zálohují
         dodatky: dodatkyRes || [],
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -4820,7 +4822,7 @@ export default function App() {
       } catch {}
       // Spolehlivější: zjistit sloupce z prvního záznamu zálohy a odfiltrovat SKIP_FIELDS
       // + dynamicky ověřit při prvním vložení — pokud selže, vyhodit konkrétní sloupec
-      const ALWAYS_SKIP = new Set(["id","created_at","nabidka","rozdil","bez_dph_2","bez_dph"]);
+      const ALWAYS_SKIP = new Set(["created_at","nabidka","rozdil","bez_dph_2","bez_dph"]); // "id" ZÁMĚRNĚ zachováváme — dodatky na něj odkazují!
       // Smaž stávající stavby
       await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
       // Zjisti platné sloupce pomocí testovacího vložení prvního záznamu
@@ -4909,12 +4911,10 @@ export default function App() {
       let okNas = 0;
       if (payload.nastaveni && Array.isArray(payload.nastaveni) && payload.nastaveni.length > 0) {
         try {
-          // Zachovat log_precteno — mazat vše ostatní
-          await sb("nastaveni?id=gt.0&klic=neq.log_precteno", { method: "DELETE", prefer: "return=minimal" });
+          // log_precteno se importuje — příznaky přečtení se zachovají ze zálohy
+          await sb("nastaveni?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
           const SKIP_NAS = new Set(["id","created_at"]);
-          // Přeskočit log_precteno při importu — zůstane stávající (přečtení logů se neobnovuje ze zálohy)
           const cleanedNas = payload.nastaveni
-            .filter(r => r.klic !== "log_precteno")
             .map(r => { const c = { ...r }; SKIP_NAS.forEach(k => delete c[k]); return c; });
           for (let i = 0; i < cleanedNas.length; i += 100) {
             const chunk = cleanedNas.slice(i, i+100);
@@ -4942,6 +4942,16 @@ export default function App() {
         } catch(e) { chyby.push(`Chyba importu dodatků: ${e.message}`); }
       }
       await loadAll();
+      // Reset sekvence stavby.id aby nové záznamy nedostaly kolizní ID
+      try {
+        const maxIdRes = await sb("stavby?select=id&order=id.desc&limit=1");
+        const maxId = (maxIdRes && maxIdRes[0]) ? maxIdRes[0].id : 0;
+        // Supabase RPC pro reset sekvence — vyžaduje funkci v DB
+        // Alternativa: vložit a smazat dummy záznam s vysokým ID
+        if (maxId > 0) {
+          await sb("rpc/set_stavby_seq", { method: "POST", body: JSON.stringify({ max_id: maxId }), prefer: "return=minimal" }).catch(() => {});
+        }
+      } catch {}
       logAkce(user?.email, "Import JSON", `${ok} staveb + ${okLogy} logů + ${okCis} číselníků + ${okNas} nastavení + ${okDod} dodatků importováno z ${fileName}`);
       setImportLog({ ok, chyby, zprava: `Importováno ${ok} staveb + ${okCis} číselníků + ${okLogy} logů + ${okDod} dodatků + ${okNas} nastavení z "${fileName}"` });
     } catch(e) {
