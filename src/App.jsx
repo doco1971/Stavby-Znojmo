@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_26_build0233
+// BUILD: 2026_03_26_build0234
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -297,6 +297,7 @@ import * as XLSX from "xlsx";
 // BUILD0224 — Tabulka: prošlé termíny bez faktury → pulsující červený rámeček řádku
 // BUILD0225 — TENANT detekce podle URL: Jihlava=zelená+stožáry, Znojmo=modrá+blesk
 // BUILD0226 — Zelené barevné schema pro Jihlavu: všechny modré barvy → TENANT.p1/p2/p3/p4 + tc1/tc2 helpers
+// BUILD0234 — CRITICAL FIX: tc1/tc2/tc1d přesunuty před TENANT objekt (ReferenceError = bílá obrazovka)
 // BUILD0233 — FIX: vyfakturovaná stavba se nezobrazuje v blížících se termínech (isFaktura check)
 // BUILD0232 — FIX: appDarkBg Jihlava zesvětlena #070f04 → #0c1808 (podobný jas jako Znojmo #0f172a)
 // BUILD0231 — FIX: celé pozadí aplikace zelené pro Jihlavu — darkAppBg, body.background, všechny #0f172a fallbacky → TENANT.appBg
@@ -571,7 +572,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0233";
+const APP_BUILD = "build0234";
 
 // ============================================================
 // TENANT DETEKCE — podle URL automaticky Znojmo nebo Jihlava
@@ -579,6 +580,10 @@ const APP_BUILD = "build0233";
 // Jihlava: zelená (#3B6D11), logo stožáry, "kategorie 2"
 // ============================================================
 const IS_JIHLAVA = (typeof window !== "undefined" && window.location.hostname.includes("jihlava")) || import.meta.env.VITE_IS_JIHLAVA === "true";
+// Helper funkce pro rgba barvy podle tenantu — MUSÍ být před TENANT objektem!
+const tc1 = (a) => IS_JIHLAVA ? `rgba(59,109,17,${a})` : `rgba(37,99,235,${a})`;
+const tc2 = (a) => IS_JIHLAVA ? `rgba(99,153,34,${a})` : `rgba(59,130,246,${a})`;
+const tc1d = (a) => IS_JIHLAVA ? `rgba(27,80,10,${a})` : `rgba(29,78,216,${a})`;
 const TENANT = IS_JIHLAVA ? {
   // === JIHLAVA — zelená ===
   nazev: "Stavby Jihlava",
@@ -618,11 +623,7 @@ const TENANT = IS_JIHLAVA ? {
   appDarkBg: "#0f172a",
   appLightBg: "#f1f5f9",
 };
-// Helper funkce pro rgba barvy podle tenantu
-// tc1(0.15) → "rgba(59,109,17,0.15)" pro Jihlavu, tc1(0.15) pro Znojmo
-const tc1 = (a) => IS_JIHLAVA ? `rgba(59,109,17,${a})` : `rgba(37,99,235,${a})`;
-const tc2 = (a) => IS_JIHLAVA ? `rgba(99,153,34,${a})` : `rgba(59,130,246,${a})`;
-const tc1d = (a) => IS_JIHLAVA ? `rgba(27,80,10,${a})` : `rgba(29,78,216,${a})`;
+// tc1/tc2/tc1d jsou definovány před TENANT objektem (viz výše)
 
 const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
