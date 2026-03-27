@@ -2175,17 +2175,28 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
   const [saveErr, setSaveErr] = useState("");
   const [katErr, setKatErr] = useState(""); // chyba pro kategorie I/II
   // ── Dodatky ────────────────────────────────────────────────
+  // Základ = hodnoty při OTEVŘENÍ formuláře (initial), nikdy se nemění
   const stavbaId = initial?.id || null;
-  const [dodatky, setDodatky] = useState([]); // [{ id, nazev, zmena_ceny, novy_termin, poradi }]
-  // Originální hodnoty před aplikací dodatků
-  const originalForm = useRef({ ...initial });
+  const zakladCena = Number(initial?.nabidkova_cena) || 0;
+  const zakladTermin = initial?.ukonceni || "";
+  // Aktivní kat. pole = to které má v initial nenulovou hodnotu
+  const zakladKatPole = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch"].find(
+    k => Number(initial?.[k]) !== 0 && initial?.[k] != null && initial?.[k] !== ""
+  ) || null;
+  const zakladKatHodnota = zakladKatPole ? Number(initial?.[zakladKatPole]) || 0 : 0;
+
+  const [dodatky, setDodatky] = useState([]);
   const [dodatkyLoading, setDodatkyLoading] = useState(false);
-  const [vybranyDodatek, setVybranyDodatek] = useState("zaklad"); // "zaklad" | index string
+  const [vybranyDodatek, setVybranyDodatek] = useState("zaklad");
   const [novyDodatekNazev, setNovyDodatekNazev] = useState("");
   const [novyDodatekCena, setNovyDodatekCena] = useState("");
   const [novyDodatekTermin, setNovyDodatekTermin] = useState("");
   const [pridatDodatek, setPridatDodatek] = useState(false);
   const [smazatDodatekId, setSmazatDodatekId] = useState(null);
+  const [editDodatekId, setEditDodatekId] = useState(null);
+  const [editDodatekNazev, setEditDodatekNazev] = useState("");
+  const [editDodatekCena, setEditDodatekCena] = useState("");
+  const [editDodatekTermin, setEditDodatekTermin] = useState("");
 
   useEffect(() => {
     if (!stavbaId) return;
@@ -2193,57 +2204,50 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
     sb(`dodatky?stavba_id=eq.${stavbaId}&order=poradi`).then(res => {
       const d = res || [];
       setDodatky(d);
-      // Automaticky vybrat poslední dodatek pokud existují
       if (d.length > 0) setVybranyDodatek(String(d.length - 1));
     }).catch(() => {}).finally(() => setDodatkyLoading(false));
   }, [stavbaId]);
 
-  // Přepočítaná cena a termín podle vybraného dodatku
-  const getCenaTermin = () => {
-    // Vždy vycházíme z PŮVODNÍCH hodnot (před dodatky), ne z aktuálního form
-    const zakladCena = Number(originalForm.current.nabidkova_cena) || 0;
-    const zakladTermin = originalForm.current.ukonceni || "";
-    if (vybranyDodatek === "zaklad" || dodatky.length === 0) return { cena: zakladCena, termin: zakladTermin };
-    const idx = parseInt(vybranyDodatek);
+  // Přepočet POUZE pro zobrazení v dropdownu — vychází z initial hodnot
+  const getCenaTermin = (dod, doIdx) => {
     let cena = zakladCena;
     let termin = zakladTermin;
-    for (let i = 0; i <= idx && i < dodatky.length; i++) {
-      cena += Number(dodatky[i].zmena_ceny) || 0;
-      if (dodatky[i].novy_termin) termin = dodatky[i].novy_termin;
+    for (let i = 0; i <= doIdx && i < dod.length; i++) {
+      cena += Number(dod[i].zmena_ceny) || 0;
+      if (dod[i].novy_termin) termin = dod[i].novy_termin;
     }
-    cena = Math.round(cena * 100) / 100; // oprava plovoucí desetinné čárky
-    return { cena, termin };
+    return { cena: Math.round(cena * 100) / 100, termin };
   };
 
-  // Při výběru dodatku — aktualizovat nabidkova_cena, ukonceni + aktivní kat. pole
-  useEffect(() => {
-    if (dodatky.length === 0) return;
-    const katPole = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch"];
-    if (vybranyDodatek === "zaklad") {
-      // Obnovit originální hodnoty
-      setForm(prev => ({
-        ...prev,
-        nabidkova_cena: originalForm.current.nabidkova_cena ?? prev.nabidkova_cena,
-        ukonceni: originalForm.current.ukonceni ?? prev.ukonceni,
-        ...Object.fromEntries(katPole.map(k => [k, originalForm.current[k] ?? prev[k]])),
+  const aktualniCenaTermin = () => {
+    if (vybranyDodatek === "zaklad" || dodatky.length === 0) return { cena: zakladCena, termin: zakladTermin };
+    return getCenaTermin(dodatky, parseInt(vybranyDodatek));
+  };
+
+  // Aplikuj seznam dodatků na form a ulož do DB
+  const aplikujDodatkyNaStavbu = async (noveDodatky) => {
+    const sumaDodatku = noveDodatky.reduce((s, d) => s + (Number(d.zmena_ceny) || 0), 0);
+    const novaCena = Math.round((zakladCena + sumaDodatku) * 100) / 100;
+    // Termín = základ přepsaný posledním dodatkem s termínem
+    const novyTermin = noveDodatky.reduce((t, d) => d.novy_termin || t, zakladTermin);
+    // Patch stavby — nabidkova_cena + ukonceni + aktivní kat. pole
+    const patch = { nabidkova_cena: novaCena, ukonceni: novyTermin };
+    if (zakladKatPole) patch[zakladKatPole] = Math.round((zakladKatHodnota + sumaDodatku) * 100) / 100;
+    try {
+      await sb(`stavby?id=eq.${stavbaId}`, { method: "PATCH", body: JSON.stringify(patch), prefer: "return=minimal" });
+      // Aktualizovat lokální form aby bylo vidět ihned
+      setForm(prev => ({ ...prev, ...patch,
+        nabidkova_cena: String(patch.nabidkova_cena),
+        ukonceni: patch.ukonceni,
+        ...(zakladKatPole ? { [zakladKatPole]: String(patch[zakladKatPole]) } : {})
       }));
-      return;
-    }
-    const { cena, termin } = getCenaTermin();
-    // Najdi aktivní kat. pole z originálu
-    const aktivni = katPole.find(k => Number(originalForm.current[k]) !== 0 && originalForm.current[k] !== "" && originalForm.current[k] != null);
-    setForm(prev => {
-      const next = { ...prev, nabidkova_cena: String(cena), ukonceni: termin };
-      if (aktivni) next[aktivni] = String(cena);
-      return next;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vybranyDodatek]); // ZÁMĚRNĚ bez "dodatky" — přepočet vychází z originalForm, ne z aktuálního form
+    } catch(e) { alert("Chyba uložení do DB: " + e.message); }
+  };
 
   const handlePridatDodatek = async () => {
     const nazev = novyDodatekNazev.trim();
     if (!nazev) return;
-    const zmena = Number(novyDodatekCena.replace(",", ".")) || 0;
+    const zmena = Number(novyDodatekCena.replace(",", ".").replace(/\s+/g, "")) || 0;
     const termin = novyDodatekTermin.trim();
     try {
       const res = await sb("dodatky", {
@@ -2251,7 +2255,10 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
         body: JSON.stringify({ stavba_id: stavbaId, nazev, zmena_ceny: zmena, novy_termin: termin || null, poradi: dodatky.length }),
         prefer: "return=representation"
       });
-      setDodatky(prev => [...prev, ...(res || [])]);
+      const noveDodatky = [...dodatky, ...(res || [])];
+      setDodatky(noveDodatky);
+      setVybranyDodatek(String(noveDodatky.length - 1));
+      await aplikujDodatkyNaStavbu(noveDodatky);
       setNovyDodatekNazev(""); setNovyDodatekCena(""); setNovyDodatekTermin("");
       setPridatDodatek(false);
     } catch(e) { alert("Chyba přidání dodatku: " + e.message); }
@@ -2260,10 +2267,40 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
   const handleSmazatDodatek = async (id) => {
     try {
       await sb(`dodatky?id=eq.${id}`, { method: "DELETE", prefer: "return=minimal" });
-      setDodatky(prev => prev.filter(d => d.id !== id));
+      const noveDodatky = dodatky.filter(d => d.id !== id);
+      setDodatky(noveDodatky);
+      setVybranyDodatek(noveDodatky.length > 0 ? String(noveDodatky.length - 1) : "zaklad");
+      await aplikujDodatkyNaStavbu(noveDodatky);
       setSmazatDodatekId(null);
-      setVybranyDodatek("zaklad");
     } catch(e) { alert("Chyba smazání: " + e.message); }
+  };
+
+  const handleEditDodatek = (d) => {
+    setEditDodatekId(d.id);
+    setEditDodatekNazev(d.nazev);
+    setEditDodatekCena(d.zmena_ceny !== 0 ? String(d.zmena_ceny) : "");
+    setEditDodatekTermin(d.novy_termin || "");
+  };
+
+  const handleUlozitEditDodatek = async () => {
+    const nazev = editDodatekNazev.trim();
+    if (!nazev) return;
+    const zmena = Number(editDodatekCena.replace(",", ".").replace(/\s+/g, "")) || 0;
+    const termin = editDodatekTermin.trim();
+    try {
+      await sb(`dodatky?id=eq.${editDodatekId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ nazev, zmena_ceny: zmena, novy_termin: termin || null }),
+        prefer: "return=minimal"
+      });
+      const noveDodatky = dodatky.map(d => d.id === editDodatekId
+        ? { ...d, nazev, zmena_ceny: zmena, novy_termin: termin || null }
+        : d
+      );
+      setDodatky(noveDodatky);
+      await aplikujDodatkyNaStavbu(noveDodatky);
+      setEditDodatekId(null);
+    } catch(e) { alert("Chyba úpravy: " + e.message); }
   };
   const set = (k, v) => {
     // Validace: max 1 nenulové pole z KAT_FIELDS
@@ -2400,13 +2437,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
               <div style={{ marginTop: 10, background: tc1(0.08), border: `1px solid ${tc1(0.2)}`, borderRadius: 8, padding: "8px 14px", display: "flex", gap: 24, flexWrap: "wrap" }}>
                 <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Nabídka: </span><span style={{ color: TENANT.p3, fontWeight: 700 }}>{fmt(computed.nabidka)}</span></div>
                 <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Rozdíl: </span><span style={{ color: computed.rozdil >= 0 ? "#4ade80" : "#f87171", fontWeight: 700 }}>{fmt(computed.rozdil)}</span></div>
-                {vybranyDodatek !== "zaklad" && dodatky.length > 0 && (() => {
-                  const { cena, termin } = getCenaTermin();
-                  return <>
-                    <div style={{ borderLeft: "1px solid rgba(251,191,36,0.3)", paddingLeft: 12 }}><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>📋 Cena po dod.: </span><span style={{ color: "#fbbf24", fontWeight: 700 }}>{cena.toLocaleString("cs-CZ")} Kč</span></div>
-                    {termin && <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Termín po dod.: </span><span style={{ color: "#fbbf24", fontWeight: 700 }}>{termin}</span></div>}
-                  </>;
-                })()}
+
               </div>
             </div>
 
@@ -2445,87 +2476,103 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
           </div>
 
           {/* ── DODATKY — přes celou šířku (gridColumn span 2) ── */}
-          {stavbaId && (
-          <div style={{ gridColumn: "1 / -1", background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(251,191,36,0.2)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, borderLeft: "3px solid #fbbf24", paddingLeft: 8, flex: 1 }}>📋 DODATKY</div>
-              {!dodatkyLoading && (
-                <select
-                  value={vybranyDodatek}
-                  onChange={e => setVybranyDodatek(e.target.value)}
-                  style={{ padding: "5px 8px", background: TENANT.modalBg, border: "1px solid rgba(251,191,36,0.4)", borderRadius: 7, color: "#e2e8f0", fontSize: 12, cursor: "pointer", outline: "none" }}
-                >
-                  <option value="zaklad" style={{ background: TENANT.modalBg, color: "#e2e8f0" }}>Základ</option>
+          {stavbaId && (() => {
+            const { cena: aktCena, termin: aktTermin } = aktualniCenaTermin();
+            const inputStyle = { padding: "5px 7px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "#fff", fontSize: 12, boxSizing: "border-box", width: "100%" };
+            return (
+            <div style={{ gridColumn: "1 / -1", background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(251,191,36,0.2)" }}>
+              {/* Hlavička + dropdown */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, borderLeft: "3px solid #fbbf24", paddingLeft: 8, flex: 1 }}>📋 DODATKY</div>
+                {!dodatkyLoading && dodatky.length > 0 && (
+                  <select value={vybranyDodatek} onChange={e => setVybranyDodatek(e.target.value)}
+                    style={{ padding: "4px 8px", background: TENANT.modalBg, border: "1px solid rgba(251,191,36,0.4)", borderRadius: 7, color: "#e2e8f0", fontSize: 12, cursor: "pointer", outline: "none" }}>
+                    <option value="zaklad" style={{ background: TENANT.modalBg, color: "#e2e8f0" }}>📌 Základ: {zakladCena.toLocaleString("cs-CZ")} Kč{zakladTermin ? " | " + zakladTermin : ""}</option>
+                    {dodatky.map((d, i) => {
+                      const { cena: c, termin: t } = getCenaTermin(dodatky, i);
+                      return <option key={d.id} value={String(i)} style={{ background: TENANT.modalBg, color: "#fbbf24" }}>
+                        {`📋 Dod.${i+1} ${d.nazev}: ${c.toLocaleString("cs-CZ")} Kč${t ? " | " + t : ""}`}
+                      </option>;
+                    })}
+                  </select>
+                )}
+              </div>
+
+              {/* Aktuální přepočtená hodnota */}
+              <div style={{ display: "flex", gap: 24, marginBottom: 10, padding: "6px 12px", background: "rgba(251,191,36,0.08)", borderRadius: 8, border: "1px solid rgba(251,191,36,0.15)" }}>
+                <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Cena: </span><span style={{ color: "#fbbf24", fontWeight: 700 }}>{aktCena.toLocaleString("cs-CZ")} Kč</span></div>
+                <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Termín: </span><span style={{ color: "#fbbf24", fontWeight: 700 }}>{aktTermin || "—"}</span></div>
+                {vybranyDodatek !== "zaklad" && <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>základ: {zakladCena.toLocaleString("cs-CZ")} Kč{zakladTermin ? " | " + zakladTermin : ""}</div>}
+              </div>
+
+              {/* Seznam dodatků */}
+              {dodatkyLoading ? (
+                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginBottom: 8 }}>Načítám...</div>
+              ) : dodatky.length === 0 ? (
+                <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 12, marginBottom: 8 }}>Žádné dodatky</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   {dodatky.map((d, i) => (
-                    <option key={d.id} value={String(i)} style={{ background: TENANT.modalBg, color: "#fbbf24" }}>
-                      {`po Dodatku ${i + 1}: ${d.nazev}${d.zmena_ceny ? (Number(d.zmena_ceny) >= 0 ? " (+" : " (") + Number(d.zmena_ceny).toLocaleString("cs-CZ") + " Kč)" : ""}${d.novy_termin ? " → " + d.novy_termin : ""}`}
-                    </option>
+                    <div key={d.id}>
+                      {editDodatekId === d.id ? (
+                        /* Inline editace */
+                        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto auto", gap: 5, padding: "6px 8px", background: "rgba(251,191,36,0.06)", borderRadius: 7, border: "1px solid rgba(251,191,36,0.3)" }}>
+                          <input value={editDodatekNazev} onChange={e => setEditDodatekNazev(e.target.value)} placeholder="Název..." style={inputStyle} />
+                          <input value={editDodatekCena} onChange={e => setEditDodatekCena(e.target.value)} placeholder="±Kč" style={inputStyle} />
+                          <input value={editDodatekTermin} onChange={e => setEditDodatekTermin(e.target.value)} placeholder="DD.MM.RRRR" style={inputStyle} />
+                          <button onClick={handleUlozitEditDodatek} style={{ padding: "4px 10px", background: "rgba(251,191,36,0.2)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 6, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                          <button onClick={() => setEditDodatekId(null)} style={{ padding: "4px 8px", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 12 }}>✕</button>
+                        </div>
+                      ) : (
+                        /* Zobrazení řádku */
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 7, border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <span style={{ color: "#fbbf24", fontSize: 11, fontWeight: 700, minWidth: 20 }}>{i + 1}.</span>
+                          <span style={{ color: "#e2e8f0", fontSize: 12, flex: 1 }}>{d.nazev}</span>
+                          {Number(d.zmena_ceny) !== 0 && <span style={{ color: Number(d.zmena_ceny) >= 0 ? "#4ade80" : "#f87171", fontSize: 12, fontWeight: 600 }}>{Number(d.zmena_ceny) >= 0 ? "+" : ""}{Number(d.zmena_ceny).toLocaleString("cs-CZ")} Kč</span>}
+                          {d.novy_termin && <span style={{ color: "#94a3b8", fontSize: 11 }}>→ {d.novy_termin}</span>}
+                          {smazatDodatekId === d.id ? (
+                            <>
+                              <span style={{ color: "#f87171", fontSize: 11 }}>Smazat?</span>
+                              <button onClick={() => handleSmazatDodatek(d.id)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                              <button onClick={() => setSmazatDodatekId(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 12 }}>✕</button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => handleEditDodatek(d)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.35)", cursor: "pointer", fontSize: 12 }} title="Upravit">✏️</button>
+                              <button onClick={() => setSmazatDodatekId(d.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 13 }} title="Smazat">🗑️</button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ))}
-                </select>
+                </div>
+              )}
+
+              {/* Přidat dodatek */}
+              {!pridatDodatek ? (
+                <button onClick={() => setPridatDodatek(true)} style={{ padding: "5px 12px", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 12 }}>+ Přidat dodatek</button>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto auto", gap: 6, alignItems: "end", marginTop: 6 }}>
+                  <div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 3 }}>Název</div>
+                    <input value={novyDodatekNazev} onChange={e => setNovyDodatekNazev(e.target.value)} placeholder="Název dodatku..." onKeyDown={e => e.key === "Enter" && handlePridatDodatek()} style={{ ...inputStyle }} />
+                  </div>
+                  <div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 3 }}>Změna ceny (Kč)</div>
+                    <input value={novyDodatekCena} onChange={e => setNovyDodatekCena(e.target.value)} placeholder="±částka nebo 0" style={{ ...inputStyle }} />
+                  </div>
+                  <div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 3 }}>Nový termín</div>
+                    <input value={novyDodatekTermin} onChange={e => setNovyDodatekTermin(e.target.value)} placeholder="DD.MM.RRRR" style={{ ...inputStyle }} />
+                  </div>
+                  <button onClick={handlePridatDodatek} style={{ padding: "6px 12px", background: "rgba(251,191,36,0.2)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 6, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                  <button onClick={() => { setPridatDodatek(false); setNovyDodatekNazev(""); setNovyDodatekCena(""); setNovyDodatekTermin(""); }} style={{ padding: "6px 10px", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 12 }}>✕</button>
+                </div>
               )}
             </div>
-
-            {/* Přepočítaná hodnota */}
-            {(() => {
-              const { cena, termin } = getCenaTermin();
-              return (
-                <div style={{ display: "flex", gap: 20, marginBottom: 10, padding: "7px 12px", background: "rgba(251,191,36,0.08)", borderRadius: 8, border: "1px solid rgba(251,191,36,0.2)" }}>
-                  <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Cena: </span><span style={{ color: "#fbbf24", fontWeight: 700, fontSize: 13 }}>{cena.toLocaleString("cs-CZ")} Kč</span></div>
-                  <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Termín: </span><span style={{ color: "#fbbf24", fontWeight: 700, fontSize: 13 }}>{termin || "—"}</span></div>
-                </div>
-              );
-            })()}
-
-            {/* Seznam dodatků */}
-            {dodatkyLoading ? (
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>Načítám...</div>
-            ) : dodatky.length === 0 ? (
-              <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 12, marginBottom: 8 }}>Žádné dodatky</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
-                {dodatky.map((d, i) => (
-                  <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 7, border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <span style={{ color: "#fbbf24", fontSize: 11, fontWeight: 700, minWidth: 20 }}>{i + 1}.</span>
-                    <span style={{ color: "#e2e8f0", fontSize: 12, flex: 1 }}>{d.nazev}</span>
-                    {d.zmena_ceny !== 0 && <span style={{ color: Number(d.zmena_ceny) >= 0 ? "#4ade80" : "#f87171", fontSize: 12, fontWeight: 600 }}>{Number(d.zmena_ceny) >= 0 ? "+" : ""}{Number(d.zmena_ceny).toLocaleString("cs-CZ")} Kč</span>}
-                    {d.novy_termin && <span style={{ color: "#94a3b8", fontSize: 11 }}>→ {d.novy_termin}</span>}
-                    {smazatDodatekId === d.id ? (
-                      <>
-                        <span style={{ color: "#f87171", fontSize: 11 }}>Smazat?</span>
-                        <button onClick={() => handleSmazatDodatek(d.id)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
-                        <button onClick={() => setSmazatDodatekId(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 12 }}>✕</button>
-                      </>
-                    ) : (
-                      <button onClick={() => setSmazatDodatekId(d.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 13 }} title="Smazat dodatek">🗑️</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Přidat dodatek */}
-            {!pridatDodatek ? (
-              <button onClick={() => setPridatDodatek(true)} style={{ padding: "5px 12px", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 12 }}>+ Přidat dodatek</button>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto auto", gap: 6, alignItems: "end", marginTop: 6 }}>
-                <div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 3 }}>Název</div>
-                  <input value={novyDodatekNazev} onChange={e => setNovyDodatekNazev(e.target.value)} placeholder="Název dodatku..." style={{ width: "100%", padding: "6px 8px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "#fff", fontSize: 12, boxSizing: "border-box" }} />
-                </div>
-                <div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 3 }}>Změna ceny (Kč)</div>
-                  <input value={novyDodatekCena} onChange={e => setNovyDodatekCena(e.target.value)} placeholder="0 nebo ±částka" style={{ width: "100%", padding: "6px 8px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "#fff", fontSize: 12, boxSizing: "border-box" }} />
-                </div>
-                <div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 3 }}>Nový termín (DD.MM.RRRR)</div>
-                  <input value={novyDodatekTermin} onChange={e => setNovyDodatekTermin(e.target.value)} placeholder="beze změny" style={{ width: "100%", padding: "6px 8px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "#fff", fontSize: 12, boxSizing: "border-box" }} />
-                </div>
-                <button onClick={handlePridatDodatek} style={{ padding: "6px 12px", background: "rgba(251,191,36,0.2)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 6, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
-                <button onClick={() => { setPridatDodatek(false); setNovyDodatekNazev(""); setNovyDodatekCena(""); setNovyDodatekTermin(""); }} style={{ padding: "6px 10px", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 12 }}>✕</button>
-              </div>
-            )}
-          </div>
-          )}
+            );
+          })()}
         </div>
 
         {saveErr && <div style={{ padding: "8px 24px", background: "rgba(239,68,68,0.15)", borderTop: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: 13 }}>⚠️ {saveErr}</div>}
