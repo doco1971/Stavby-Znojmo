@@ -2177,6 +2177,8 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
   // ── Dodatky ────────────────────────────────────────────────
   const stavbaId = initial?.id || null;
   const [dodatky, setDodatky] = useState([]); // [{ id, nazev, zmena_ceny, novy_termin, poradi }]
+  // Originální hodnoty před aplikací dodatků
+  const originalForm = useRef({ ...initial });
   const [dodatkyLoading, setDodatkyLoading] = useState(false);
   const [vybranyDodatek, setVybranyDodatek] = useState("zaklad"); // "zaklad" | index string
   const [novyDodatekNazev, setNovyDodatekNazev] = useState("");
@@ -2210,6 +2212,31 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
     }
     return { cena, termin };
   };
+
+  // Při výběru dodatku — aktualizovat nabidkova_cena, ukonceni + aktivní kat. pole
+  useEffect(() => {
+    if (dodatky.length === 0) return;
+    const katPole = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch"];
+    if (vybranyDodatek === "zaklad") {
+      // Obnovit originální hodnoty
+      setForm(prev => ({
+        ...prev,
+        nabidkova_cena: originalForm.current.nabidkova_cena ?? prev.nabidkova_cena,
+        ukonceni: originalForm.current.ukonceni ?? prev.ukonceni,
+        ...Object.fromEntries(katPole.map(k => [k, originalForm.current[k] ?? prev[k]])),
+      }));
+      return;
+    }
+    const { cena, termin } = getCenaTermin();
+    // Najdi aktivní kat. pole z originálu
+    const aktivni = katPole.find(k => Number(originalForm.current[k]) !== 0 && originalForm.current[k] !== "" && originalForm.current[k] != null);
+    setForm(prev => {
+      const next = { ...prev, nabidkova_cena: String(cena), ukonceni: termin };
+      if (aktivni) next[aktivni] = String(cena);
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vybranyDodatek, dodatky]);
 
   const handlePridatDodatek = async () => {
     const nazev = novyDodatekNazev.trim();
@@ -2424,11 +2451,13 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
                 <select
                   value={vybranyDodatek}
                   onChange={e => setVybranyDodatek(e.target.value)}
-                  style={{ padding: "5px 8px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 7, color: "#e2e8f0", fontSize: 12, cursor: "pointer" }}
+                  style={{ padding: "5px 8px", background: TENANT.modalBg, border: "1px solid rgba(251,191,36,0.4)", borderRadius: 7, color: "#e2e8f0", fontSize: 12, cursor: "pointer", outline: "none" }}
                 >
-                  <option value="zaklad">Základ</option>
+                  <option value="zaklad" style={{ background: TENANT.modalBg, color: "#e2e8f0" }}>Základ</option>
                   {dodatky.map((d, i) => (
-                    <option key={d.id} value={String(i)}>po Dodatku {i + 1}: {d.nazev}</option>
+                    <option key={d.id} value={String(i)} style={{ background: TENANT.modalBg, color: "#fbbf24" }}>
+                      {`po Dodatku ${i + 1}: ${d.nazev}${d.zmena_ceny ? (Number(d.zmena_ceny) >= 0 ? " (+" : " (") + Number(d.zmena_ceny).toLocaleString("cs-CZ") + " Kč)" : ""}${d.novy_termin ? " → " + d.novy_termin : ""}`}
+                    </option>
                   ))}
                 </select>
               )}
@@ -4683,14 +4712,18 @@ export default function App() {
   };
 
   const zalohaJSON = async () => {
-    const datum = new Date().toISOString().slice(0,16).replace("T","_").replace(":","-");
+    const now = new Date();
+    const datum = now.toISOString().slice(0,16).replace("T","_").replace(":","-");
+    const prostrediKratky = (typeof window !== "undefined" && (window.location.hostname.includes("staging") || window.location.hostname.includes("preview") || window.location.hostname === "localhost")) ? "TEST" : "MAIN";
+    const tenantKratky = IS_JIHLAVA ? "JI" : "ZN";
     try {
-      const [stavbyRes, cisRes, uzRes, logRes, nastaveniRes] = await Promise.all([
+      const [stavbyRes, cisRes, uzRes, logRes, nastaveniRes, dodatkyRes] = await Promise.all([
         sb("stavby?order=id"),
         sb("ciselniky?order=typ,poradi"),
         sb("uzivatele?order=id"),
         sb("log_aktivit?order=id"),
         sb("nastaveni?order=klic"),
+        sb("dodatky?order=stavba_id,poradi"),
       ]);
       const prostredi = (typeof window !== "undefined" && (window.location.hostname.includes("staging") || window.location.hostname.includes("preview") || window.location.hostname === "localhost")) ? "STAGING" : "PRODUKCE";
       const payload = {
@@ -4702,12 +4735,13 @@ export default function App() {
         ciselniky: cisRes || [],
         uzivatele: (uzRes || []).map(u => ({ id: u.id, jmeno: u.jmeno, email: u.email, role: u.role })), // bez hesel
         log_aktivit: logRes || [],
-        nastaveni: nastaveniRes || [],
+        nastaveni: (nastaveniRes || []).filter(r => r.klic !== "log_precteno"), // log_precteno se nezálohuje — po obnově tečky svítí správně
+        dodatky: dodatkyRes || [],
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `zaloha_DB_${datum}.json`;
+      a.download = `zaloha_DB_${datum}_${prostrediKratky}_${tenantKratky}.json`;
       a.click();
       logAkce(user?.email, "Záloha", `${payload.stavby.length} staveb + ciselniky + uzivatele + ${payload.log_aktivit.length} logů + nastaveni (JSON v3)`);
     } catch(e) { showToast("Chyba zálohy: " + e.message, "error"); }
@@ -4891,9 +4925,25 @@ export default function App() {
           }
         } catch(e) { chyby.push(`Chyba importu nastavení: ${e.message}`); }
       }
+      // Import dodatků pokud jsou v záloze
+      let okDod = 0;
+      if (payload.dodatky && Array.isArray(payload.dodatky) && payload.dodatky.length > 0) {
+        try {
+          await sb("dodatky?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
+          const SKIP_DOD = new Set(["id","created_at"]);
+          const cleanedDod = payload.dodatky.map(r => { const c = { ...r }; SKIP_DOD.forEach(k => delete c[k]); return c; });
+          for (let i = 0; i < cleanedDod.length; i += 100) {
+            const chunk = cleanedDod.slice(i, i+100);
+            try {
+              await sb("dodatky", { method: "POST", body: JSON.stringify(chunk), prefer: "return=minimal" });
+              okDod += chunk.length;
+            } catch(e) { chyby.push(`Dodatky řádky ${i+1}-${i+chunk.length}: ${e.message}`); }
+          }
+        } catch(e) { chyby.push(`Chyba importu dodatků: ${e.message}`); }
+      }
       await loadAll();
-      logAkce(user?.email, "Import JSON", `${ok} staveb + ${okLogy} logů + ${okCis} číselníků + ${okNas} nastavení importováno z ${fileName}`);
-      setImportLog({ ok, chyby, zprava: `Importováno ${ok} staveb + ${okCis} číselníků + ${okLogy} logů + ${okNas} nastavení z "${fileName}"` });
+      logAkce(user?.email, "Import JSON", `${ok} staveb + ${okLogy} logů + ${okCis} číselníků + ${okNas} nastavení + ${okDod} dodatků importováno z ${fileName}`);
+      setImportLog({ ok, chyby, zprava: `Importováno ${ok} staveb + ${okCis} číselníků + ${okLogy} logů + ${okDod} dodatků + ${okNas} nastavení z "${fileName}"` });
     } catch(e) {
       setImportLog({ ok: 0, chyby: ["Chyba importu: " + e.message] });
     }
