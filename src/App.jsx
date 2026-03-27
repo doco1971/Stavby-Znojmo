@@ -315,6 +315,7 @@ import * as XLSX from "xlsx";
 // BUILD0224 — Tabulka: prošlé termíny bez faktury → pulsující červený rámeček řádku
 // BUILD0225 — TENANT detekce podle URL: Jihlava=zelená+stožáry, Znojmo=modrá+blesk
 // BUILD0226 — Zelené barevné schema pro Jihlavu: všechny modré barvy → TENANT.p1/p2/p3/p4 + tc1/tc2 helpers
+// BUILD0236 — FIX: Dodatky — základ uložen jako poradi=-1 v tabulce dodatky, správný přepočet při smazání
 // BUILD0235 — NOVÉ FUNKCE: Záloha+import ciselniky+nastaveni (v3), kontrolka přečtení logu (DB),
 //             hromadné přiřazení firmy po smazání, dodatky stavby (nová tabulka dodatky)
 // BUILD0234 — CRITICAL FIX: tc1/tc2/tc1d přesunuty před TENANT objekt (ReferenceError = bílá obrazovka)
@@ -578,7 +579,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0235";
+const APP_BUILD = "build0236";
 
 // ============================================================
 // TENANT DETEKCE — podle URL automaticky Znojmo nebo Jihlava
@@ -2175,17 +2176,13 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
   const [saveErr, setSaveErr] = useState("");
   const [katErr, setKatErr] = useState(""); // chyba pro kategorie I/II
   // ── Dodatky ────────────────────────────────────────────────
-  // Základ = hodnoty při OTEVŘENÍ formuláře (initial), nikdy se nemění
+  // Základ je uložen v DB jako řádek poradi=-1, nazev="__zaklad__<pole>"
+  // Nikdy nevycházíme z initial — initial může být již přepočítaná hodnota
   const stavbaId = initial?.id || null;
-  const zakladCena = Number(initial?.nabidkova_cena) || 0;
-  const zakladTermin = initial?.ukonceni || "";
-  // Aktivní kat. pole = to které má v initial nenulovou hodnotu
-  const zakladKatPole = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch"].find(
-    k => Number(initial?.[k]) !== 0 && initial?.[k] != null && initial?.[k] !== ""
-  ) || null;
-  const zakladKatHodnota = zakladKatPole ? Number(initial?.[zakladKatPole]) || 0 : 0;
+  const KAT_POLE_LIST = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch"];
 
-  const [dodatky, setDodatky] = useState([]);
+  const [dodatky, setDodatky] = useState([]); // pouze poradi >= 0, bez základu
+  const [zakladRec, setZakladRec] = useState(null); // { pole, hodnota, termin }
   const [dodatkyLoading, setDodatkyLoading] = useState(false);
   const [vybranyDodatek, setVybranyDodatek] = useState("zaklad");
   const [novyDodatekNazev, setNovyDodatekNazev] = useState("");
@@ -2202,16 +2199,37 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
     if (!stavbaId) return;
     setDodatkyLoading(true);
     sb(`dodatky?stavba_id=eq.${stavbaId}&order=poradi`).then(res => {
-      const d = res || [];
-      setDodatky(d);
-      if (d.length > 0) setVybranyDodatek(String(d.length - 1));
+      const vse = res || [];
+      // Oddělit základ (poradi=-1) od normálních dodatků
+      const zRec = vse.find(d => d.poradi === -1);
+      const normalni = vse.filter(d => d.poradi >= 0);
+      if (zRec) {
+        // Základ uložen — parsuj pole z nazvu "__zaklad__ps_i"
+        const pole = zRec.nazev.replace("__zaklad__", "");
+        setZakladRec({ pole, hodnota: Number(zRec.zmena_ceny) || 0, termin: zRec.novy_termin || "" });
+      }
+      setDodatky(normalni);
+      if (normalni.length > 0) setVybranyDodatek(String(normalni.length - 1));
     }).catch(() => {}).finally(() => setDodatkyLoading(false));
   }, [stavbaId]);
 
-  // Přepočet POUZE pro zobrazení v dropdownu — vychází z initial hodnot
+  // Základ pro přepočet — buď z DB záznamu nebo z aktuálního form (před prvním dodatkem)
+  const getZaklad = () => {
+    if (zakladRec) return zakladRec;
+    // Základ ještě není uložen — detekuj z aktuálního form
+    const pole = KAT_POLE_LIST.find(k => Number(form[k]) !== 0 && form[k] != null && form[k] !== "") || null;
+    return {
+      pole,
+      hodnota: pole ? Number(form[pole]) || 0 : 0,
+      termin: form.ukonceni || "",
+    };
+  };
+
+  // Přepočet ceny a termínu přes seznam dodatků — pro zobrazení v dropdownu
   const getCenaTermin = (dod, doIdx) => {
-    let cena = zakladCena;
-    let termin = zakladTermin;
+    const z = getZaklad();
+    let cena = z.hodnota;
+    let termin = z.termin;
     for (let i = 0; i <= doIdx && i < dod.length; i++) {
       cena += Number(dod[i].zmena_ceny) || 0;
       if (dod[i].novy_termin) termin = dod[i].novy_termin;
@@ -2220,26 +2238,26 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
   };
 
   const aktualniCenaTermin = () => {
-    if (vybranyDodatek === "zaklad" || dodatky.length === 0) return { cena: zakladCena, termin: zakladTermin };
+    const z = getZaklad();
+    if (vybranyDodatek === "zaklad" || dodatky.length === 0) return { cena: z.hodnota, termin: z.termin };
     return getCenaTermin(dodatky, parseInt(vybranyDodatek));
   };
 
-  // Aplikuj seznam dodatků na form a ulož do DB
-  const aplikujDodatkyNaStavbu = async (noveDodatky) => {
-    const sumaDodatku = noveDodatky.reduce((s, d) => s + (Number(d.zmena_ceny) || 0), 0);
-    const novaCena = Math.round((zakladCena + sumaDodatku) * 100) / 100;
-    // Termín = základ přepsaný posledním dodatkem s termínem
-    const novyTermin = noveDodatky.reduce((t, d) => d.novy_termin || t, zakladTermin);
-    // Patch stavby — nabidkova_cena + ukonceni + aktivní kat. pole
+  // Aplikuj dodatky na stavbu — PATCH do DB + aktualizuj form
+  const aplikujDodatkyNaStavbu = async (noveDodatky, aktZaklad) => {
+    const z = aktZaklad || getZaklad();
+    const suma = noveDodatky.reduce((s, d) => s + (Number(d.zmena_ceny) || 0), 0);
+    const novaCena = Math.round((z.hodnota + suma) * 100) / 100;
+    const novyTermin = noveDodatky.reduce((t, d) => d.novy_termin || t, z.termin);
     const patch = { nabidkova_cena: novaCena, ukonceni: novyTermin };
-    if (zakladKatPole) patch[zakladKatPole] = Math.round((zakladKatHodnota + sumaDodatku) * 100) / 100;
+    if (z.pole) patch[z.pole] = novaCena;
     try {
       await sb(`stavby?id=eq.${stavbaId}`, { method: "PATCH", body: JSON.stringify(patch), prefer: "return=minimal" });
-      // Aktualizovat lokální form aby bylo vidět ihned
-      setForm(prev => ({ ...prev, ...patch,
-        nabidkova_cena: String(patch.nabidkova_cena),
-        ukonceni: patch.ukonceni,
-        ...(zakladKatPole ? { [zakladKatPole]: String(patch[zakladKatPole]) } : {})
+      setForm(prev => ({
+        ...prev,
+        nabidkova_cena: String(novaCena),
+        ukonceni: novyTermin,
+        ...(z.pole ? { [z.pole]: String(novaCena) } : {}),
       }));
     } catch(e) { alert("Chyba uložení do DB: " + e.message); }
   };
@@ -2250,6 +2268,19 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
     const zmena = Number(novyDodatekCena.replace(",", ".").replace(/\s+/g, "")) || 0;
     const termin = novyDodatekTermin.trim();
     try {
+      // Pokud ještě není základ uložen — uložíme ho jako poradi=-1
+      let aktZaklad = zakladRec;
+      if (!zakladRec) {
+        const z = getZaklad();
+        await sb("dodatky", {
+          method: "POST",
+          body: JSON.stringify({ stavba_id: stavbaId, nazev: `__zaklad__${z.pole || "nabidkova_cena"}`, zmena_ceny: z.hodnota, novy_termin: z.termin || null, poradi: -1 }),
+          prefer: "return=minimal"
+        });
+        aktZaklad = z;
+        setZakladRec(z);
+      }
+      // Přidej nový dodatek
       const res = await sb("dodatky", {
         method: "POST",
         body: JSON.stringify({ stavba_id: stavbaId, nazev, zmena_ceny: zmena, novy_termin: termin || null, poradi: dodatky.length }),
@@ -2258,7 +2289,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
       const noveDodatky = [...dodatky, ...(res || [])];
       setDodatky(noveDodatky);
       setVybranyDodatek(String(noveDodatky.length - 1));
-      await aplikujDodatkyNaStavbu(noveDodatky);
+      await aplikujDodatkyNaStavbu(noveDodatky, aktZaklad);
       setNovyDodatekNazev(""); setNovyDodatekCena(""); setNovyDodatekTermin("");
       setPridatDodatek(false);
     } catch(e) { alert("Chyba přidání dodatku: " + e.message); }
@@ -2270,7 +2301,22 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
       const noveDodatky = dodatky.filter(d => d.id !== id);
       setDodatky(noveDodatky);
       setVybranyDodatek(noveDodatky.length > 0 ? String(noveDodatky.length - 1) : "zaklad");
-      await aplikujDodatkyNaStavbu(noveDodatky);
+      if (noveDodatky.length === 0 && zakladRec) {
+        // Smazat základ z DB a vrátit původní hodnoty
+        await sb(`dodatky?stavba_id=eq.${stavbaId}&poradi=eq.-1`, { method: "DELETE", prefer: "return=minimal" });
+        const patch = { nabidkova_cena: zakladRec.hodnota, ukonceni: zakladRec.termin };
+        if (zakladRec.pole) patch[zakladRec.pole] = zakladRec.hodnota;
+        await sb(`stavby?id=eq.${stavbaId}`, { method: "PATCH", body: JSON.stringify(patch), prefer: "return=minimal" });
+        setForm(prev => ({
+          ...prev,
+          nabidkova_cena: String(zakladRec.hodnota),
+          ukonceni: zakladRec.termin,
+          ...(zakladRec.pole ? { [zakladRec.pole]: String(zakladRec.hodnota) } : {}),
+        }));
+        setZakladRec(null);
+      } else {
+        await aplikujDodatkyNaStavbu(noveDodatky);
+      }
       setSmazatDodatekId(null);
     } catch(e) { alert("Chyba smazání: " + e.message); }
   };
@@ -2487,7 +2533,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
                 {!dodatkyLoading && dodatky.length > 0 && (
                   <select value={vybranyDodatek} onChange={e => setVybranyDodatek(e.target.value)}
                     style={{ padding: "4px 8px", background: TENANT.modalBg, border: "1px solid rgba(251,191,36,0.4)", borderRadius: 7, color: "#e2e8f0", fontSize: 12, cursor: "pointer", outline: "none" }}>
-                    <option value="zaklad" style={{ background: TENANT.modalBg, color: "#e2e8f0" }}>📌 Základ: {zakladCena.toLocaleString("cs-CZ")} Kč{zakladTermin ? " | " + zakladTermin : ""}</option>
+                    <option value="zaklad" style={{ background: TENANT.modalBg, color: "#e2e8f0" }}>📌 Základ: {(() => { const z = getZaklad(); return z.hodnota.toLocaleString("cs-CZ") + " Kč" + (z.termin ? " | " + z.termin : ""); })()}</option>
                     {dodatky.map((d, i) => {
                       const { cena: c, termin: t } = getCenaTermin(dodatky, i);
                       return <option key={d.id} value={String(i)} style={{ background: TENANT.modalBg, color: "#fbbf24" }}>
@@ -2502,7 +2548,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
               <div style={{ display: "flex", gap: 24, marginBottom: 10, padding: "6px 12px", background: "rgba(251,191,36,0.08)", borderRadius: 8, border: "1px solid rgba(251,191,36,0.15)" }}>
                 <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Cena: </span><span style={{ color: "#fbbf24", fontWeight: 700 }}>{aktCena.toLocaleString("cs-CZ")} Kč</span></div>
                 <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Termín: </span><span style={{ color: "#fbbf24", fontWeight: 700 }}>{aktTermin || "—"}</span></div>
-                {vybranyDodatek !== "zaklad" && <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>základ: {zakladCena.toLocaleString("cs-CZ")} Kč{zakladTermin ? " | " + zakladTermin : ""}</div>}
+                {vybranyDodatek !== "zaklad" && (() => { const z = getZaklad(); return <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>základ: {z.hodnota.toLocaleString("cs-CZ")} Kč{z.termin ? " | " + z.termin : ""}</div>; })()}
               </div>
 
               {/* Seznam dodatků */}
