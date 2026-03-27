@@ -2189,7 +2189,10 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
     if (!stavbaId) return;
     setDodatkyLoading(true);
     sb(`dodatky?stavba_id=eq.${stavbaId}&order=poradi`).then(res => {
-      setDodatky(res || []);
+      const d = res || [];
+      setDodatky(d);
+      // Automaticky vybrat poslední dodatek pokud existují
+      if (d.length > 0) setVybranyDodatek(String(d.length - 1));
     }).catch(() => {}).finally(() => setDodatkyLoading(false));
   }, [stavbaId]);
 
@@ -2365,9 +2368,16 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
                 <FormField label="Ukončení" value={form["ukonceni"]} onChange={v => set("ukonceni", v)} type="date" />
                 <FormField label="Zrealizováno" value={form["zrealizovano"]} onChange={v => set("zrealizovano", v)} type="number" />
               </div>
-              <div style={{ marginTop: 10, background: tc1(0.08), border: `1px solid ${tc1(0.2)}`, borderRadius: 8, padding: "8px 14px", display: "flex", gap: 24 }}>
+              <div style={{ marginTop: 10, background: tc1(0.08), border: `1px solid ${tc1(0.2)}`, borderRadius: 8, padding: "8px 14px", display: "flex", gap: 24, flexWrap: "wrap" }}>
                 <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Nabídka: </span><span style={{ color: TENANT.p3, fontWeight: 700 }}>{fmt(computed.nabidka)}</span></div>
                 <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Rozdíl: </span><span style={{ color: computed.rozdil >= 0 ? "#4ade80" : "#f87171", fontWeight: 700 }}>{fmt(computed.rozdil)}</span></div>
+                {vybranyDodatek !== "zaklad" && dodatky.length > 0 && (() => {
+                  const { cena, termin } = getCenaTermin();
+                  return <>
+                    <div style={{ borderLeft: "1px solid rgba(251,191,36,0.3)", paddingLeft: 12 }}><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>📋 Cena po dod.: </span><span style={{ color: "#fbbf24", fontWeight: 700 }}>{cena.toLocaleString("cs-CZ")} Kč</span></div>
+                    {termin && <div><span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Termín po dod.: </span><span style={{ color: "#fbbf24", fontWeight: 700 }}>{termin}</span></div>}
+                  </>;
+                })()}
               </div>
             </div>
 
@@ -2404,11 +2414,10 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
               />
             </div>
           </div>
-        </div>
 
-        {/* ── DODATKY — přes celou šířku ── */}
-        {stavbaId && (
-          <div style={{ margin: "0 16px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(251,191,36,0.2)" }}>
+          {/* ── DODATKY — přes celou šířku (gridColumn span 2) ── */}
+          {stavbaId && (
+          <div style={{ gridColumn: "1 / -1", background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(251,191,36,0.2)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, borderLeft: "3px solid #fbbf24", paddingLeft: 8, flex: 1 }}>📋 DODATKY</div>
               {!dodatkyLoading && (
@@ -2485,7 +2494,8 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
               </div>
             )}
           </div>
-        )}
+          )}
+        </div>
 
         {saveErr && <div style={{ padding: "8px 24px", background: "rgba(239,68,68,0.15)", borderTop: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: 13 }}>⚠️ {saveErr}</div>}
 
@@ -4865,9 +4875,13 @@ export default function App() {
       let okNas = 0;
       if (payload.nastaveni && Array.isArray(payload.nastaveni) && payload.nastaveni.length > 0) {
         try {
-          await sb("nastaveni?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
+          // Zachovat log_precteno — mazat vše ostatní
+          await sb("nastaveni?id=gt.0&klic=neq.log_precteno", { method: "DELETE", prefer: "return=minimal" });
           const SKIP_NAS = new Set(["id","created_at"]);
-          const cleanedNas = payload.nastaveni.map(r => { const c = { ...r }; SKIP_NAS.forEach(k => delete c[k]); return c; });
+          // Přeskočit log_precteno při importu — zůstane stávající (přečtení logů se neobnovuje ze zálohy)
+          const cleanedNas = payload.nastaveni
+            .filter(r => r.klic !== "log_precteno")
+            .map(r => { const c = { ...r }; SKIP_NAS.forEach(k => delete c[k]); return c; });
           for (let i = 0; i < cleanedNas.length; i += 100) {
             const chunk = cleanedNas.slice(i, i+100);
             try {
