@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_26_build0234
+// BUILD: 2026_03_28_build0237
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -48,17 +48,17 @@ import * as XLSX from "xlsx";
 // NAVOD:      stavby-znojmo-navod-2026-03-23-FINAL.docx — strukturovaná dokumentace projektu
 //
 // ============================================================
-// AKTUÁLNÍ STAV APLIKACE (session 2026-03-26, build0234)
+// AKTUÁLNÍ STAV APLIKACE (session 2026-03-28, build0237)
 // ============================================================
 //
 // ZNOJMO:
-// ✅ Poslední build staging: build0234 (Znojmo + Jihlava — stejný soubor)
+// ✅ Poslední build staging: build0237 (Znojmo + Jihlava — stejný soubor)
 // ✅ Poslední build main (produkce): build0144
 // ✅ Supabase staging: wgrdhqkkjhtrkweiqxvo.supabase.co
 // ✅ Supabase produkce: cleifbyyhpbdjbrgzrkv.supabase.co
 //
 // JIHLAVA:
-// ✅ Poslední build staging: build0234
+// ✅ Poslední build staging: build0237
 // ✅ Poslední build main (produkce): build0144_j (Jihlava varianta)
 // ✅ Repo: doco1971/stavby-jihlava (Public)
 // ✅ Vercel projekt: stavby-jihlava (Deployment Protection vypnuta)
@@ -2488,22 +2488,24 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
               </div>
             </div>
 
-            {/* Faktura 1 + 2 — na jedné kartě, dva řádky */}
+            {/* Faktura 1 */}
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div style={{ display: "flex", gap: 16, marginBottom: 6, alignItems: "center" }}>
-                <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, borderLeft: "3px solid #fbbf24", paddingLeft: 8 }}>FAKTURA 1</div>
-                <div style={{ color: "#f59e0b", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, borderLeft: "3px solid #f59e0b", paddingLeft: 8, opacity: 0.7 }}>FAKTURA 2</div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 6 }}>
+              <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #fbbf24", paddingLeft: 8 }}>FAKTURA 1</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Nabídková cena" value={form["nabidkova_cena"]} onChange={v => set("nabidkova_cena", v)} type="number" />
                 <FormField label="Číslo faktury" value={form["cislo_faktury"]} onChange={v => set("cislo_faktury", v)} />
                 <FormField label="Částka bez DPH" value={form["castka_bez_dph"]} onChange={v => set("castka_bez_dph", v)} type="number" />
                 <FormField label="Splatná" value={form["splatna"]} onChange={v => set("splatna", v)} type="date" />
-                <div />
+              </div>
+            </div>
+
+            {/* Faktura 2 */}
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <div style={{ color: "#f59e0b", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #f59e0b", paddingLeft: 8, opacity: 0.7 }}>FAKTURA 2</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Č. faktury 2" value={form["cislo_faktury_2"]} onChange={v => set("cislo_faktury_2", v)} />
                 <FormField label="Částka bez DPH 2" value={form["castka_bez_dph_2"]} onChange={v => set("castka_bez_dph_2", v)} type="number" />
                 <FormField label="Splatná 2" value={form["splatna_2"]} onChange={v => set("splatna_2", v)} type="date" />
-                <div /><div />
               </div>
             </div>
             {/* Poznámka */}
