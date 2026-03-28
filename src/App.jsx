@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_28_build0240
+// BUILD: 2026_03_28_build0241
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -48,17 +48,17 @@ import * as XLSX from "xlsx";
 // NAVOD:      stavby-znojmo-navod-2026-03-23-FINAL.docx — strukturovaná dokumentace projektu
 //
 // ============================================================
-// AKTUÁLNÍ STAV APLIKACE (session 2026-03-28, build0240)
+// AKTUÁLNÍ STAV APLIKACE (session 2026-03-28, build0241)
 // ============================================================
 //
 // ZNOJMO:
-// ✅ Poslední build staging: build0240 (Znojmo + Jihlava — stejný soubor)
+// ✅ Poslední build staging: build0241 (Znojmo + Jihlava — stejný soubor)
 // ✅ Poslední build main (produkce): build0144
 // ✅ Supabase staging: wgrdhqkkjhtrkweiqxvo.supabase.co
 // ✅ Supabase produkce: cleifbyyhpbdjbrgzrkv.supabase.co
 //
 // JIHLAVA:
-// ✅ Poslední build staging: build0240
+// ✅ Poslední build staging: build0241
 // ✅ Poslední build main (produkce): build0144_j (Jihlava varianta)
 // ✅ Repo: doco1971/stavby-jihlava (Public)
 // ✅ Vercel projekt: stavby-jihlava (Deployment Protection vypnuta)
@@ -315,6 +315,7 @@ import * as XLSX from "xlsx";
 // BUILD0224 — Tabulka: prošlé termíny bez faktury → pulsující červený rámeček řádku
 // BUILD0225 — TENANT detekce podle URL: Jihlava=zelená+stožáry, Znojmo=modrá+blesk
 // BUILD0226 — Zelené barevné schema pro Jihlavu: všechny modré barvy → TENANT.p1/p2/p3/p4 + tc1/tc2 helpers
+// BUILD0241 — NOVÁ FUNKCE: Import JI tabulky (Jihlava XLS), přejmenování DUR, výběr kat. pole pro H
 // BUILD0240 — NOVÁ FUNKCE: DatePickerField — 📅 mini picker u všech datumových polí (FormModal + dodatky)
 // BUILD0239 — FIX: FormModal přesně centrován CSS translate(-50%,-50%), stejná mezera ze všech stran
 // BUILD0238 — UI: FormModal svisle centrován (top:50% translateY), Faktura 1+2 pole na jeden řádek
@@ -583,7 +584,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0240";
+const APP_BUILD = "build0241";
 
 // ============================================================
 // TENANT DETEKCE — podle URL automaticky Znojmo nebo Jihlava
@@ -2967,8 +2968,9 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   );
 }
 
-function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha, zalohaRole = "superadmin", onSaveZalohaRole, onImportXLS, autoLogoutMinutesProp = 15, onSaveAutoLogoutMinutes, appNazevProp = "Stavby Znojmo", onSaveAppNazev, deadlineDaysProp = 30, onSaveDeadlineDays, demoMaxStavbyProp = 15, onSaveDemoMaxStavby, povinnaPole = {}, onSavePovinnaPole, prefixEnabled = false, prefixValue = "ZN-", onSaveCisloPrefix, sloupceRole = {}, onSaveSloupceRole }) {
+function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha, zalohaRole = "superadmin", onSaveZalohaRole, onImportXLS, onImportJI, autoLogoutMinutesProp = 15, onSaveAutoLogoutMinutes, appNazevProp = "Stavby Znojmo", onSaveAppNazev, deadlineDaysProp = 30, onSaveDeadlineDays, demoMaxStavbyProp = 15, onSaveDemoMaxStavby, povinnaPole = {}, onSavePovinnaPole, prefixEnabled = false, prefixValue = "ZN-", onSaveCisloPrefix, sloupceRole = {}, onSaveSloupceRole }) {
   const [tab, setTab] = useState("ciselniky");
+  const [importJIKatPoleLocal, setImportJIKatPoleLocal] = useState("ps_i");
   const [f, setF] = useState([...firmy]);
   const [o, setO] = useState([...objednatele]);
   const [s, setS] = useState([...stavbyvedouci]);
@@ -3459,11 +3461,31 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                   )
                 },
                 import: {
-                  title: "📥 IMPORT Z PŮVODNÍ TABULKY (XLS)",
+                  title: "📥 IMPORT Z PŮVODNÍ TABULKY (XLS) — DUR",
                   content: (
                     <div>
                       <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Jednorázový import staveb z původního Excel formátu. Před importem zobrazí potvrzovací dialog.</div>
-                      <button onClick={() => onImportXLS()} style={{ padding: "9px 16px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 8, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS</button>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div>
+                          <div style={{ color: modalMuted, fontSize: 11, marginBottom: 6 }}>DUR — Znojmo formát:</div>
+                          <button onClick={() => onImportXLS()} style={{ padding: "9px 16px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 8, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS — <span style={{ color: "#ef4444", fontWeight: 700 }}>DUR</span></button>
+                        </div>
+                        <div>
+                          <div style={{ color: modalMuted, fontSize: 11, marginBottom: 6 }}>Jihlava formát — H (Smluvní cena) importovat do:</div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <select value={importJIKatPoleLocal} onChange={e => setImportJIKatPoleLocal(e.target.value)} style={{ padding: "6px 10px", background: TENANT.inputBg, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 7, color: "#e2e8f0", fontSize: 12 }}>
+                              <option value="ps_i">Plán. stavby I</option>
+                              <option value="snk_i">SNK I</option>
+                              <option value="bo_i">Běžné opravy I</option>
+                              <option value="ps_ii">Plán. stavby II</option>
+                              <option value="bo_ii">Běžné opravy II</option>
+                              <option value="poruch">Poruchy</option>
+                              <option value="nikam">Nikam (jen Nab. cena)</option>
+                            </select>
+                            <button onClick={() => onImportJI(importJIKatPoleLocal)} style={{ padding: "9px 16px", background: "rgba(99,153,34,0.15)", border: "1px solid rgba(99,153,34,0.4)", borderRadius: 8, color: "#86efac", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS — JI</button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )
                 },
@@ -4958,6 +4980,10 @@ export default function App() {
 
   // ── Import původní tabulky (superadmin) ──────────────────────
   const importRef = useRef(null);
+  const importRefJI = useRef(null); // JI tabulka import
+  const [importJIKatPole, setImportJIKatPole] = useState("ps_i"); // kam jde H (Smluvní cena)
+  const [importJIConfirm, setImportJIConfirm] = useState(null); // { file, stavbyVDB, katPole }
+  const [importJIConfirmText, setImportJIConfirmText] = useState("");
   const [importLog, setImportLog] = useState(null); // { ok, chyby, zprava }
   const [importConfirm, setImportConfirm] = useState(null); // { payload, fileName, prostrediZalohy, prostrediAktualni, mismatch, stavbyVDB }
   const [importConfirmText, setImportConfirmText] = useState("");
@@ -5294,6 +5320,90 @@ export default function App() {
     reader.readAsArrayBuffer(file);
   };
 
+
+  // ── Import JI tabulky (Jihlava) ──────────────────────────
+  const handleImportJI = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    let stavbyVDB = "?";
+    try { const res = await sb("stavby?select=id"); stavbyVDB = res.length; } catch {}
+    setImportJIConfirmText("");
+    setImportJIConfirm({ file, stavbyVDB });
+  };
+
+  const doImportJI = () => {
+    if (!importJIConfirm) return;
+    const { file } = importJIConfirm;
+    const katPole = importJIKatPole;
+    setImportJIConfirm(null);
+    setImportJIConfirmText("");
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: "array", cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true, cellDates: true });
+        // Řádek 0 = hlavička, data od řádku 1
+        const dataRows = raw.slice(1);
+        const numVal = (v) => {
+          if (v === null || v === undefined || v === "") return 0;
+          if (typeof v === "number") return v;
+          const n = parseFloat(String(v).replace(/\s/g,"").replace(",","."));
+          return isNaN(n) ? 0 : n;
+        };
+        let stavbyRows = [];
+        for (const row of dataRows) {
+          const nazev = row[3]; // D = Název
+          if (!nazev) continue;
+          const fields = {
+            cislo_stavby:   String(row[2] || ""),       // C = Číslo
+            nazev_stavby:   String(nazev),               // D = Název
+            sod:            String(row[5] || ""),        // F = Poptávka
+            objednatel:     String(row[6] || ""),        // G = Odběratel
+            nabidkova_cena: numVal(row[7]),              // H = Smluvní cena → nabidkova_cena
+            ze_dne:         fmtDateFromXls(row[8]),      // I = Plán zahájení
+            ukonceni:       fmtDateFromXls(row[9]),      // J = Termín
+            stavbyvedouci:  String(row[12] || ""),       // M = Jméno zástupce odběratele
+            ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0,
+            firma: "", vyfakturovano: 0, zrealizovano: 0,
+            cislo_faktury: "", castka_bez_dph: 0, splatna: "",
+            cislo_faktury_2: "", castka_bez_dph_2: 0, splatna_2: "",
+            poznamka: "",
+          };
+          // H → vybraný kat. sloupec
+          if (katPole && katPole !== "nikam") fields[katPole] = numVal(row[7]);
+          stavbyRows.push(fields);
+        }
+        if (stavbyRows.length === 0) {
+          setImportLog({ ok: 0, chyby: ["Nenalezena žádná data ke importu."] });
+          return;
+        }
+        let ok = 0, chyby = [];
+        await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
+        const NUM = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","nabidkova_cena","vyfakturovano","zrealizovano","castka_bez_dph","castka_bez_dph_2"];
+        const cleaned = stavbyRows.map(r => {
+          const c = { ...r };
+          NUM.forEach(k => { c[k] = Number(c[k]) || 0; });
+          Object.keys(c).forEach(k => { if (!NUM.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = ""; });
+          return c;
+        });
+        for (let i = 0; i < cleaned.length; i += 50) {
+          const chunk = cleaned.slice(i, i+50);
+          try {
+            await sb("stavby", { method: "POST", body: JSON.stringify(chunk), prefer: "return=minimal" });
+            ok += chunk.length;
+          } catch(e) { chyby.push(`Řádky ${i+1}-${i+chunk.length}: ${e.message}`); }
+        }
+        await loadAll();
+        logAkce(user?.email, "Import JI", `${ok} staveb importováno z ${file.name} (${katPole})`);
+        setImportLog({ ok, chyby, zprava: `Importováno ${ok} staveb z "${file.name}"` });
+      } catch(e) {
+        setImportLog({ ok: 0, chyby: ["Chyba čtení souboru: " + e.message] });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   const isDark = isDarkComputed(theme);
 
@@ -5745,6 +5855,7 @@ export default function App() {
                   }} options={["🗄 Data", "💾 Záloha ( JSON )", "📥 Obnova zálohy ( JSON )"]} isDark={isDark} style={{ flexShrink: 0 }} />
                 )}
                 <input ref={importRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: "none" }} />
+                <input ref={importRefJI} type="file" accept=".xlsx,.xls" onChange={handleImportJI} style={{ display: "none" }} />
                 <input ref={importRef2} type="file" accept=".json" onChange={handleImportJSON} style={{ display: "none" }} />
                 {isEditor && <button onMouseEnter={e => showTooltip(e, "Přidat novou stavbu")} onMouseLeave={hideTooltip} onClick={() => { if (isDemo && data.length >= demoMaxStavby) { showToast(`Demo verze: maximum ${demoMaxStavby} staveb.`, "error"); return; } setAdding(true); }} style={{ padding: "0 14px", height: 28, background: isDemo && data.length >= demoMaxStavby ? "rgba(100,116,139,0.4)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", borderRadius: 7, color: "#fff", cursor: isDemo && data.length >= demoMaxStavby ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600 }}>{isDemo ? `+ Přidat stavbu (${data.length}/${demoMaxStavby})` : "+ Přidat stavbu"}</button>}
               </div>
@@ -6347,7 +6458,7 @@ export default function App() {
       {adding && <FormModal title="➕ Nová stavba" initial={emptyRow} onSave={handleAdd} onClose={() => setAdding(false)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} povinnaPole={povinnaPole} />}
       {editRow && <FormModal title={`✏️ Editace stavby #${editRow.id}`} initial={editRow} onSave={handleSave} onClose={() => setEditRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} povinnaPole={povinnaPole} />}
       {copyRow && <FormModal title="📋 Kopírovat stavbu" initial={copyRow} onSave={handleCopySave} onClose={() => setCopyRow(null)} firmy={firmy.map(f => f.hodnota)} objednatele={objednatele} stavbyvedouci={stavbyvedouci} povinnaPole={povinnaPole} />}
-      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} autoZaloha={autoZaloha} onSaveAutoZaloha={(v) => { setAutoZaloha(v); try { localStorage.setItem("autoZaloha", v ? "true" : "false"); } catch {} }} zalohaRole={zalohaRole} onSaveZalohaRole={saveZalohaRole} onImportXLS={() => importRef.current?.click()} autoLogoutMinutesProp={autoLogoutMinutes} onSaveAutoLogoutMinutes={saveAutoLogoutMinutes} appNazevProp={appNazev} onSaveAppNazev={saveAppNazev} deadlineDaysProp={deadlineDays} onSaveDeadlineDays={saveDeadlineDays} demoMaxStavbyProp={demoMaxStavby} onSaveDemoMaxStavby={saveDemoMaxStavby} povinnaPole={povinnaPole} onSavePovinnaPole={savePovinnaPole} prefixEnabled={prefixEnabled} prefixValue={prefixValue} onSaveCisloPrefix={saveCisloPrefix} sloupceRole={sloupceRole} onSaveSloupceRole={saveSloupceRole} />}
+      {showSettings && <SettingsModal firmy={firmy} objednatele={objednatele} stavbyvedouci={stavbyvedouci} users={users} onChange={saveSettings} onChangeUsers={saveUsers} onClose={() => setShowSettings(false)} onLoadLog={loadLog} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isDark={isDark} appVerze={appVerze} appDatum={appDatum} onSaveAppInfo={saveAppInfo} stavbyData={data} onResetColWidths={() => { setColWidths({}); saveColWidths({}); }} onResetColOrder={resetColOrder} isDemo={isDemo} notifyEmails={notifyEmails} onSaveNotifyEmails={saveNotifyEmails} slozkaRole={slozkaRole} onSaveSlozkaRole={saveSlozkaRole} extensionReady={extensionReady} protokolReady={protokolReady} autoZaloha={autoZaloha} onSaveAutoZaloha={(v) => { setAutoZaloha(v); try { localStorage.setItem("autoZaloha", v ? "true" : "false"); } catch {} }} zalohaRole={zalohaRole} onSaveZalohaRole={saveZalohaRole} onImportXLS={() => importRef.current?.click()} onImportJI={(katPole) => { setImportJIKatPole(katPole); importRefJI.current?.click(); }} autoLogoutMinutesProp={autoLogoutMinutes} onSaveAutoLogoutMinutes={saveAutoLogoutMinutes} appNazevProp={appNazev} onSaveAppNazev={saveAppNazev} deadlineDaysProp={deadlineDays} onSaveDeadlineDays={saveDeadlineDays} demoMaxStavbyProp={demoMaxStavby} onSaveDemoMaxStavby={saveDemoMaxStavby} povinnaPole={povinnaPole} onSavePovinnaPole={savePovinnaPole} prefixEnabled={prefixEnabled} prefixValue={prefixValue} onSaveCisloPrefix={saveCisloPrefix} sloupceRole={sloupceRole} onSaveSloupceRole={saveSloupceRole} />}
 
       {showOrphanWarning && (() => {
         const firmyNames = firmy.map(f => f.hodnota);
@@ -6676,6 +6787,63 @@ export default function App() {
                   disabled={!confirmed}
                   style={{ flex: 1, padding: "10px 0", background: confirmed ? "linear-gradient(135deg,#d97706,#b45309)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, color: confirmed ? "#fff" : "rgba(255,255,255,0.2)", cursor: confirmed ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700, transition: "all 0.15s" }}>
                   ✅ Importovat
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* IMPORT JI — POTVRZOVACÍ DIALOG */}
+      {importJIConfirm && (() => {
+        const { file, stavbyVDB } = importJIConfirm;
+        const prostrediAktualni = (typeof window !== "undefined" && (window.location.hostname.includes("staging") || window.location.hostname.includes("preview") || window.location.hostname === "localhost")) ? "STAGING" : "PRODUKCE";
+        const confirmed = importJIConfirmText.trim().toUpperCase() === "POTVRDIT";
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9100, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
+            <div style={{ background: TENANT.modalBg, borderRadius: 16, padding: "28px 32px", width: 460, border: "1px solid rgba(99,153,34,0.4)", boxShadow: "0 24px 60px rgba(0,0,0,0.7)" }}>
+              <div style={{ fontSize: 36, textAlign: "center", marginBottom: 10 }}>⚠️</div>
+              <h3 style={{ color: "#fff", margin: "0 0 18px", fontSize: 16, textAlign: "center" }}>Import Jihlava tabulky XLS</h3>
+              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "14px 16px", marginBottom: 14, fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "rgba(255,255,255,0.45)" }}>Soubor:</span>
+                  <span style={{ color: "#e2e8f0" }}>{file.name}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "rgba(255,255,255,0.45)" }}>Prostředí:</span>
+                  <span style={{ color: prostrediAktualni === "PRODUKCE" ? "#4ade80" : TENANT.p3, fontWeight: 700 }}>{prostrediAktualni}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "rgba(255,255,255,0.45)" }}>Staveb v DB:</span>
+                  <span style={{ color: "#e2e8f0", fontWeight: 700 }}>{stavbyVDB}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ color: "rgba(255,255,255,0.45)" }}>H (Smluvní cena) → pole:</span>
+                  <select value={importJIKatPole} onChange={e => setImportJIKatPole(e.target.value)}
+                    style={{ padding: "5px 8px", background: TENANT.inputBg, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 7, color: "#e2e8f0", fontSize: 12 }}>
+                    <option value="ps_i">Plán. stavby I</option>
+                    <option value="snk_i">SNK I</option>
+                    <option value="bo_i">Běžné opravy I</option>
+                    <option value="ps_ii">Plán. stavby II</option>
+                    <option value="bo_ii">Běžné opravy II</option>
+                    <option value="poruch">Poruchy</option>
+                    <option value="nikam">Nikam (jen Nab. cena)</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "#fca5a5" }}>
+                ⚠️ Všechna stávající data budou <strong>trvale smazána</strong>. Akce je <strong>nevratná</strong>.
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 6 }}>Pro pokračování napište <strong style={{ color: "#fbbf24" }}>POTVRDIT</strong>:</div>
+                <input value={importJIConfirmText} onChange={e => setImportJIConfirmText(e.target.value)} placeholder="POTVRDIT" autoFocus
+                  style={{ width: "100%", padding: "9px 12px", background: TENANT.inputBg, border: `1px solid ${confirmed ? "rgba(34,197,94,0.5)" : "rgba(255,255,255,0.15)"}`, borderRadius: 8, color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box", textAlign: "center", letterSpacing: 2, fontWeight: 700 }} />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setImportJIConfirm(null); setImportJIConfirmText(""); }} style={{ flex: 1, padding: "10px 0", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
+                <button onClick={doImportJI} disabled={!confirmed}
+                  style={{ flex: 1, padding: "10px 0", background: confirmed ? "linear-gradient(135deg,#059669,#047857)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, color: confirmed ? "#fff" : "rgba(255,255,255,0.2)", cursor: confirmed ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700 }}>
+                  ✅ Importovat JI
                 </button>
               </div>
             </div>
