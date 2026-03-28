@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_28_build0241
+// BUILD: 2026_03_28_build0242
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -48,17 +48,17 @@ import * as XLSX from "xlsx";
 // NAVOD:      stavby-znojmo-navod-2026-03-23-FINAL.docx — strukturovaná dokumentace projektu
 //
 // ============================================================
-// AKTUÁLNÍ STAV APLIKACE (session 2026-03-28, build0241)
+// AKTUÁLNÍ STAV APLIKACE (session 2026-03-28, build0242)
 // ============================================================
 //
 // ZNOJMO:
-// ✅ Poslední build staging: build0241 (Znojmo + Jihlava — stejný soubor)
+// ✅ Poslední build staging: build0242 (Znojmo + Jihlava — stejný soubor)
 // ✅ Poslední build main (produkce): build0144
 // ✅ Supabase staging: wgrdhqkkjhtrkweiqxvo.supabase.co
 // ✅ Supabase produkce: cleifbyyhpbdjbrgzrkv.supabase.co
 //
 // JIHLAVA:
-// ✅ Poslední build staging: build0241
+// ✅ Poslední build staging: build0242
 // ✅ Poslední build main (produkce): build0144_j (Jihlava varianta)
 // ✅ Repo: doco1971/stavby-jihlava (Public)
 // ✅ Vercel projekt: stavby-jihlava (Deployment Protection vypnuta)
@@ -315,6 +315,7 @@ import * as XLSX from "xlsx";
 // BUILD0224 — Tabulka: prošlé termíny bez faktury → pulsující červený rámeček řádku
 // BUILD0225 — TENANT detekce podle URL: Jihlava=zelená+stožáry, Znojmo=modrá+blesk
 // BUILD0226 — Zelené barevné schema pro Jihlavu: všechny modré barvy → TENANT.p1/p2/p3/p4 + tc1/tc2 helpers
+// BUILD0242 — FIX Import JI: režim Nahradit/Přidat, SV→číselník, log mazat jen Nahradit, DUR jen ZN, JI jen JI, prázdná firma = upozornění, Nikam→nabidkova_cena
 // BUILD0241 — NOVÁ FUNKCE: Import JI tabulky (Jihlava XLS), přejmenování DUR, výběr kat. pole pro H
 // BUILD0240 — NOVÁ FUNKCE: DatePickerField — 📅 mini picker u všech datumových polí (FormModal + dodatky)
 // BUILD0239 — FIX: FormModal přesně centrován CSS translate(-50%,-50%), stejná mezera ze všech stran
@@ -584,7 +585,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0241";
+const APP_BUILD = "build0242";
 
 // ============================================================
 // TENANT DETEKCE — podle URL automaticky Znojmo nebo Jihlava
@@ -3466,10 +3467,13 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                     <div>
                       <div style={{ color: modalMuted, fontSize: 11, marginBottom: 10 }}>Jednorázový import staveb z původního Excel formátu. Před importem zobrazí potvrzovací dialog.</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {!IS_JIHLAVA && (
                         <div>
                           <div style={{ color: modalMuted, fontSize: 11, marginBottom: 6 }}>DUR — Znojmo formát:</div>
                           <button onClick={() => onImportXLS()} style={{ padding: "9px 16px", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 8, color: "#f59e0b", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS — <span style={{ color: "#ef4444", fontWeight: 700 }}>DUR</span></button>
                         </div>
+                        )}
+                        {IS_JIHLAVA && (
                         <div>
                           <div style={{ color: modalMuted, fontSize: 11, marginBottom: 6 }}>Jihlava formát — H (Smluvní cena) importovat do:</div>
                           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -3485,6 +3489,7 @@ function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onC
                             <button onClick={() => onImportJI(importJIKatPoleLocal)} style={{ padding: "9px 16px", background: "rgba(99,153,34,0.15)", border: "1px solid rgba(99,153,34,0.4)", borderRadius: 8, color: "#86efac", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>📥 Vybrat soubor XLS — JI</button>
                           </div>
                         </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -4647,7 +4652,7 @@ export default function App() {
   useEffect(() => {
     if (user && user.email !== "demo" && !shownOrphanOnce.current && data.length > 0 && firmy.length > 0) {
       const firmyNames = firmy.map(f => f.hodnota);
-      const orphans = data.filter(s => s.firma && !firmyNames.includes(s.firma));
+      const orphans = data.filter(s => !s.firma || !firmyNames.includes(s.firma));
       if (orphans.length > 0) {
         shownOrphanOnce.current = true;
         setShowOrphanWarning(true);
@@ -4982,7 +4987,8 @@ export default function App() {
   const importRef = useRef(null);
   const importRefJI = useRef(null); // JI tabulka import
   const [importJIKatPole, setImportJIKatPole] = useState("ps_i"); // kam jde H (Smluvní cena)
-  const [importJIConfirm, setImportJIConfirm] = useState(null); // { file, stavbyVDB, katPole }
+  const [importJIRezim, setImportJIRezim] = useState("nahradit"); // "nahradit" | "pridat"
+  const [importJIConfirm, setImportJIConfirm] = useState(null); // { file, stavbyVDB }
   const [importJIConfirmText, setImportJIConfirmText] = useState("");
   const [importLog, setImportLog] = useState(null); // { ok, chyby, zprava }
   const [importConfirm, setImportConfirm] = useState(null); // { payload, fileName, prostrediZalohy, prostrediAktualni, mismatch, stavbyVDB }
@@ -5336,6 +5342,7 @@ export default function App() {
     if (!importJIConfirm) return;
     const { file } = importJIConfirm;
     const katPole = importJIKatPole;
+    const rezim = importJIRezim; // "nahradit" | "pridat"
     setImportJIConfirm(null);
     setImportJIConfirmText("");
     const reader = new FileReader();
@@ -5344,7 +5351,6 @@ export default function App() {
         const wb = XLSX.read(ev.target.result, { type: "array", cellDates: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true, cellDates: true });
-        // Řádek 0 = hlavička, data od řádku 1
         const dataRows = raw.slice(1);
         const numVal = (v) => {
           if (v === null || v === undefined || v === "") return 0;
@@ -5352,52 +5358,106 @@ export default function App() {
           const n = parseFloat(String(v).replace(/\s/g,"").replace(",","."));
           return isNaN(n) ? 0 : n;
         };
+        // Sestavit řádky z Excelu
         let stavbyRows = [];
+        const noviSV = new Set(); // stavbyvedoucí k přidání do číselníku
         for (const row of dataRows) {
-          const nazev = row[3]; // D = Název
+          const nazev = row[3];
           if (!nazev) continue;
+          const smlCena = numVal(row[7]);
+          const sv = String(row[12] || "").trim();
+          if (sv) noviSV.add(sv);
           const fields = {
-            cislo_stavby:   String(row[2] || ""),       // C = Číslo
-            nazev_stavby:   String(nazev),               // D = Název
-            sod:            String(row[5] || ""),        // F = Poptávka
-            objednatel:     String(row[6] || ""),        // G = Odběratel
-            nabidkova_cena: numVal(row[7]),              // H = Smluvní cena → nabidkova_cena
-            ze_dne:         fmtDateFromXls(row[8]),      // I = Plán zahájení
-            ukonceni:       fmtDateFromXls(row[9]),      // J = Termín
-            stavbyvedouci:  String(row[12] || ""),       // M = Jméno zástupce odběratele
+            cislo_stavby:   String(row[2] || ""),
+            nazev_stavby:   String(nazev),
+            sod:            String(row[5] || ""),
+            objednatel:     String(row[6] || ""),
+            nabidkova_cena: smlCena,               // H vždy do nabidkova_cena
+            ze_dne:         fmtDateFromXls(row[8]),
+            ukonceni:       fmtDateFromXls(row[9]),
+            stavbyvedouci:  sv,
             ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0,
             firma: "", vyfakturovano: 0, zrealizovano: 0,
             cislo_faktury: "", castka_bez_dph: 0, splatna: "",
             cislo_faktury_2: "", castka_bez_dph_2: 0, splatna_2: "",
             poznamka: "",
           };
-          // H → vybraný kat. sloupec
-          if (katPole && katPole !== "nikam") fields[katPole] = numVal(row[7]);
+          // H → vybraný kat. sloupec (i při "nikam" jde do nabidkova_cena — viz výše)
+          if (katPole && katPole !== "nikam") fields[katPole] = smlCena;
           stavbyRows.push(fields);
         }
         if (stavbyRows.length === 0) {
           setImportLog({ ok: 0, chyby: ["Nenalezena žádná data ke importu."] });
           return;
         }
-        let ok = 0, chyby = [];
-        await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
         const NUM = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch","nabidkova_cena","vyfakturovano","zrealizovano","castka_bez_dph","castka_bez_dph_2"];
-        const cleaned = stavbyRows.map(r => {
-          const c = { ...r };
-          NUM.forEach(k => { c[k] = Number(c[k]) || 0; });
-          Object.keys(c).forEach(k => { if (!NUM.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = ""; });
-          return c;
-        });
-        for (let i = 0; i < cleaned.length; i += 50) {
-          const chunk = cleaned.slice(i, i+50);
+        let ok = 0, preskoceno = 0, chyby = [];
+
+        if (rezim === "nahradit") {
+          // Smazat stavby + log_aktivit, pak vložit vše
+          await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
+          await sb("log_aktivit?id=gt.0", { method: "DELETE", prefer: "return=minimal" });
+          const cleaned = stavbyRows.map(r => {
+            const c = { ...r };
+            NUM.forEach(k => { c[k] = Number(c[k]) || 0; });
+            Object.keys(c).forEach(k => { if (!NUM.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = ""; });
+            return c;
+          });
+          for (let i = 0; i < cleaned.length; i += 50) {
+            const chunk = cleaned.slice(i, i+50);
+            try {
+              await sb("stavby", { method: "POST", body: JSON.stringify(chunk), prefer: "return=minimal" });
+              ok += chunk.length;
+            } catch(e) { chyby.push(`Řádky ${i+1}-${i+chunk.length}: ${e.message}`); }
+          }
+        } else {
+          // Přidat nové — načíst stávající čísla staveb
+          let existujiciCisla = new Set();
           try {
-            await sb("stavby", { method: "POST", body: JSON.stringify(chunk), prefer: "return=minimal" });
-            ok += chunk.length;
-          } catch(e) { chyby.push(`Řádky ${i+1}-${i+chunk.length}: ${e.message}`); }
+            const res = await sb("stavby?select=cislo_stavby");
+            (res || []).forEach(r => { if (r.cislo_stavby) existujiciCisla.add(String(r.cislo_stavby)); });
+          } catch {}
+          const noveRows = stavbyRows.filter(r => !existujiciCisla.has(r.cislo_stavby));
+          preskoceno = stavbyRows.length - noveRows.length;
+          const cleaned = noveRows.map(r => {
+            const c = { ...r };
+            NUM.forEach(k => { c[k] = Number(c[k]) || 0; });
+            Object.keys(c).forEach(k => { if (!NUM.includes(k) && (c[k] === null || c[k] === undefined)) c[k] = ""; });
+            return c;
+          });
+          for (let i = 0; i < cleaned.length; i += 50) {
+            const chunk = cleaned.slice(i, i+50);
+            try {
+              await sb("stavby", { method: "POST", body: JSON.stringify(chunk), prefer: "return=minimal" });
+              ok += chunk.length;
+            } catch(e) { chyby.push(`Řádky ${i+1}-${i+chunk.length}: ${e.message}`); }
+          }
         }
+
+        // Přidat nové stavbyvedoucí do číselníku
+        let noviSVPridano = 0;
+        if (noviSV.size > 0) {
+          try {
+            const existRes = await sb("ciselniky?typ=eq.stavbyvedouci&select=hodnota");
+            const existSV = new Set((existRes || []).map(r => r.hodnota));
+            const toAdd = [...noviSV].filter(sv => !existSV.has(sv));
+            if (toAdd.length > 0) {
+              const items = toAdd.map((sv, i) => ({ typ: "stavbyvedouci", hodnota: sv, barva: "", poradi: 1000 + i }));
+              await sb("ciselniky", { method: "POST", body: JSON.stringify(items), prefer: "return=minimal" });
+              noviSVPridano = toAdd.length;
+            }
+          } catch {}
+        }
+
+        // Upozornění na stavby bez firmy
+        shownOrphanOnce.current = false; // reset aby se znovu zobrazilo
+
         await loadAll();
-        logAkce(user?.email, "Import JI", `${ok} staveb importováno z ${file.name} (${katPole})`);
-        setImportLog({ ok, chyby, zprava: `Importováno ${ok} staveb z "${file.name}"` });
+        const zprava = rezim === "nahradit"
+          ? `Importováno ${ok} staveb z "${file.name}"${noviSVPridano > 0 ? ` + ${noviSVPridano} nových stavbyvedoucích` : ""}`
+          : `Přidáno ${ok} nových staveb (${preskoceno} přeskočeno — existují)${noviSVPridano > 0 ? ` + ${noviSVPridano} nových stavbyvedoucích` : ""}`;
+        logAkce(user?.email, "Import JI", zprava);
+        setImportLog({ ok, chyby, zprava });
       } catch(e) {
         setImportLog({ ok: 0, chyby: ["Chyba čtení souboru: " + e.message] });
       }
@@ -6831,9 +6891,25 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "#fca5a5" }}>
-                ⚠️ Všechna stávající data budou <strong>trvale smazána</strong>. Akce je <strong>nevratná</strong>.
+              {/* Výběr režimu */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {[["nahradit","🔄 Nahradit vše","rgba(239,68,68,0.15)","rgba(239,68,68,0.4)","#f87171"],["pridat","➕ Přidat nové","rgba(34,197,94,0.1)","rgba(34,197,94,0.4)","#4ade80"]].map(([val, lbl, bg, brd, clr]) => (
+                  <button key={val} onClick={() => setImportJIRezim(val)}
+                    style={{ flex: 1, padding: "8px 0", background: importJIRezim === val ? bg : "rgba(255,255,255,0.04)", border: `1px solid ${importJIRezim === val ? brd : "rgba(255,255,255,0.1)"}`, borderRadius: 8, color: importJIRezim === val ? clr : "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 12, fontWeight: importJIRezim === val ? 700 : 400 }}>
+                    {lbl}
+                  </button>
+                ))}
               </div>
+              {importJIRezim === "nahradit" && (
+                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#fca5a5" }}>
+                  ⚠️ Všechna stávající data + log budou <strong>trvale smazána</strong>. Akce je <strong>nevratná</strong>.
+                </div>
+              )}
+              {importJIRezim === "pridat" && (
+                <div style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#86efac" }}>
+                  ℹ️ Přidají se jen stavby s novým číslem stavby. Existující zůstanou beze změny.
+                </div>
+              )}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 6 }}>Pro pokračování napište <strong style={{ color: "#fbbf24" }}>POTVRDIT</strong>:</div>
                 <input value={importJIConfirmText} onChange={e => setImportJIConfirmText(e.target.value)} placeholder="POTVRDIT" autoFocus
@@ -6843,7 +6919,7 @@ export default function App() {
                 <button onClick={() => { setImportJIConfirm(null); setImportJIConfirmText(""); }} style={{ flex: 1, padding: "10px 0", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
                 <button onClick={doImportJI} disabled={!confirmed}
                   style={{ flex: 1, padding: "10px 0", background: confirmed ? "linear-gradient(135deg,#059669,#047857)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, color: confirmed ? "#fff" : "rgba(255,255,255,0.2)", cursor: confirmed ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700 }}>
-                  ✅ Importovat JI
+                  ✅ {importJIRezim === "nahradit" ? "Nahradit vše" : "Přidat nové"}
                 </button>
               </div>
             </div>
