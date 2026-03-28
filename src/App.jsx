@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_26_build0236
+// BUILD: 2026_03_26_build0234
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -315,6 +315,7 @@ import * as XLSX from "xlsx";
 // BUILD0224 — Tabulka: prošlé termíny bez faktury → pulsující červený rámeček řádku
 // BUILD0225 — TENANT detekce podle URL: Jihlava=zelená+stožáry, Znojmo=modrá+blesk
 // BUILD0226 — Zelené barevné schema pro Jihlavu: všechny modré barvy → TENANT.p1/p2/p3/p4 + tc1/tc2 helpers
+// BUILD0237 — UI: FormModal rozšířen na 96vw/96vh, Faktura 1+2 sloučeny na jeden řádek, menší padding sekcí
 // BUILD0236 — FIX: Dodatky — základ uložen jako poradi=-1 v tabulce dodatky, správný přepočet při smazání
 // BUILD0235 — NOVÉ FUNKCE: Záloha+import ciselniky+nastaveni (v3), kontrolka přečtení logu (DB),
 //             hromadné přiřazení firmy po smazání, dodatky stavby (nová tabulka dodatky)
@@ -579,7 +580,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0236";
+const APP_BUILD = "build0237";
 
 // ============================================================
 // TENANT DETEKCE — podle URL automaticky Znojmo nebo Jihlava
@@ -1454,7 +1455,7 @@ function LogModal({ isDark, firmy, onClose, isDemo, isAdmin, isSuperAdmin }) {
 // ============================================================
 function GrafModal({ data, firmy, isDark, onClose }) {
   const [mode, setMode] = useState("firma"); // "firma" | "mesic" | "kat" | "kolac" | "trend"
-  const { pos, onMouseDown: onDragStart } = useDraggable(1100, 560);
+  const { pos, onMouseDown: onDragStart } = useDraggable(1400, 600);
 
   const firmaColorMap = Object.fromEntries(firmy.map(f => [f.hodnota, f.barva || TENANT.p2]));
 
@@ -2401,7 +2402,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
-      <div ref={modalRef} style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: TENANT.modalBg, borderRadius: 16, width: "min(1100px, 97vw)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
+      <div ref={modalRef} style={{ position: "fixed", left: pos.x, top: pos.y, pointerEvents: "all", background: TENANT.modalBg, borderRadius: 14, width: "min(1400px, 96vw)", maxHeight: "96vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
 
         {/* Header — táhlo */}
         <div onMouseDown={onDragStart} style={dragHeaderStyle({ gap: 16 })}>
@@ -2411,13 +2412,13 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
         </div>
 
         {/* Body – dva sloupce */}
-        <div style={{ padding: "10px 16px", overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+        <div style={{ padding: "8px 14px", overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
 
           {/* LEVÝ SLOUPEC */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
             {/* Základní info */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ color: TENANT.p3, fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: `3px solid ${TENANT.p3}`, paddingLeft: 8 }}>ZÁKLADNÍ INFORMACE</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 <FormField label="Číslo stavby" value={form["cislo_stavby"]} onChange={v => set("cislo_stavby", v)} />
@@ -2426,7 +2427,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             </div>
 
             {/* Kategorie I */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: `1px solid ${katErr ? "rgba(248,113,113,0.4)" : "rgba(255,255,255,0.07)"}` }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: `1px solid ${katErr ? "rgba(248,113,113,0.4)" : "rgba(255,255,255,0.07)"}` }}>
               <div style={{ color: "#818cf8", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #818cf8", paddingLeft: 8 }}>KATEGORIE I</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Plán. stavby I" value={form["ps_i"]} onChange={v => set("ps_i", v)} type="number" />
@@ -2438,7 +2439,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             {katErr && <div style={{ color: "#f87171", fontSize: 12, padding: "6px 10px", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 7 }}>⚠ {katErr}</div>}
 
             {/* Kategorie II */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: `1px solid ${katErr ? "rgba(248,113,113,0.4)" : "rgba(255,255,255,0.07)"}` }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: `1px solid ${katErr ? "rgba(248,113,113,0.4)" : "rgba(255,255,255,0.07)"}` }}>
               <div style={{ color: "#fb923c", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #fb923c", paddingLeft: 8 }}>KATEGORIE II</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Plán. stavby II" value={form["ps_ii"]} onChange={v => set("ps_ii", v)} type="number" />
@@ -2448,7 +2449,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
             </div>
 
             {/* Ostatní */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ color: "#f472b6", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #f472b6", paddingLeft: 8 }}>OSTATNÍ</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 <FormField label="SOD" value={form["sod"]} onChange={v => set("sod", v)} />
@@ -2473,7 +2474,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
             {/* Realizace */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ color: "#34d399", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #34d399", paddingLeft: 8 }}>REALIZACE</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Vyfakturováno" value={form["vyfakturovano"]} onChange={v => set("vyfakturovano", v)} type="number" />
@@ -2487,29 +2488,26 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
               </div>
             </div>
 
-            {/* Faktura 1 */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #fbbf24", paddingLeft: 8 }}>FAKTURA 1</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            {/* Faktura 1 + 2 — na jedné kartě, dva řádky */}
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <div style={{ display: "flex", gap: 16, marginBottom: 6, alignItems: "center" }}>
+                <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, borderLeft: "3px solid #fbbf24", paddingLeft: 8 }}>FAKTURA 1</div>
+                <div style={{ color: "#f59e0b", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, borderLeft: "3px solid #f59e0b", paddingLeft: 8, opacity: 0.7 }}>FAKTURA 2</div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Nabídková cena" value={form["nabidkova_cena"]} onChange={v => set("nabidkova_cena", v)} type="number" />
                 <FormField label="Číslo faktury" value={form["cislo_faktury"]} onChange={v => set("cislo_faktury", v)} />
                 <FormField label="Částka bez DPH" value={form["castka_bez_dph"]} onChange={v => set("castka_bez_dph", v)} type="number" />
-                <div />
                 <FormField label="Splatná" value={form["splatna"]} onChange={v => set("splatna", v)} type="date" />
-              </div>
-            </div>
-
-            {/* Faktura 2 */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div style={{ color: "#f59e0b", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #f59e0b", paddingLeft: 8, opacity: 0.7 }}>FAKTURA 2</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                <div />
                 <FormField label="Č. faktury 2" value={form["cislo_faktury_2"]} onChange={v => set("cislo_faktury_2", v)} />
                 <FormField label="Částka bez DPH 2" value={form["castka_bez_dph_2"]} onChange={v => set("castka_bez_dph_2", v)} type="number" />
                 <FormField label="Splatná 2" value={form["splatna_2"]} onChange={v => set("splatna_2", v)} type="date" />
+                <div /><div />
               </div>
             </div>
             {/* Poznámka */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #a78bfa", paddingLeft: 8 }}>💬 POZNÁMKA</div>
               <textarea
                 value={form["poznamka"] || ""}
