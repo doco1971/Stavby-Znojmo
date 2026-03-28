@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_28_build0239
+// BUILD: 2026_03_28_build0240
 // ============================================================
 // POZNÁMKY PRO CLAUDE (čti na začátku každé session)
 // ============================================================
@@ -48,17 +48,17 @@ import * as XLSX from "xlsx";
 // NAVOD:      stavby-znojmo-navod-2026-03-23-FINAL.docx — strukturovaná dokumentace projektu
 //
 // ============================================================
-// AKTUÁLNÍ STAV APLIKACE (session 2026-03-28, build0239)
+// AKTUÁLNÍ STAV APLIKACE (session 2026-03-28, build0240)
 // ============================================================
 //
 // ZNOJMO:
-// ✅ Poslední build staging: build0239 (Znojmo + Jihlava — stejný soubor)
+// ✅ Poslední build staging: build0240 (Znojmo + Jihlava — stejný soubor)
 // ✅ Poslední build main (produkce): build0144
 // ✅ Supabase staging: wgrdhqkkjhtrkweiqxvo.supabase.co
 // ✅ Supabase produkce: cleifbyyhpbdjbrgzrkv.supabase.co
 //
 // JIHLAVA:
-// ✅ Poslední build staging: build0239
+// ✅ Poslední build staging: build0240
 // ✅ Poslední build main (produkce): build0144_j (Jihlava varianta)
 // ✅ Repo: doco1971/stavby-jihlava (Public)
 // ✅ Vercel projekt: stavby-jihlava (Deployment Protection vypnuta)
@@ -315,6 +315,7 @@ import * as XLSX from "xlsx";
 // BUILD0224 — Tabulka: prošlé termíny bez faktury → pulsující červený rámeček řádku
 // BUILD0225 — TENANT detekce podle URL: Jihlava=zelená+stožáry, Znojmo=modrá+blesk
 // BUILD0226 — Zelené barevné schema pro Jihlavu: všechny modré barvy → TENANT.p1/p2/p3/p4 + tc1/tc2 helpers
+// BUILD0240 — NOVÁ FUNKCE: DatePickerField — 📅 mini picker u všech datumových polí (FormModal + dodatky)
 // BUILD0239 — FIX: FormModal přesně centrován CSS translate(-50%,-50%), stejná mezera ze všech stran
 // BUILD0238 — UI: FormModal svisle centrován (top:50% translateY), Faktura 1+2 pole na jeden řádek
 // BUILD0237 — UI: FormModal rozšířen na 96vw/96vh, Faktura 1+2 sloučeny na jeden řádek, menší padding sekcí
@@ -582,7 +583,7 @@ import * as XLSX from "xlsx";
 // SUPABASE CONFIG
 // ============================================================
 // ⚠️ TOTO MĚNIT PŘI KAŽDÉM BUILDU — zobrazuje se v UI u uživatele (superadmin)
-const APP_BUILD = "build0239";
+const APP_BUILD = "build0240";
 
 // ============================================================
 // TENANT DETEKCE — podle URL automaticky Znojmo nebo Jihlava
@@ -2112,6 +2113,113 @@ function SummaryCards({ data, firmy, isDark, firmaColors, isMobile }) {
 // ============================================================
 // FORM MODAL (Add + Edit)
 // ============================================================
+
+// ── DatePickerField — textové pole DD.MM.RRRR + 📅 mini picker ─────────────
+function DatePickerField({ label, value, onChange, style: extraStyle }) {
+  const [open, setOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(() => {
+    if (value && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value)) {
+      const [,, y] = value.split("."); return parseInt(y);
+    }
+    return new Date().getFullYear();
+  });
+  const [viewMonth, setViewMonth] = useState(() => {
+    if (value && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value)) {
+      const [, m] = value.split("."); return parseInt(m) - 1;
+    }
+    return new Date().getMonth();
+  });
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const mesice = ["Leden","Únor","Březen","Duben","Květen","Červen","Červenec","Srpen","Září","Říjen","Listopad","Prosinec"];
+
+  const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+  const getFirstDay = (y, m) => { const d = new Date(y, m, 1).getDay(); return d === 0 ? 6 : d - 1; };
+
+  const pickDay = (day) => {
+    const d = String(day).padStart(2, "0");
+    const m = String(viewMonth + 1).padStart(2, "0");
+    onChange(`${d}.${m}.${viewYear}`);
+    setOpen(false);
+  };
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  };
+
+  const today = new Date();
+  const selDay = value && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value) ? parseInt(value.split(".")[0]) : null;
+  const selMonth = value && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value) ? parseInt(value.split(".")[1]) - 1 : null;
+  const selYear = value && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value) ? parseInt(value.split(".")[2]) : null;
+
+  const daysInMonth = getDaysInMonth(viewYear, viewMonth);
+  const firstDay = getFirstDay(viewYear, viewMonth);
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", ...extraStyle }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+        <input
+          type="text"
+          value={value ?? ""}
+          onChange={e => onChange(e.target.value)}
+          placeholder="DD.MM.RRRR"
+          style={{ ...inputSx, borderRadius: "7px 0 0 7px", flex: 1, borderRight: "none" }}
+        />
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          style={{ padding: "0 9px", height: 36, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderLeft: "none", borderRadius: "0 7px 7px 0", cursor: "pointer", fontSize: 14, color: "rgba(255,255,255,0.6)", flexShrink: 0 }}
+        >📅</button>
+      </div>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 9999, background: TENANT.modalBg, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px 12px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", width: 220 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <button onClick={prevMonth} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 14, padding: "2px 6px" }}>‹</button>
+            <span style={{ color: "#e2e8f0", fontSize: 12, fontWeight: 600 }}>{mesice[viewMonth]} {viewYear}</span>
+            <button onClick={nextMonth} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 14, padding: "2px 6px" }}>›</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, marginBottom: 4 }}>
+            {["Po","Út","St","Čt","Pá","So","Ne"].map(d => (
+              <div key={d} style={{ textAlign: "center", fontSize: 10, color: "rgba(255,255,255,0.3)", padding: "2px 0" }}>{d}</div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1 }}>
+            {cells.map((day, i) => {
+              if (!day) return <div key={i} />;
+              const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+              const isSel = day === selDay && viewMonth === selMonth && viewYear === selYear;
+              return (
+                <button key={i} onClick={() => pickDay(day)}
+                  style={{ textAlign: "center", fontSize: 12, padding: "4px 2px", borderRadius: 4, border: "none", cursor: "pointer",
+                    background: isSel ? TENANT.p2 : isToday ? "rgba(255,255,255,0.1)" : "transparent",
+                    color: isSel ? "#fff" : isToday ? TENANT.p3 : "#e2e8f0",
+                    fontWeight: isSel || isToday ? 700 : 400 }}
+                >{day}</button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FormField({ label, value, onChange, full, type }) {
   const [err, setErr] = useState("");
 
@@ -2153,13 +2261,17 @@ function FormField({ label, value, onChange, full, type }) {
   return (
     <div style={full ? { gridColumn: "1 / -1" } : {}}>
       <Lbl>{label}{type === "number" && <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, marginLeft: 4 }}>123</span>}{type === "date" && <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, marginLeft: 4 }}>DD.MM.RRRR</span>}</Lbl>
-      <input
-        type="text"
-        value={displayValue}
-        onChange={e => handleChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        style={{ ...inputSx, borderColor: err ? "#f87171" : "rgba(255,255,255,0.15)" }}
-      />
+      {type === "date" ? (
+        <DatePickerField value={displayValue} onChange={handleChange} />
+      ) : (
+        <input
+          type="text"
+          value={displayValue}
+          onChange={e => handleChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          style={{ ...inputSx, borderColor: err ? "#f87171" : "rgba(255,255,255,0.15)" }}
+        />
+      )}
       {err && <div style={{ color: "#f87171", fontSize: 11, marginTop: 3 }}>{err}</div>}
     </div>
   );
@@ -2567,7 +2679,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
                         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto auto", gap: 5, padding: "6px 8px", background: "rgba(251,191,36,0.06)", borderRadius: 7, border: "1px solid rgba(251,191,36,0.3)" }}>
                           <input value={editDodatekNazev} onChange={e => setEditDodatekNazev(e.target.value)} placeholder="Název..." style={inputStyle} />
                           <input value={editDodatekCena} onChange={e => setEditDodatekCena(e.target.value)} placeholder="±Kč" style={inputStyle} />
-                          <input value={editDodatekTermin} onChange={e => setEditDodatekTermin(e.target.value)} placeholder="DD.MM.RRRR" style={inputStyle} />
+                          <DatePickerField value={editDodatekTermin} onChange={setEditDodatekTermin} />
                           <button onClick={handleUlozitEditDodatek} style={{ padding: "4px 10px", background: "rgba(251,191,36,0.2)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 6, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
                           <button onClick={() => setEditDodatekId(null)} style={{ padding: "4px 8px", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 12 }}>✕</button>
                         </div>
@@ -2612,7 +2724,7 @@ function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavby
                   </div>
                   <div>
                     <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 3 }}>Nový termín</div>
-                    <input value={novyDodatekTermin} onChange={e => setNovyDodatekTermin(e.target.value)} placeholder="DD.MM.RRRR" style={{ ...inputStyle }} />
+                    <DatePickerField value={novyDodatekTermin} onChange={setNovyDodatekTermin} />
                   </div>
                   <button onClick={handlePridatDodatek} style={{ padding: "6px 12px", background: "rgba(251,191,36,0.2)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 6, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
                   <button onClick={() => { setPridatDodatek(false); setNovyDodatekNazev(""); setNovyDodatekCena(""); setNovyDodatekTermin(""); }} style={{ padding: "6px 10px", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 12 }}>✕</button>
