@@ -3,7 +3,7 @@ import { TENANT, tc1 } from "../utils/tenant";
 import { sb } from "../utils/supabase";
 import { inputSx, NUM_FIELDS, DATE_FIELDS, KAT_FIELDS } from "../utils/constants";
 import { computeRow, fmt } from "../utils/formatters";
-import { useDraggable, dragHeaderStyle, dragHint } from "../hooks/useDraggable";
+import { useDraggable, dragHeaderStyle, dragHint } from "../hooks/useDraggable.jsx";
 import { DatePickerField } from "./DatePickerField";
 import { NativeSelect } from "./NativeSelect";
 

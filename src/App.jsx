@@ -10,7 +10,7 @@ import { APP_BUILD, COLUMNS, NUM_FIELDS, KAT_FIELDS, DATE_FIELDS, TEXT_FIELDS_EX
 import { fmt, fmtN, computeRow, hexToRgb, hexToRgbaGlobal } from "./utils/formatters";
 
 // ── Hooks ──────────────────────────────────────────────────
-import { useDraggable, dragHeaderStyle, dragHint } from "./hooks/useDraggable";
+import { useDraggable, dragHeaderStyle, dragHint } from "./hooks/useDraggable.jsx";
 import { useIsMobile } from "./hooks/useIsMobile";
 
 // ── Komponenty ─────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { TENANT, tc1 } from "../utils/tenant";
-import { useDraggable, dragHeaderStyle, dragHint } from "../hooks/useDraggable";
+import { useDraggable, dragHeaderStyle, dragHint } from "../hooks/useDraggable.jsx";
 
 export function GrafModal({ data, firmy, isDark, onClose }) {
   const [mode, setMode] = useState("firma");

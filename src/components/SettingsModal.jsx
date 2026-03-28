@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { TENANT, IS_JIHLAVA, tc1, tc2 } from "../utils/tenant";
 import { sb } from "../utils/supabase";
 import { inputSx, COLUMNS } from "../utils/constants";
-import { useDraggable, dragHeaderStyle, dragHint } from "../hooks/useDraggable";
+import { useDraggable, dragHeaderStyle, dragHint } from "../hooks/useDraggable.jsx";
 
 // ── Sdílené sub-komponenty ────────────────────────────────
 function Lbl({ children }) {

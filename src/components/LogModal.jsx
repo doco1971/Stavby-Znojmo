@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { TENANT, tc1 } from "../utils/tenant";
 import { sb } from "../utils/supabase";
-import { useDraggable, dragHeaderStyle, dragHint } from "../hooks/useDraggable";
+import { useDraggable, dragHeaderStyle, dragHint } from "../hooks/useDraggable.jsx";
 
 const FIELD_LABELS = {
   firma: "Firma", cislo_stavby: "Č. stavby", nazev_stavby: "Název stavby",
