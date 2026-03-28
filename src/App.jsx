@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_28_build0243
+// BUILD: 2026_03_28_build0244
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -1441,18 +1441,21 @@ export default function App() {
         };
         // Sestavit řádky z Excelu
         let stavbyRows = [];
-        const noviSV = new Set(); // stavbyvedoucí k přidání do číselníku
+        const noviSV  = new Set(); // stavbyvedoucí k přidání do číselníku
+        const noviObj = new Set(); // objednatelé k přidání do číselníku
         for (const row of dataRows) {
           const nazev = row[3];
           if (!nazev) continue;
           const smlCena = numVal(row[7]);
-          const sv = String(row[12] || "").trim();
-          if (sv) noviSV.add(sv);
+          const sv  = String(row[12] || "").trim();
+          const obj = String(row[6]  || "").trim();
+          if (sv)  noviSV.add(sv);
+          if (obj) noviObj.add(obj); // Bug2 FIX: G → číselník objednatelů
           const fields = {
             cislo_stavby:   String(row[2] || ""),
             nazev_stavby:   String(nazev),
             sod:            String(row[5] || ""),
-            objednatel:     String(row[6] || ""),
+            objednatel:     obj,
             nabidkova_cena: smlCena,               // H vždy do nabidkova_cena
             ze_dne:         fmtDateFromXls(row[8]),
             ukonceni:       fmtDateFromXls(row[9]),
@@ -1463,7 +1466,7 @@ export default function App() {
             cislo_faktury_2: "", castka_bez_dph_2: 0, splatna_2: "",
             poznamka: "",
           };
-          // H → vybraný kat. sloupec (i při "nikam" jde do nabidkova_cena — viz výše)
+          // H → vybraný kat. sloupec ("nikam" = jen nabidkova_cena, Nabídka zůstane 0)
           if (katPole && katPole !== "nikam") fields[katPole] = smlCena;
           stavbyRows.push(fields);
         }
@@ -1530,13 +1533,32 @@ export default function App() {
           } catch {}
         }
 
+        // Bug2 FIX: Přidat nové objednatele do číselníku
+        let noviObjPridano = 0;
+        if (noviObj.size > 0) {
+          try {
+            const existRes = await sb("ciselniky?typ=eq.objednatel&select=hodnota");
+            const existObj = new Set((existRes || []).map(r => r.hodnota));
+            const toAdd = [...noviObj].filter(o => !existObj.has(o));
+            if (toAdd.length > 0) {
+              const items = toAdd.map((o, i) => ({ typ: "objednatel", hodnota: o, barva: "", poradi: 1000 + i }));
+              await sb("ciselniky", { method: "POST", body: JSON.stringify(items), prefer: "return=minimal" });
+              noviObjPridano = toAdd.length;
+            }
+          } catch {}
+        }
+
         // Upozornění na stavby bez firmy
         shownOrphanOnce.current = false; // reset aby se znovu zobrazilo
 
         await loadAll();
+        const extraInfo = [
+          noviSVPridano > 0 ? `${noviSVPridano} nových stavbyvedoucích` : "",
+          noviObjPridano > 0 ? `${noviObjPridano} nových objednatelů` : "",
+        ].filter(Boolean).join(", ");
         const zprava = rezim === "nahradit"
-          ? `Importováno ${ok} staveb z "${file.name}"${noviSVPridano > 0 ? ` + ${noviSVPridano} nových stavbyvedoucích` : ""}`
-          : `Přidáno ${ok} nových staveb (${preskoceno} přeskočeno — existují)${noviSVPridano > 0 ? ` + ${noviSVPridano} nových stavbyvedoucích` : ""}`;
+          ? `Importováno ${ok} staveb z "${file.name}"${extraInfo ? ` + ${extraInfo}` : ""}`
+          : `Přidáno ${ok} nových staveb (${preskoceno} přeskočeno — existují)${extraInfo ? ` + ${extraInfo}` : ""}`;
         logAkce(user?.email, "Import JI", zprava);
         setImportLog({ ok, chyby, zprava });
       } catch(e) {
