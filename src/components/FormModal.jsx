@@ -37,7 +37,7 @@ function FormField({ label, value, onChange, full, type, fieldKey, isInvalid }) 
   };
 
   const borderColor = isInvalid ? "#ef4444" : err ? "#f87171" : "rgba(255,255,255,0.15)";
-  const animation   = isInvalid ? "pulse-border 0.6s ease-in-out 3" : "none";
+  const animation   = isInvalid ? "pulse-border 1s ease-in-out infinite" : "none";
 
   return (
     <div style={full ? { gridColumn: "1 / -1" } : {}}>
@@ -94,7 +94,15 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
   const [editDodatekTermin, setEditDodatekTermin] = useState("");
 
   const { pos, onMouseDown: onDragStart } = useDraggable(1100, 560);
-  const modalRef = useRef(null);
+  const modalRef    = useRef(null);
+  const nazevRef    = useRef(null); // autofocus při přidání nové stavby
+
+  useEffect(() => {
+    // Autofocus na název stavby jen při přidání (ne editaci — id není)
+    if (!stavbaId && nazevRef.current) {
+      setTimeout(() => nazevRef.current?.focus(), 50);
+    }
+  }, []);
 
   useEffect(() => {
     if (!stavbaId) return;
@@ -295,12 +303,13 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
         <div onMouseDown={onDragStart} style={dragHeaderStyle({ gap: 16 })}>
           <h3 style={{ color: "#fff", margin: 0, fontSize: 16, flexShrink: 0 }}>{title}{dragHint}</h3>
           <input onMouseDown={e => e.stopPropagation()}
+            ref={nazevRef}
             data-field="nazev_stavby"
             value={form["nazev_stavby"] ?? ""}
             onChange={e => set("nazev_stavby", e.target.value)}
             placeholder="Název stavby..."
             onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const modal = modalRef.current; if (modal) { const inputs = Array.from(modal.querySelectorAll("input:not([disabled]),select:not([disabled])")); const idx = inputs.indexOf(e.target); if (idx < inputs.length - 1) inputs[idx + 1].focus(); } } }}
-            style={{ flex: 1, padding: "7px 14px", background: "rgba(255,255,255,0.07)", border: `1px solid ${invalidFields.has("nazev_stavby") ? "#ef4444" : "rgba(255,255,255,0.15)"}`, borderRadius: 8, color: "#fff", fontSize: 15, fontWeight: 600, outline: "none", cursor: "text", animation: invalidFields.has("nazev_stavby") ? "pulse-border 0.6s ease-in-out 3" : "none" }} />
+            style={{ flex: 1, padding: "7px 14px", background: "rgba(255,255,255,0.07)", border: `1px solid ${invalidFields.has("nazev_stavby") ? "#ef4444" : "rgba(255,255,255,0.15)"}`, borderRadius: 8, color: "#fff", fontSize: 15, fontWeight: 600, outline: "none", cursor: "text", animation: invalidFields.has("nazev_stavby") ? "pulse-border 1s ease-in-out infinite" : "none" }} />
           <button onClick={onClose} onMouseDown={e => e.stopPropagation()} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 20, cursor: "pointer", flexShrink: 0 }}>✕</button>
         </div>
 
@@ -483,7 +492,7 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
           </div>
         </div>
 
-        {saveErr && <div style={{ padding: "8px 24px", background: "rgba(239,68,68,0.15)", borderTop: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: 13 }}>⚠️ {saveErr}</div>}
+        {saveErr && <div style={{ padding: "8px 24px", background: "rgba(239,68,68,0.15)", borderTop: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: 13, animation: "pulse-border 1s ease-in-out infinite" }}>⚠️ {saveErr}</div>}
 
         <div style={{ padding: "14px 24px", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ padding: "9px 18px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13 }}>Zrušit</button>

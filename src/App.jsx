@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_29_build0245
+// BUILD: 2026_03_29_build0246
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
 import { IS_JIHLAVA, TENANT, tc1, tc2, tc1d } from "./utils/tenant";
-import { sb, sbUpsertNastaveni, logAkce } from "./utils/supabase";
+import { sb, sbUpsertNastaveni, logAkce, SB_URL } from "./utils/supabase";
 import { APP_BUILD, COLUMNS, NUM_FIELDS, KAT_FIELDS, DATE_FIELDS, TEXT_FIELDS_EXTRA, FIRMA_COLOR_FALLBACK, inputSx, DEMO_USER, DEMO_FIRMY, DEMO_CISELNIKY, DEMO_MAX_STAVBY_DEFAULT, DEMO_USERS } from "./utils/constants";
 import { fmt, fmtN, computeRow, hexToRgb, hexToRgbaGlobal } from "./utils/formatters";
 
