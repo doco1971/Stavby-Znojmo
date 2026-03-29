@@ -2,7 +2,7 @@
 // SUPABASE CLIENT + HELPERS
 // ============================================================
 
-export const SB_URL = import.meta.env.VITE_SB_URL;
+const SB_URL = import.meta.env.VITE_SB_URL;
 const SB_KEY = import.meta.env.VITE_SB_KEY;
 
 /**
