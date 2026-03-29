@@ -94,14 +94,8 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
   const [editDodatekTermin, setEditDodatekTermin] = useState("");
 
   const { pos, onMouseDown: onDragStart } = useDraggable(1100, 560);
-  const modalRef    = useRef(null);
-  const nazevRef    = useRef(null); // autofocus při přidání nové stavby
-
-  useEffect(() => {
-    if (!stavbaId) {
-      setTimeout(() => nazevRef.current?.focus(), 300);
-    }
-  }, []);
+  const modalRef = useRef(null);
+  const nazevRef = useRef(null);
 
   useEffect(() => {
     if (!stavbaId) return;
@@ -303,6 +297,7 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
           <h3 style={{ color: "#fff", margin: 0, fontSize: 16, flexShrink: 0 }}>{title}{dragHint}</h3>
           <input onMouseDown={e => e.stopPropagation()}
             ref={nazevRef}
+            autoFocus={!stavbaId}
             data-field="nazev_stavby"
             value={form["nazev_stavby"] ?? ""}
             onChange={e => set("nazev_stavby", e.target.value)}
