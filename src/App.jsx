@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_29_build0256
+// BUILD: 2026_03_29_build0257
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -1765,8 +1765,10 @@ export default function App() {
         ${!isDark ? "table td:not(.colored-cell) { color: #1e293b; } table td:not(.colored-cell) input { color: #1e293b; } table td:not(.colored-cell) select { color: #1e293b; }" : ""}
 
         /* ── TISK / PDF ─────────────────────────────────────── */
+        .print-only { display: none !important; }
         @media print {
-          @page { size: A4 landscape; margin: 4mm; }
+          @page { size: A4 landscape; margin: 8mm 4mm 4mm 4mm; }
+          .print-only { display: block !important; }
           .no-print { display: none !important; }
           .print-hide-col { display: none !important; }
           .print-hide-symbol { display: none !important; }
@@ -2081,6 +2083,23 @@ export default function App() {
           ))}
         </div>
       )}
+
+      {/* ZÁHLAVÍ PRO TISK */}
+      <div className="print-only" style={{ padding: "0 0 6px 0", borderBottom: `2px solid ${TENANT.p1}`, marginBottom: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: TENANT.p1deep }}>{appNazev}</div>
+            <div style={{ fontSize: 9, color: "#555", marginTop: 2 }}>
+              {filterFirma !== "Všechny firmy" && <span>Firma: <b>{filterFirma}</b> &nbsp;</span>}
+              {filterSV !== "Všichni stavbyvedoucí" && <span>Stavbyvedoucí: <b>{filterSV}</b> &nbsp;</span>}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 9, color: "#555" }}>
+            <div>Počet záznamů: <b>{filtered.length}</b></div>
+            <div>Vytištěno: <b>{new Date().toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</b></div>
+          </div>
+        </div>
+      </div>
 
       {/* TABLE */}
       <div ref={tableWrapRef} className="table-wrapper" style={{ display: cardView ? "none" : undefined, overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0, ...(viewMode === "scroll" ? { overflowY: "auto" } : {}) }}>
