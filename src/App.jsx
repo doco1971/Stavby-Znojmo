@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_29_build0255
+// BUILD: 2026_03_29_build0256
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -1901,7 +1901,7 @@ export default function App() {
           {!isDemo && deadlineWarnings.length > 0 && (
             <button onClick={() => { resetDeadlines(); setShowDeadlines(true); }} onMouseEnter={e => showTooltip(e, "Zobrazit stavby s blížícím se nebo prošlým termínem ukončení")} onMouseLeave={hideTooltip} style={{ padding: isMobile ? "4px 8px" : "5px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: isMobile ? 11 : 12, fontWeight: 600 }}>⚠️ Termíny ({deadlineWarnings.length})</button>
           )}
-          {!isMobile && !isDemo && (() => { const firmyNames = firmy.map(f => f.hodnota); const count = data.filter(s => s.firma && !firmyNames.includes(s.firma)).length; return count > 0 ? <button onClick={() => setShowOrphanWarning(true)} style={{ padding: "5px 12px", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🏚️ Bez firmy ({count})</button> : null; })()}
+          {!isMobile && !isDemo && (() => { const firmyNames = firmy.map(f => f.hodnota); const count = data.filter(s => !s.firma || !firmyNames.includes(s.firma)).length; return count > 0 ? <button onClick={() => setShowOrphanWarning(true)} style={{ padding: "5px 12px", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🏚️ Bez firmy ({count})</button> : null; })()}
           {!isMobile && <>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
             <span style={{ color: T.text, fontSize: 13 }}>{user.name}</span>
@@ -1987,7 +1987,7 @@ export default function App() {
             <button onClick={() => { resetHelp(); setShowHelp(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 13 }}>❓ Nápověda</button>
             {isAdmin && <button onClick={() => { setShowSettings(true); setShowMobileMenu(false); if (!isDemo) loadLog(isSuperAdmin); }} style={{ padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 13 }}>⚙️ Nastavení</button>}
             {isAdmin && <button onClick={() => { setShowLog(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: T.textMuted, cursor: "pointer", fontSize: 13 }}>📜 Log</button>}
-            {!isDemo && (() => { const firmyNames = firmy.map(f => f.hodnota); const count = data.filter(s => s.firma && !firmyNames.includes(s.firma)).length; return count > 0 ? <button onClick={() => { setShowOrphanWarning(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>🏚️ Bez firmy ({count})</button> : null; })()}
+            {!isDemo && (() => { const firmyNames = firmy.map(f => f.hodnota); const count = data.filter(s => !s.firma || !firmyNames.includes(s.firma)).length; return count > 0 ? <button onClick={() => { setShowOrphanWarning(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, color: "#fbbf24", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>🏚️ Bez firmy ({count})</button> : null; })()}
             <button onClick={() => { setShowLogoutConfirm(true); setShowMobileMenu(false); }} style={{ padding: "6px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Odhlásit</button>
           </div>
         </div>
@@ -2637,7 +2637,7 @@ export default function App() {
 
       {showOrphanWarning && (() => {
         const firmyNames = firmy.map(f => f.hodnota);
-        const orphans = data.filter(s => s.firma && !firmyNames.includes(s.firma));
+        const orphans = data.filter(s => !s.firma || !firmyNames.includes(s.firma));
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 2100, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
             <div style={{ background: isDark ? TENANT.modalBg : "#fff", borderRadius: 16, width: 500, maxHeight: "80vh", display: "flex", flexDirection: "column", border: "1px solid rgba(251,191,36,0.4)", boxShadow: "0 32px 80px rgba(0,0,0,0.7)" }}>
