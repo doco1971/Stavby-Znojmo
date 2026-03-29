@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_29_build0249
+// BUILD: 2026_03_29_build0255
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -54,6 +54,18 @@ export default function App() {
   const [editRow, setEditRow] = useState(null);
   const [adding, setAdding] = useState(false);
   const [slozkaPopup, setSlozkaPopup] = useState(null); // { id, url, x, y }
+
+  // Autofocus na Název stavby při otevření formuláře nové stavby
+  // Musí být v App.jsx — useDraggable dělá re-render po init který ztrácí focus z FormModal
+  useEffect(() => {
+    if (!adding) return;
+    // Počkáme na dokončení re-renderu z useDraggable (setState uvnitř useEffect)
+    const id = setTimeout(() => {
+      const input = document.querySelector("[data-field='nazev_stavby']");
+      if (input) input.focus();
+    }, 100);
+    return () => clearTimeout(id);
+  }, [adding]);
   const [copyRow, setCopyRow] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const isMobile = useIsMobile(768);
@@ -1717,7 +1729,7 @@ export default function App() {
   };
 
   const nextId = data.length > 0 ? data.reduce((max, r) => Math.max(max, r.id), 0) + 1 : 1;
-  const emptyRow = { id: nextId, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: prefixEnabled ? prefixValue : "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "", cislo_faktury_2: "", castka_bez_dph_2: 0, splatna_2: "", poznamka: "" };
+  const emptyRow = { id: null, firma: firmy[0]?.hodnota||"", ps_i: 0, snk_i: 0, bo_i: 0, ps_ii: 0, bo_ii: 0, poruch: 0, cislo_stavby: prefixEnabled ? prefixValue : "", nazev_stavby: "", vyfakturovano: 0, ukonceni: "", zrealizovano: "", sod: "", ze_dne: "", objednatel: "", stavbyvedouci: "", nabidkova_cena: 0, cislo_faktury: "", castka_bez_dph: 0, splatna: "", cislo_faktury_2: "", castka_bez_dph_2: 0, splatna_2: "", poznamka: "" };
 
   const getFirmaColor = (firmaName) => firmaColorCache[firmaName] || { bg: isDark ? TENANT.p1deep : "#e2e8f0", badge: tc2(0.25), badgeBorder: tc2(0.6), text: TENANT.p2, hex: TENANT.p2 };
 
