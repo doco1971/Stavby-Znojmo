@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { TENANT, IS_JIHLAVA, tc1, tc2 } from "../utils/tenant";
 import { sb } from "../utils/supabase";
 import { inputSx, COLUMNS } from "../utils/constants";
@@ -789,8 +790,8 @@ export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChan
         </div>
       )}
 
-      {/* DeleteSmazatModal — potvrzení mazání sekce */}
-      {deleteDataConfirm && (
+      {/* DeleteSmazatModal — renderováno přes Portal mimo wrapper s pointerEvents:none */}
+      {deleteDataConfirm && createPortal(
         <DeleteSmazatModal
           target={deleteDataConfirm.target}
           popis={deleteDataConfirm.popis}
@@ -809,7 +810,8 @@ export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChan
               setDeleteDataLoading(false);
             });
           }}
-        />
+        />,
+        document.body
       )}
     </div>
   );
