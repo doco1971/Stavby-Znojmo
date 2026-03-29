@@ -77,10 +77,52 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
   );
 }
 
+// ── DeleteSmazatModal — potvrzení mazání zadáním slova ───────
+function DeleteSmazatModal({ target, popis, onConfirm, onCancel }) {
+  const [input, setInput] = useState("");
+  const hotovo = input.toUpperCase() === target.toUpperCase();
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
+      <div style={{ background: TENANT.modalBg, border: "1px solid rgba(239,68,68,0.4)", borderRadius: 14, padding: 28, maxWidth: 440, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#ef4444", marginBottom: 12 }}>⚠️ Poslední potvrzení</div>
+        <div style={{ color: "#e2e8f0", fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+          Pro smazání <strong style={{ color: "#f87171" }}>{popis}</strong> opište níže zobrazené slovo:
+        </div>
+        {/* Dlaždice — rozsvěcují se červeně při psaní */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 20 }}>
+          {target.split("").map((letter, i) => {
+            const typed = (input.toUpperCase())[i];
+            const active = typed === letter.toUpperCase();
+            return (
+              <div key={i} style={{ width: 38, height: 44, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, border: `2px solid ${active ? "#ef4444" : "rgba(239,68,68,0.25)"}`, fontSize: 18, fontWeight: 800, fontFamily: "monospace", color: active ? "#ef4444" : "rgba(239,68,68,0.25)", transition: "color 0.15s, border-color 0.15s" }}>{letter}</div>
+            );
+          })}
+        </div>
+        <input
+          autoFocus
+          value={input}
+          onChange={e => setInput(e.target.value.slice(0, target.length))}
+          onKeyDown={e => e.key === "Enter" && hotovo && onConfirm()}
+          placeholder="Pište sem…"
+          style={{ width: "100%", padding: "9px 12px", background: "rgba(239,68,68,0.06)", border: `1px solid ${hotovo ? "#ef4444" : "rgba(239,68,68,0.3)"}`, borderRadius: 8, color: "#fff", fontSize: 15, fontFamily: "monospace", fontWeight: 700, letterSpacing: 4, outline: "none", boxSizing: "border-box", marginBottom: 20, textAlign: "center" }}
+        />
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{ padding: "9px 20px", background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
+          <button onClick={onConfirm} disabled={!hotovo} style={{ padding: "9px 20px", background: hotovo ? "#ef4444" : "rgba(239,68,68,0.2)", border: "none", borderRadius: 8, color: "#fff", cursor: hotovo ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700, opacity: hotovo ? 1 : 0.5, transition: "background 0.2s, opacity 0.2s" }}>Smazat trvale</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Hlavní SettingsModal ──────────────────────────────────
 export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha, zalohaRole = "superadmin", onSaveZalohaRole, onImportXLS, onImportJI, autoLogoutMinutesProp = 15, onSaveAutoLogoutMinutes, appNazevProp = "Stavby Znojmo", onSaveAppNazev, deadlineDaysProp = 30, onSaveDeadlineDays, demoMaxStavbyProp = 15, onSaveDemoMaxStavby, povinnaPole = {}, onSavePovinnaPole, prefixEnabled = false, prefixValue = "ZN-", onSaveCisloPrefix, sloupceRole = {}, onSaveSloupceRole }) {
   const [tab, setTab] = useState("ciselniky");
   const [importJIKatPoleLocal, setImportJIKatPoleLocal] = useState("ps_i");
+  // ── Mazání dat (superadmin) ───────────────────────────────
+  const [deleteDataConfirm, setDeleteDataConfirm] = useState(null); // { sekce, target, popis, onConfirm }
+  const [deleteDataLoading, setDeleteDataLoading] = useState(false);
+  const [deleteDataLog, setDeleteDataLog]         = useState("");
   const [f, setF] = useState([...firmy]);
   const [o, setO] = useState([...objednatele]);
   const [s, setS] = useState([...stavbyvedouci]);
@@ -157,6 +199,7 @@ export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChan
     ...(isAdmin ? [{ key: "uzivatele", label: "👥 Uživatelé" }] : []),
     ...(isAdmin ? [{ key: "log",       label: "📜 Log aktivit" }] : []),
     ...(isSuperAdmin ? [{ key: "aplikace", label: "⚙️ Aplikace" }] : []),
+    ...(isSuperAdmin ? [{ key: "data",     label: "🗑️ Data" }] : []),
   ];
 
   const [editVerze, setEditVerze]               = useState(appVerze);
@@ -559,6 +602,47 @@ export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChan
             );
           })()}
 
+          {/* TAB: DATA — mazání sekcí (superadmin) */}
+          {tab === "data" && isSuperAdmin && (() => {
+            const SEKCE = [
+              { key: "stavby",       label: "Stavby",        popis: "všechny stavby z DB",                     target: "STAVBY",      color: "#ef4444", icon: "🏗️",  dotaz: async () => { await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("log_aktivit?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); return "Stavby a log smazány."; } },
+              { key: "objednatele",  label: "Objednatelé",   popis: "všechny objednatele z číselníku",          target: "OBJEDNATELE", color: "#f97316", icon: "🏢",  dotaz: async () => { await sb("ciselniky?typ=eq.objednatel", { method: "DELETE", prefer: "return=minimal" }); return "Objednatelé smazáni."; } },
+              { key: "technici",     label: "Stavbyvedoucí", popis: "všechny stavbyvedoucí z číselníku",        target: "TECHNICI",    color: "#f59e0b", icon: "👷",  dotaz: async () => { await sb("ciselniky?typ=eq.stavbyvedouci", { method: "DELETE", prefer: "return=minimal" }); return "Stavbyvedoucí smazáni."; } },
+              { key: "firmy",        label: "Firmy",         popis: "všechny firmy z číselníku",                target: "FIRMY",       color: "#8b5cf6", icon: "🏭",  dotaz: async () => { await sb("ciselniky?typ=eq.firma", { method: "DELETE", prefer: "return=minimal" }); return "Firmy smazány."; } },
+              { key: "vse",          label: "Vše",           popis: "VEŠKERÁ data (stavby, číselníky, log)",    target: "SMAZATVSE",   color: "#dc2626", icon: "💥",  dotaz: async () => { await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("log_aktivit?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("ciselniky?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); return "Veškerá data smazána."; } },
+            ];
+            return (
+              <div style={{ padding: "10px 0" }}>
+                <div style={{ padding: "12px 16px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, marginBottom: 20 }}>
+                  <div style={{ color: "#f87171", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>⚠️ Nebezpečná zóna — pouze superadmin</div>
+                  <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Smazání dat je nevratné. Pro každou akci musíte opsat zobrazené slovo.</div>
+                </div>
+                {deleteDataLog && (
+                  <div style={{ padding: "10px 14px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 8, color: "#4ade80", fontSize: 13, marginBottom: 16 }}>✅ {deleteDataLog}</div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {SEKCE.map(s => (
+                    <div key={s.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: modalCardBg, border: `1px solid ${modalBorder}`, borderRadius: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 20 }}>{s.icon}</span>
+                        <div>
+                          <div style={{ color: modalText, fontWeight: 700, fontSize: 13 }}>{s.label}</div>
+                          <div style={{ color: modalMuted, fontSize: 11 }}>{s.popis}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setDeleteDataConfirm({ ...s })}
+                        disabled={deleteDataLoading || isDemo}
+                        style={{ padding: "7px 16px", background: `${s.color}22`, border: `1px solid ${s.color}66`, borderRadius: 8, color: s.color, cursor: isDemo ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 700, opacity: isDemo ? 0.4 : 1 }}
+                      >🗑️ Smazat</button>
+                    </div>
+                  ))}
+                </div>
+                {isDemo && <div style={{ marginTop: 12, color: modalMuted, fontSize: 12 }}>🎮 Demo režim — mazání zakázáno.</div>}
+              </div>
+            );
+          })()}
+
           {/* TAB: LOG */}
           {tab === "log" && (
             <div>
@@ -692,6 +776,28 @@ export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChan
             </div>
           </div>
         </div>
+      )}
+
+      {/* DeleteSmazatModal — potvrzení mazání sekce */}
+      {deleteDataConfirm && (
+        <DeleteSmazatModal
+          target={deleteDataConfirm.target}
+          popis={deleteDataConfirm.popis}
+          onCancel={() => { setDeleteDataConfirm(null); setDeleteDataLog(""); }}
+          onConfirm={async () => {
+            setDeleteDataConfirm(null);
+            setDeleteDataLoading(true);
+            setDeleteDataLog("");
+            try {
+              const zprava = await deleteDataConfirm.dotaz();
+              setDeleteDataLog(zprava);
+            } catch(e) {
+              setDeleteDataLog("Chyba: " + e.message);
+            } finally {
+              setDeleteDataLoading(false);
+            }
+          }}
+        />
       )}
     </div>
   );

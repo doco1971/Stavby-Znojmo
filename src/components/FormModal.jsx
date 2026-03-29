@@ -11,7 +11,7 @@ function Lbl({ children }) {
   return <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: 700, letterSpacing: 0.8, marginBottom: 5, textTransform: "uppercase" }}>{children}</div>;
 }
 
-function FormField({ label, value, onChange, full, type }) {
+function FormField({ label, value, onChange, full, type, fieldKey, isInvalid }) {
   const [err, setErr] = useState("");
   const displayValue = type === "number" && (value === 0 || value === "0") ? "" : (value ?? "");
 
@@ -36,15 +36,27 @@ function FormField({ label, value, onChange, full, type }) {
     }
   };
 
+  const borderColor = isInvalid ? "#ef4444" : err ? "#f87171" : "rgba(255,255,255,0.15)";
+  const animation   = isInvalid ? "pulse-border 0.6s ease-in-out 3" : "none";
+
   return (
     <div style={full ? { gridColumn: "1 / -1" } : {}}>
       <Lbl>{label}{type === "number" && <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, marginLeft: 4 }}>123</span>}{type === "date" && <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, marginLeft: 4 }}>DD.MM.RRRR</span>}</Lbl>
       {type === "date" ? (
-        <DatePickerField value={displayValue} onChange={handleChange} />
+        <div data-field={fieldKey} style={{ animation }}>
+          <DatePickerField value={displayValue} onChange={handleChange} style={{ borderColor }} />
+        </div>
       ) : (
-        <input type="text" value={displayValue} onChange={e => handleChange(e.target.value)} onKeyDown={handleKeyDown} style={{ ...inputSx, borderColor: err ? "#f87171" : "rgba(255,255,255,0.15)" }} />
+        <input
+          type="text"
+          data-field={fieldKey}
+          value={displayValue}
+          onChange={e => handleChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          style={{ ...inputSx, borderColor, animation }}
+        />
       )}
-      {err && <div style={{ color: "#f87171", fontSize: 11, marginTop: 3 }}>{err}</div>}
+      {(err || isInvalid) && <div style={{ color: "#f87171", fontSize: 11, marginTop: 3 }}>{err || "Povinné pole"}</div>}
     </div>
   );
 }
@@ -59,9 +71,10 @@ function FormSelectField({ label, value, onChange, options, allowEmpty }) {
 }
 
 export function FormModal({ title, initial, onSave, onClose, firmy, objednatele, stavbyvedouci: svList, povinnaPole = {} }) {
-  const [form, setForm]       = useState({ ...initial });
-  const [saveErr, setSaveErr] = useState("");
-  const [katErr, setKatErr]   = useState("");
+  const [form, setForm]             = useState({ ...initial });
+  const [saveErr, setSaveErr]       = useState("");
+  const [katErr, setKatErr]         = useState("");
+  const [invalidFields, setInvalidFields] = useState(new Set()); // blikající pole při validaci
 
   const stavbaId       = initial?.id || null;
   const KAT_POLE_LIST  = ["ps_i","snk_i","bo_i","ps_ii","bo_ii","poruch"];
@@ -199,6 +212,8 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
   };
 
   const set = (k, v) => {
+    // Vyčisti chybu pro toto pole při psaní
+    if (invalidFields.has(k)) setInvalidFields(prev => { const next = new Set(prev); next.delete(k); return next; });
     if (KAT_FIELDS.includes(k) && v !== "" && v !== "0" && Number(v) !== 0) {
       setForm(f => {
         const occupied = KAT_FIELDS.filter(fk => fk !== k && Number(f[fk]) !== 0 && f[fk] !== "" && f[fk] != null);
@@ -214,20 +229,51 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
   const computed = computeRow(form);
 
   const handleSave = () => {
+    const chyby = new Set();
+
+    // Validace číselných polí
     for (const k of NUM_FIELDS) {
       const v = form[k];
-      if (v !== "" && v != null && isNaN(String(v).replace(",", "."))) { setSaveErr(`Pole "${k}" musí být číslo!`); return; }
+      if (v !== "" && v != null && isNaN(String(v).replace(",", "."))) {
+        setSaveErr(`Pole "${k}" musí být číslo!`); chyby.add(k);
+      }
     }
+    // Validace datumových polí
     for (const k of DATE_FIELDS) {
       const v = form[k];
-      if (v && !/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(v.trim())) { setSaveErr(`Pole "${k}" musí být datum ve formátu DD.MM.RRRR`); return; }
+      if (v && !/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(v.trim())) {
+        setSaveErr(`Pole "${k}" musí být datum ve formátu DD.MM.RRRR`); chyby.add(k);
+      }
     }
+    // Validace povinných polí
     const povinnaLabels = { cislo_stavby: "Číslo stavby", nazev_stavby: "Název stavby", ukonceni: "Ukončení", sod: "SOD", ze_dne: "Ze dne" };
     for (const [k, label] of Object.entries(povinnaLabels)) {
       if (k === "nazev_stavby" || povinnaPole[k]) {
-        if (!form[k] || !String(form[k]).trim()) { setSaveErr(`Pole "${label}" je povinné!`); return; }
+        if (!form[k] || !String(form[k]).trim()) {
+          if (chyby.size === 0) setSaveErr(`Pole "${label}" je povinné!`);
+          chyby.add(k);
+        }
       }
     }
+
+    if (chyby.size > 0) {
+      setInvalidFields(chyby);
+      // Skočit kurzorem na první chybné pole
+      setTimeout(() => {
+        const modal = document.querySelector("[data-modal]");
+        if (!modal) return;
+        const inputs = Array.from(modal.querySelectorAll("input:not([disabled]), select:not([disabled]), textarea:not([disabled])"));
+        // Pořadí polí podle jejich klíče — najdeme první chybné v DOM pořadí
+        const prvniChybny = inputs.find(inp => {
+          const name = inp.getAttribute("data-field");
+          return name && chyby.has(name);
+        });
+        if (prvniChybny) prvniChybny.focus();
+      }, 50);
+      return;
+    }
+
+    setInvalidFields(new Set());
     setSaveErr("");
     onSave(computeRow(form));
   };
@@ -237,15 +283,24 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, pointerEvents: "none", fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
+      <style>{`
+        @keyframes pulse-border {
+          0%,100% { border-color: #ef4444; box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+          50%      { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.35); }
+        }
+      `}</style>
       <div ref={modalRef} data-modal style={{ position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", pointerEvents: "all", background: TENANT.modalBg, borderRadius: 14, width: "min(1400px, 96vw)", maxHeight: "96vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}>
 
         {/* Header */}
         <div onMouseDown={onDragStart} style={dragHeaderStyle({ gap: 16 })}>
           <h3 style={{ color: "#fff", margin: 0, fontSize: 16, flexShrink: 0 }}>{title}{dragHint}</h3>
-          <input onMouseDown={e => e.stopPropagation()} value={form["nazev_stavby"] ?? ""} onChange={e => set("nazev_stavby", e.target.value)}
+          <input onMouseDown={e => e.stopPropagation()}
+            data-field="nazev_stavby"
+            value={form["nazev_stavby"] ?? ""}
+            onChange={e => set("nazev_stavby", e.target.value)}
             placeholder="Název stavby..."
             onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const modal = modalRef.current; if (modal) { const inputs = Array.from(modal.querySelectorAll("input:not([disabled]),select:not([disabled])")); const idx = inputs.indexOf(e.target); if (idx < inputs.length - 1) inputs[idx + 1].focus(); } } }}
-            style={{ flex: 1, padding: "7px 14px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "#fff", fontSize: 15, fontWeight: 600, outline: "none", cursor: "text" }} />
+            style={{ flex: 1, padding: "7px 14px", background: "rgba(255,255,255,0.07)", border: `1px solid ${invalidFields.has("nazev_stavby") ? "#ef4444" : "rgba(255,255,255,0.15)"}`, borderRadius: 8, color: "#fff", fontSize: 15, fontWeight: 600, outline: "none", cursor: "text", animation: invalidFields.has("nazev_stavby") ? "pulse-border 0.6s ease-in-out 3" : "none" }} />
           <button onClick={onClose} onMouseDown={e => e.stopPropagation()} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 20, cursor: "pointer", flexShrink: 0 }}>✕</button>
         </div>
 
@@ -258,7 +313,7 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ color: TENANT.p3, fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: `3px solid ${TENANT.p3}`, paddingLeft: 8 }}>ZÁKLADNÍ INFORMACE</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                <FormField label="Číslo stavby" value={form["cislo_stavby"]} onChange={v => set("cislo_stavby", v)} />
+                <FormField label="Číslo stavby" fieldKey="cislo_stavby" isInvalid={invalidFields.has("cislo_stavby")} value={form["cislo_stavby"]} onChange={v => set("cislo_stavby", v)} />
                 <FormSelectField label="Firma" value={form["firma"]} onChange={v => set("firma", v)} options={firmaOptions} />
               </div>
             </div>
@@ -286,8 +341,8 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ color: "#f472b6", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #f472b6", paddingLeft: 8 }}>OSTATNÍ</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                <FormField label="SOD"              value={form["sod"]}          onChange={v => set("sod", v)} />
-                <FormField label="Ze dne"           value={form["ze_dne"]}       onChange={v => set("ze_dne", v)}       type="date" />
+                <FormField label="SOD"              fieldKey="sod"     isInvalid={invalidFields.has("sod")}     value={form["sod"]}          onChange={v => set("sod", v)} />
+                <FormField label="Ze dne"           fieldKey="ze_dne"  isInvalid={invalidFields.has("ze_dne")}  value={form["ze_dne"]}       onChange={v => set("ze_dne", v)}       type="date" />
                 <FormSelectField label="Objednatel"    value={form["objednatel"]}   onChange={v => set("objednatel", v)}   options={objednatele} allowEmpty />
                 <FormSelectField label="Stavbyvedoucí" value={form["stavbyvedouci"]} onChange={v => set("stavbyvedouci", v)} options={svList}       allowEmpty />
               </div>
@@ -305,7 +360,7 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
               <div style={{ color: "#34d399", fontWeight: 700, fontSize: 11, letterSpacing: 0.8, marginBottom: 6, borderLeft: "3px solid #34d399", paddingLeft: 8 }}>REALIZACE</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 <FormField label="Vyfakturováno" value={form["vyfakturovano"]} onChange={v => set("vyfakturovano", v)} type="number" />
-                <FormField label="Ukončení"      value={form["ukonceni"]}     onChange={v => set("ukonceni", v)}     type="date" />
+                <FormField label="Ukončení"      fieldKey="ukonceni" isInvalid={invalidFields.has("ukonceni")} value={form["ukonceni"]}     onChange={v => set("ukonceni", v)}     type="date" />
                 <FormField label="Zrealizováno"  value={form["zrealizovano"]} onChange={v => set("zrealizovano", v)} type="number" />
               </div>
               <div style={{ marginTop: 10, background: tc1(0.08), border: `1px solid ${tc1(0.2)}`, borderRadius: 8, padding: "8px 14px", display: "flex", gap: 24, flexWrap: "wrap" }}>
