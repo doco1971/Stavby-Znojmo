@@ -98,9 +98,9 @@ export function FormModal({ title, initial, onSave, onClose, firmy, objednatele,
   const nazevRef    = useRef(null); // autofocus při přidání nové stavby
 
   useEffect(() => {
-    // Autofocus na název stavby jen při přidání (ne editaci — id není)
-    if (!stavbaId && nazevRef.current) {
-      setTimeout(() => nazevRef.current?.focus(), 50);
+    // Autofocus na název stavby jen při přidání (ne editaci)
+    if (!stavbaId) {
+      setTimeout(() => nazevRef.current?.focus(), 150);
     }
   }, []);
 

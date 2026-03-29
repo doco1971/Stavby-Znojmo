@@ -80,19 +80,23 @@ function FirmyEditor({ list, setList, isDark, onNvChange, stavbyData }) {
 // ── DeleteSmazatModal — potvrzení mazání zadáním slova ───────
 function DeleteSmazatModal({ target, popis, onConfirm, onCancel }) {
   const [input, setInput] = useState("");
-  const hotovo = input.toUpperCase() === target.toUpperCase();
+  const [loading, setLoading] = useState(false);
+  const hotovo = input === target;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
       <div style={{ background: TENANT.modalBg, border: "1px solid rgba(239,68,68,0.4)", borderRadius: 14, padding: 28, maxWidth: 440, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: "#ef4444", marginBottom: 12 }}>⚠️ Poslední potvrzení</div>
-        <div style={{ color: "#e2e8f0", fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
-          Pro smazání <strong style={{ color: "#f87171" }}>{popis}</strong> opište níže zobrazené slovo:
+        <div style={{ color: "#e2e8f0", fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
+          Pro smazání <strong style={{ color: "#f87171" }}>{popis}</strong> opište toto slovo:
+        </div>
+        {/* Zobrazení slova které je třeba napsat */}
+        <div style={{ textAlign: "center", marginBottom: 12, color: "#f87171", fontSize: 13, fontFamily: "monospace", fontWeight: 700, letterSpacing: 3, background: "rgba(239,68,68,0.08)", padding: "8px", borderRadius: 8 }}>
+          {target}
         </div>
         {/* Dlaždice — rozsvěcují se červeně při psaní */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 16 }}>
           {target.split("").map((letter, i) => {
-            const typed = (input.toUpperCase())[i];
-            const active = typed === letter.toUpperCase();
+            const active = input[i] === letter;
             return (
               <div key={i} style={{ width: 38, height: 44, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, border: `2px solid ${active ? "#ef4444" : "rgba(239,68,68,0.25)"}`, fontSize: 18, fontWeight: 800, fontFamily: "monospace", color: active ? "#ef4444" : "rgba(239,68,68,0.25)", transition: "color 0.15s, border-color 0.15s" }}>{letter}</div>
             );
@@ -101,14 +105,16 @@ function DeleteSmazatModal({ target, popis, onConfirm, onCancel }) {
         <input
           autoFocus
           value={input}
-          onChange={e => setInput(e.target.value.slice(0, target.length))}
-          onKeyDown={e => e.key === "Enter" && hotovo && onConfirm()}
+          onChange={e => setInput(e.target.value.toUpperCase().slice(0, target.length))}
+          onKeyDown={e => e.key === "Enter" && hotovo && !loading && onConfirm()}
           placeholder="Pište sem…"
           style={{ width: "100%", padding: "9px 12px", background: "rgba(239,68,68,0.06)", border: `1px solid ${hotovo ? "#ef4444" : "rgba(239,68,68,0.3)"}`, borderRadius: 8, color: "#fff", fontSize: 15, fontFamily: "monospace", fontWeight: 700, letterSpacing: 4, outline: "none", boxSizing: "border-box", marginBottom: 20, textAlign: "center" }}
         />
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onCancel} style={{ padding: "9px 20px", background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
-          <button onClick={onConfirm} disabled={!hotovo} style={{ padding: "9px 20px", background: hotovo ? "#ef4444" : "rgba(239,68,68,0.2)", border: "none", borderRadius: 8, color: "#fff", cursor: hotovo ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700, opacity: hotovo ? 1 : 0.5, transition: "background 0.2s, opacity 0.2s" }}>Smazat trvale</button>
+          <button onClick={onCancel} disabled={loading} style={{ padding: "9px 20px", background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
+          <button onClick={onConfirm} disabled={!hotovo || loading} style={{ padding: "9px 20px", background: hotovo ? "#ef4444" : "rgba(239,68,68,0.2)", border: "none", borderRadius: 8, color: "#fff", cursor: hotovo && !loading ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700, opacity: hotovo && !loading ? 1 : 0.5 }}>
+            {loading ? "Mažu..." : "Smazat trvale"}
+          </button>
         </div>
       </div>
     </div>
@@ -784,18 +790,18 @@ export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChan
           target={deleteDataConfirm.target}
           popis={deleteDataConfirm.popis}
           onCancel={() => { setDeleteDataConfirm(null); setDeleteDataLog(""); }}
-          onConfirm={async () => {
+          onConfirm={() => {
+            const dotaz = deleteDataConfirm.dotaz;
             setDeleteDataConfirm(null);
             setDeleteDataLoading(true);
             setDeleteDataLog("");
-            try {
-              const zprava = await deleteDataConfirm.dotaz();
+            dotaz().then(zprava => {
               setDeleteDataLog(zprava);
-            } catch(e) {
+            }).catch(e => {
               setDeleteDataLog("Chyba: " + e.message);
-            } finally {
+            }).finally(() => {
               setDeleteDataLoading(false);
-            }
+            });
           }}
         />
       )}
