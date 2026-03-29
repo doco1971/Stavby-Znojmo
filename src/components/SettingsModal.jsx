@@ -121,6 +121,20 @@ function DeleteSmazatModal({ target, popis, onConfirm, onCancel }) {
   );
 }
 
+// ── Sekce mazání dat — definováno mimo komponentu aby reference zůstala stabilní ──
+const DATA_SEKCE = [
+  { key: "stavby",      label: "Stavby",        popis: "všechny stavby z DB",                  target: "STAVBY",     color: "#ef4444", icon: "🏗️",
+    dotaz: async () => { await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("log_aktivit?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); return "Stavby a log smazány."; } },
+  { key: "objednatele", label: "Objednatelé",   popis: "všechny objednatele z číselníku",       target: "OBJEDNATELE",color: "#f97316", icon: "🏢",
+    dotaz: async () => { await sb("ciselniky?typ=eq.objednatel", { method: "DELETE", prefer: "return=minimal" }); return "Objednatelé smazáni."; } },
+  { key: "technici",    label: "Stavbyvedoucí", popis: "všechny stavbyvedoucí z číselníku",     target: "TECHNICI",   color: "#f59e0b", icon: "👷",
+    dotaz: async () => { await sb("ciselniky?typ=eq.stavbyvedouci", { method: "DELETE", prefer: "return=minimal" }); return "Stavbyvedoucí smazáni."; } },
+  { key: "firmy",       label: "Firmy",         popis: "všechny firmy z číselníku",             target: "FIRMY",      color: "#8b5cf6", icon: "🏭",
+    dotaz: async () => { await sb("ciselniky?typ=eq.firma", { method: "DELETE", prefer: "return=minimal" }); return "Firmy smazány."; } },
+  { key: "vse",         label: "Vše",           popis: "VEŠKERÁ data (stavby, číselníky, log)", target: "SMAZATVSE",  color: "#dc2626", icon: "💥",
+    dotaz: async () => { await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("log_aktivit?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("ciselniky?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); return "Veškerá data smazána."; } },
+];
+
 // ── Hlavní SettingsModal ──────────────────────────────────
 export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChange, onChangeUsers, onClose, onLoadLog, isAdmin, isSuperAdmin, isDark, appVerze, appDatum, onSaveAppInfo, stavbyData, onResetColWidths, onResetColOrder, isDemo, notifyEmails, onSaveNotifyEmails, slozkaRole, onSaveSlozkaRole, extensionReady, protokolReady = false, autoZaloha = true, onSaveAutoZaloha, zalohaRole = "superadmin", onSaveZalohaRole, onImportXLS, onImportJI, autoLogoutMinutesProp = 15, onSaveAutoLogoutMinutes, appNazevProp = "Stavby Znojmo", onSaveAppNazev, deadlineDaysProp = 30, onSaveDeadlineDays, demoMaxStavbyProp = 15, onSaveDemoMaxStavby, povinnaPole = {}, onSavePovinnaPole, prefixEnabled = false, prefixValue = "ZN-", onSaveCisloPrefix, sloupceRole = {}, onSaveSloupceRole, onReloadData }) {
   const [tab, setTab] = useState("ciselniky");
@@ -609,45 +623,36 @@ export function SettingsModal({ firmy, objednatele, stavbyvedouci, users, onChan
           })()}
 
           {/* TAB: DATA — mazání sekcí (superadmin) */}
-          {tab === "data" && isSuperAdmin && (() => {
-            const SEKCE = [
-              { key: "stavby",       label: "Stavby",        popis: "všechny stavby z DB",                     target: "STAVBY",      color: "#ef4444", icon: "🏗️",  dotaz: async () => { await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("log_aktivit?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); return "Stavby a log smazány."; } },
-              { key: "objednatele",  label: "Objednatelé",   popis: "všechny objednatele z číselníku",          target: "OBJEDNATELE", color: "#f97316", icon: "🏢",  dotaz: async () => { await sb("ciselniky?typ=eq.objednatel", { method: "DELETE", prefer: "return=minimal" }); return "Objednatelé smazáni."; } },
-              { key: "technici",     label: "Stavbyvedoucí", popis: "všechny stavbyvedoucí z číselníku",        target: "TECHNICI",    color: "#f59e0b", icon: "👷",  dotaz: async () => { await sb("ciselniky?typ=eq.stavbyvedouci", { method: "DELETE", prefer: "return=minimal" }); return "Stavbyvedoucí smazáni."; } },
-              { key: "firmy",        label: "Firmy",         popis: "všechny firmy z číselníku",                target: "FIRMY",       color: "#8b5cf6", icon: "🏭",  dotaz: async () => { await sb("ciselniky?typ=eq.firma", { method: "DELETE", prefer: "return=minimal" }); return "Firmy smazány."; } },
-              { key: "vse",          label: "Vše",           popis: "VEŠKERÁ data (stavby, číselníky, log)",    target: "SMAZATVSE",   color: "#dc2626", icon: "💥",  dotaz: async () => { await sb("stavby?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("log_aktivit?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); await sb("ciselniky?id=gt.0", { method: "DELETE", prefer: "return=minimal" }); return "Veškerá data smazána."; } },
-            ];
-            return (
-              <div style={{ padding: "10px 0" }}>
-                <div style={{ padding: "12px 16px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, marginBottom: 20 }}>
-                  <div style={{ color: "#f87171", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>⚠️ Nebezpečná zóna — pouze superadmin</div>
-                  <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Smazání dat je nevratné. Pro každou akci musíte opsat zobrazené slovo.</div>
-                </div>
-                {deleteDataLog && (
-                  <div style={{ padding: "10px 14px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 8, color: "#4ade80", fontSize: 13, marginBottom: 16 }}>✅ {deleteDataLog}</div>
-                )}
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {SEKCE.map(s => (
-                    <div key={s.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: modalCardBg, border: `1px solid ${modalBorder}`, borderRadius: 10 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 20 }}>{s.icon}</span>
-                        <div>
-                          <div style={{ color: modalText, fontWeight: 700, fontSize: 13 }}>{s.label}</div>
-                          <div style={{ color: modalMuted, fontSize: 11 }}>{s.popis}</div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setDeleteDataConfirm({ ...s })}
-                        disabled={deleteDataLoading || isDemo}
-                        style={{ padding: "7px 16px", background: `${s.color}22`, border: `1px solid ${s.color}66`, borderRadius: 8, color: s.color, cursor: isDemo ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 700, opacity: isDemo ? 0.4 : 1 }}
-                      >🗑️ Smazat</button>
-                    </div>
-                  ))}
-                </div>
-                {isDemo && <div style={{ marginTop: 12, color: modalMuted, fontSize: 12 }}>🎮 Demo režim — mazání zakázáno.</div>}
+          {tab === "data" && isSuperAdmin && (
+            <div style={{ padding: "10px 0" }}>
+              <div style={{ padding: "12px 16px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, marginBottom: 20 }}>
+                <div style={{ color: "#f87171", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>⚠️ Nebezpečná zóna — pouze superadmin</div>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Smazání dat je nevratné. Pro každou akci musíte opsat zobrazené slovo.</div>
               </div>
-            );
-          })()}
+              {deleteDataLog && (
+                <div style={{ padding: "10px 14px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 8, color: "#4ade80", fontSize: 13, marginBottom: 16 }}>✅ {deleteDataLog}</div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {DATA_SEKCE.map(s => (
+                  <div key={s.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: modalCardBg, border: `1px solid ${modalBorder}`, borderRadius: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 20 }}>{s.icon}</span>
+                      <div>
+                        <div style={{ color: modalText, fontWeight: 700, fontSize: 13 }}>{s.label}</div>
+                        <div style={{ color: modalMuted, fontSize: 11 }}>{s.popis}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setDeleteDataConfirm(s)}
+                      disabled={deleteDataLoading || isDemo}
+                      style={{ padding: "7px 16px", background: `${s.color}22`, border: `1px solid ${s.color}66`, borderRadius: 8, color: s.color, cursor: isDemo ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 700, opacity: isDemo ? 0.4 : 1 }}
+                    >🗑️ Smazat</button>
+                  </div>
+                ))}
+              </div>
+              {isDemo && <div style={{ marginTop: 12, color: modalMuted, fontSize: 12 }}>🎮 Demo režim — mazání zakázáno.</div>}
+            </div>
+          )}
 
           {/* TAB: LOG */}
           {tab === "log" && (
