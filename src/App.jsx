@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_29_build0258
+// BUILD: 2026_03_30_build0259
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -155,8 +155,11 @@ export default function App() {
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 });
   const [confirmExport, setConfirmExport] = useState(null); // { type, label }
   const [showPrintDialog, setShowPrintDialog] = useState(false);
-  const [printCols, setPrintCols] = useState(null); // null = vše, jinak Set klíčů
-  const [printFilters, setPrintFilters] = useState(null); // null = použít aktuální filtry
+  const [printCols, setPrintCols] = useState(null);
+  const [printFilters, setPrintFilters] = useState(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [activePrintCols, setActivePrintCols] = useState(null); // Set klíčů aktivních při tisku
+  const [activePrintFilters, setActivePrintFilters] = useState(null); // filtry aktivní při tisku
 
   // ── Toast notifikace (nahrazuje alert) ────────────────────
   const [toast, setToast] = useState(null);
@@ -976,6 +979,25 @@ export default function App() {
     return true;
   }), [data, filterFirma, filterText, filterObjed, filterSV, filterRok, filterCastkaOd, filterCastkaDo, filterProslé, filterFakturace, filterKat]);
 
+  // Tiskové filtry — aplikují se na data (ne na filtered) při tisku
+  const printFiltered = useMemo(() => {
+    if (!isPrinting || !activePrintFilters) return filtered;
+    const pf = activePrintFilters;
+    return data.filter(r => {
+      if (pf.firma !== "Všechny firmy" && r.firma !== pf.firma) return false;
+      if (pf.sv !== "Všichni stavbyvedoucí" && r.stavbyvedouci !== pf.sv) return false;
+      if (pf.objed !== "Všichni objednatelé" && r.objednatel !== pf.objed) return false;
+      if (pf.prosle) { const dnes = new Date(); dnes.setHours(0,0,0,0); const isFak = r.cislo_faktury && r.cislo_faktury.trim() !== "" && r.castka_bez_dph && Number(r.castka_bez_dph) !== 0 && r.splatna && r.splatna.trim() !== ""; if (isFak || !r.ukonceni) return false; const [d,m,y] = r.ukonceni.split(".").map(Number); if (new Date(y,m-1,d) >= dnes) return false; }
+      return true;
+    });
+  }, [isPrinting, activePrintFilters, data, filtered]);
+
+  // Sloupce aktivní při tisku — jinak orderedCols
+  const printActiveCols = useMemo(() => {
+    if (!isPrinting || !activePrintCols) return orderedCols;
+    return orderedCols.filter(c => activePrintCols.has(c.key));
+  }, [isPrinting, activePrintCols, orderedCols]);
+
   const [tableHeight, setTableHeight] = useState(500);
 
   const headerRef = useRef(null);
@@ -1001,7 +1023,7 @@ export default function App() {
   useEffect(() => { setPage(0); }, [filterFirma, filterText, filterObjed, filterSV, filterRok, filterCastkaOd, filterCastkaDo, filterProslé, filterFakturace, filterKat]);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const displayRows = viewMode === "scroll" ? filtered : paginated;
+  const displayRows = isPrinting ? printFiltered : (viewMode === "scroll" ? filtered : paginated);
 
 
 
@@ -1024,22 +1046,21 @@ export default function App() {
     const prevTheme = theme;
     const needsSwitch = isDark;
     if (needsSwitch) setTheme("light");
+    // Nastavit tiskové sloupce a filtry — React překreslí tabulku
+    setActivePrintCols(cols);
+    setActivePrintFilters(pFilters);
+    setIsPrinting(true);
     setTimeout(() => {
       document.documentElement.classList.add("printing");
-      orderedCols.forEach(c => {
-        const els = document.querySelectorAll(`[data-col="${c.key}"]`);
-        els.forEach(el => { el.style.display = cols.has(c.key) ? "" : "none"; });
-      });
       window.print();
       setTimeout(() => {
         document.documentElement.classList.remove("printing");
-        orderedCols.forEach(c => {
-          const els = document.querySelectorAll(`[data-col="${c.key}"]`);
-          els.forEach(el => { el.style.display = ""; });
-        });
+        setIsPrinting(false);
+        setActivePrintCols(null);
+        setActivePrintFilters(null);
         if (needsSwitch) setTheme(prevTheme);
       }, 1000);
-    }, needsSwitch ? 150 : 50);
+    }, needsSwitch ? 200 : 100); // čas na React překreslení
   };
   const exportXLSColor = () => { setConfirmExport({ type: "xls-color", label: "Barevný Excel (.xls)" }); setShowExport(false); };
 
@@ -2113,12 +2134,14 @@ export default function App() {
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: TENANT.p1deep }}>{appNazev}</div>
             <div style={{ fontSize: 9, color: "#555", marginTop: 2 }}>
-              {filterFirma !== "Všechny firmy" && <span>Firma: <b>{filterFirma}</b> &nbsp;</span>}
-              {filterSV !== "Všichni stavbyvedoucí" && <span>Stavbyvedoucí: <b>{filterSV}</b> &nbsp;</span>}
+              {activePrintFilters?.firma !== "Všechny firmy" && <span>Firma: <b>{activePrintFilters?.firma}</b> &nbsp;</span>}
+              {activePrintFilters?.sv !== "Všichni stavbyvedoucí" && <span>Stavbyvedoucí: <b>{activePrintFilters?.sv}</b> &nbsp;</span>}
+              {activePrintFilters?.objed !== "Všichni objednatelé" && <span>Objednatel: <b>{activePrintFilters?.objed}</b> &nbsp;</span>}
+              {activePrintFilters?.prosle && <span>Jen po termínu &nbsp;</span>}
             </div>
           </div>
           <div style={{ textAlign: "right", fontSize: 9, color: "#555" }}>
-            <div>Počet záznamů: <b>{filtered.length}</b></div>
+            <div>Počet záznamů: <b>{printFiltered.length}</b></div>
             <div>Vytištěno: <b>{new Date().toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</b></div>
           </div>
         </div>
@@ -2129,24 +2152,24 @@ export default function App() {
         <table style={{ borderCollapse: "collapse", fontSize: 12.5, tableLayout: "fixed", width: "max-content" }}>
           <colgroup>
             <col style={{ width: 40 }} />
-            {(isAdmin || isEditor) && <col className="print-hide-col" style={{ width: 90 }} />}
-            {orderedCols.map(col => (
+            {!isPrinting && (isAdmin || isEditor) && <col className="print-hide-col" style={{ width: 90 }} />}
+            {printActiveCols.map(col => (
               <col key={col.key} style={{ width: getColWidth(col) }} />
             ))}
-            {(isAdmin || isEditor) && <col className="print-hide-col" style={{ width: 120 }} />}
+            {!isPrinting && (isAdmin || isEditor) && <col className="print-hide-col" style={{ width: 120 }} />}
           </colgroup>
           <thead>
             <tr style={{ background: T.theadBg }}>
               <th style={{ padding: "9px 11px", textAlign: "center", color: T.textMuted, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, whiteSpace: "nowrap", minWidth: 40, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}` }}>#</th>
-              {(isAdmin || isEditor) && <th className="print-hide-col" style={{ padding: "9px 11px", color: T.textMuted, fontWeight: 700, fontSize: 10.5, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>AKCE</th>}
-              {orderedCols.map(col => (
+              {!isPrinting && (isAdmin || isEditor) && <th className="print-hide-col" style={{ padding: "9px 11px", color: T.textMuted, fontWeight: 700, fontSize: 10.5, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>AKCE</th>}
+              {printActiveCols.map(col => (
                 <th key={col.key}
                   data-col={col.key}
-                  draggable={isSuperAdmin}
-                  onDragStart={isSuperAdmin ? e => handleColDragStart(e, col.key) : undefined}
-                  onDragOver={isSuperAdmin ? e => handleColDragOver(e, col.key) : undefined}
-                  onDragLeave={isSuperAdmin ? handleColDragLeave : undefined}
-                  onDrop={isSuperAdmin ? e => handleColDrop(e, col.key) : undefined}
+                  draggable={isSuperAdmin && !isPrinting}
+                  onDragStart={isSuperAdmin && !isPrinting ? e => handleColDragStart(e, col.key) : undefined}
+                  onDragOver={isSuperAdmin && !isPrinting ? e => handleColDragOver(e, col.key) : undefined}
+                  onDragLeave={isSuperAdmin && !isPrinting ? handleColDragLeave : undefined}
+                  onDrop={isSuperAdmin && !isPrinting ? e => handleColDrop(e, col.key) : undefined}
                   onDragEnd={isSuperAdmin ? handleColDragEnd : undefined}
                   style={{ padding: "6px 4px 6px 8px", textAlign: "center", color: T.textMuted, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.4, width: getColWidth(col), minWidth: 0, position: "sticky", top: 0, background: dragOverState === col.key ? (isDark ? tc1(0.25) : tc1(0.12)) : T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, borderLeft: dragOverState === col.key ? `2px solid ${TENANT.p2}` : `1px solid ${T.cellBorder}`, userSelect: "none", cursor: isSuperAdmin ? "grab" : "default", transition: "background 0.1s, border-left 0.1s" }}
                 >
@@ -2224,7 +2247,7 @@ export default function App() {
                     )}
                   </td>
                 )}
-                {orderedCols.map(col => {
+                {printActiveCols.map(col => {
                   const centerCols = ["cislo_stavby","ukonceni","sod","ze_dne","cislo_faktury","splatna"];
                   const align = col.type === "number" ? "right" : centerCols.includes(col.key) ? "center" : "left";
 
