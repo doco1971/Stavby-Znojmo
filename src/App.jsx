@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_30_build0261
+// BUILD: 2026_03_30_build0262
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -1828,7 +1828,7 @@ export default function App() {
         /* Řádky tabulky — světlé barvy firem */
         html.printing tr { background: var(--print-bg, #f8fafc) !important; }
         html.printing td { background: transparent !important; }
-        html.printing th { background: ${TENANT.p1deep} !important; color: white !important; }
+        html.printing th { background: #dde6f0 !important; color: #1e293b !important; }
         /* Zachovat barvy firem a zvýraznění buněk — nepřepisovat background */
         html.printing [style*="color:#3b82f6"], html.printing [style*="color: #3b82f6"] { color: ${TENANT.p1dark} !important; }
         html.printing [style*="color:#10b981"], html.printing [style*="color: #10b981"] { color: #047857 !important; }
@@ -2731,8 +2731,9 @@ export default function App() {
                       <td style="background:${rowBg}">${s.stavbyvedouci || ""}</td>
                     </tr>`;
                   }).join("");
-                  const w = window.open("", "_blank");
                   setShowOrphanWarning(false);
+                  setTimeout(() => {
+                  const w = window.open("", "_blank");
                   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Stavby bez firmy</title>
                   <style>
                     @page { size: A4 landscape; margin: 10mm; }
@@ -2740,7 +2741,7 @@ export default function App() {
                     h2 { margin: 0 0 4px; font-size: 15px; }
                     p { margin: 0 0 12px; color: #64748b; font-size: 11px; }
                     table { width: 100%; border-collapse: collapse; font-size: 11px; }
-                    th { background: ${TENANT.p1deep}; color: #fff; padding: 7px 10px; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    th { background: #dde6f0; color: #1e293b; padding: 7px 10px; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     td { padding: 6px 10px; border: 1px solid #e2e8f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     @media print { button { display: none; } }
                   </style>
@@ -2752,6 +2753,7 @@ export default function App() {
                   <script>window.onload=function(){window.print();window.onafterprint=function(){window.close()}}<\/script>
                   </body></html>`);
                   w.document.close();
+                  }, 50);
                 }} style={{ padding: "9px 22px", background: TENANT.btnBg, border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>🖨️ Tisk / PDF</button>
                 <button onClick={() => setShowOrphanWarning(false)} style={{ padding: "9px 22px", background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Rozumím</button>
               </div>
@@ -2830,8 +2832,9 @@ export default function App() {
                     <td style="background:${rowBg}">${r.stavbyvedouci || ""}</td>
                   </tr>`;
                 }).join("");
-                const w = window.open("", "_blank");
                 setShowDeadlines(false);
+                setTimeout(() => {
+                const w = window.open("", "_blank");
                 w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Blížící se termíny</title>
                 <style>
                   @page { size: A4 landscape; margin: 10mm; }
@@ -2839,7 +2842,7 @@ export default function App() {
                   h2 { margin: 0 0 4px; font-size: 15px; }
                   p { margin: 0 0 12px; color: #64748b; font-size: 11px; }
                   table { width: 100%; border-collapse: collapse; font-size: 11px; }
-                  th { background: ${TENANT.p1deep}; color: #fff; padding: 7px 10px; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                  th { background: #dde6f0; color: #1e293b; padding: 7px 10px; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                   td { padding: 6px 10px; border: 1px solid #e2e8f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                   @media print { button { display: none; } }
                 </style>
@@ -2851,6 +2854,7 @@ export default function App() {
                 <script>window.onload=function(){window.print();window.onafterprint=function(){window.close()}}<\/script>
                 </body></html>`);
                 w.document.close();
+                }, 50);
               }} style={{ padding: "9px 18px", background: TENANT.btnBg, border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>🖨️ Tisk / PDF</button>
               <button onClick={() => setShowDeadlines(false)} style={{ padding: "9px 18px", background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, color: isDark ? "#fff" : "#1e293b", cursor: "pointer", fontSize: 13 }}>Zavřít</button>
             </div>
