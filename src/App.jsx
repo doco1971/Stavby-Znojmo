@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_29_build0257
+// BUILD: 2026_03_29_build0258
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -154,6 +154,9 @@ export default function App() {
   const exportBtnRef = useRef(null);
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 });
   const [confirmExport, setConfirmExport] = useState(null); // { type, label }
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [printCols, setPrintCols] = useState(null); // null = vše, jinak Set klíčů
+  const [printFilters, setPrintFilters] = useState(null); // null = použít aktuální filtry
 
   // ── Toast notifikace (nahrazuje alert) ────────────────────
   const [toast, setToast] = useState(null);
@@ -1006,17 +1009,38 @@ export default function App() {
   const exportXLS = () => { setConfirmExport({ type: "xls", label: "Excel (.xlsx)" }); setShowExport(false); };
   const exportPDF = () => {
     setShowExport(false);
+    setPrintFilters({
+      firma: filterFirma,
+      sv: filterSV,
+      objed: filterObjed,
+      prosle: filterProslé,
+    });
+    setPrintCols(new Set(orderedCols.map(c => c.key)));
+    setShowPrintDialog(true);
+  };
+
+  const executePrint = (cols, pFilters) => {
+    setShowPrintDialog(false);
     const prevTheme = theme;
     const needsSwitch = isDark;
     if (needsSwitch) setTheme("light");
     setTimeout(() => {
       document.documentElement.classList.add("printing");
+      orderedCols.forEach(c => {
+        const els = document.querySelectorAll(`[data-col="${c.key}"]`);
+        els.forEach(el => { el.style.display = cols.has(c.key) ? "" : "none"; });
+      });
       window.print();
       setTimeout(() => {
         document.documentElement.classList.remove("printing");
+        orderedCols.forEach(c => {
+          const els = document.querySelectorAll(`[data-col="${c.key}"]`);
+          els.forEach(el => { el.style.display = ""; });
+        });
         if (needsSwitch) setTheme(prevTheme);
       }, 1000);
-    }, needsSwitch ? 150 : 50); // světlý motiv potřebuje čas na překreslení
+    }, needsSwitch ? 150 : 50);
+  };
   };
   const exportXLSColor = () => { setConfirmExport({ type: "xls-color", label: "Barevný Excel (.xls)" }); setShowExport(false); };
 
@@ -2118,6 +2142,7 @@ export default function App() {
               {(isAdmin || isEditor) && <th className="print-hide-col" style={{ padding: "9px 11px", color: T.textMuted, fontWeight: 700, fontSize: 10.5, position: "sticky", top: 0, background: T.theadBg, zIndex: 10, border: `1px solid ${T.cellBorder}`, textAlign: "center" }}>AKCE</th>}
               {orderedCols.map(col => (
                 <th key={col.key}
+                  data-col={col.key}
                   draggable={isSuperAdmin}
                   onDragStart={isSuperAdmin ? e => handleColDragStart(e, col.key) : undefined}
                   onDragOver={isSuperAdmin ? e => handleColDragOver(e, col.key) : undefined}
@@ -2221,6 +2246,7 @@ export default function App() {
 
                   return (
                     <td key={col.key}
+                      data-col={col.key}
                       className={col.key === "rozdil" || col.type === "number" ? "colored-cell" : ""}
                       style={{ padding: "5px 11px", whiteSpace: "nowrap", textAlign: align, border: `1px solid ${T.cellBorder}`, color: isOverdue ? "#f87171" : col.key === "rozdil" ? (Number(row[col.key]) >= 0 ? "#4ade80" : "#f87171") : col.type === "number" ? T.numColor : T.text, fontWeight: isOverdue ? 700 : "inherit", background: isOverdue ? "rgba(239,68,68,0.18)" : undefined, overflow: col.truncate ? "hidden" : undefined, maxWidth: col.truncate ? getColWidth(col) : undefined }}
                     >
@@ -2811,6 +2837,94 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {showPrintDialog && printCols && printFilters && (() => {
+        const pf = printFilters;
+        const pc = printCols;
+        const setPF = (k, v) => setPrintFilters(prev => ({ ...prev, [k]: v }));
+        const toggleCol = (key) => setPrintCols(prev => {
+          const next = new Set(prev);
+          next.has(key) ? next.delete(key) : next.add(key);
+          return next;
+        });
+        const selectAll = () => setPrintCols(new Set(orderedCols.map(c => c.key)));
+        const selectNone = () => setPrintCols(new Set());
+        const labelStyle = { fontSize: 12, color: isDark ? "rgba(255,255,255,0.7)" : "#444", marginBottom: 4, display: "block", fontWeight: 600 };
+        const rowStyle = { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", cursor: "pointer" };
+        const selStyle = { width: "100%", padding: "6px 8px", background: isDark ? "rgba(255,255,255,0.07)" : "#f1f5f9", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7, color: isDark ? "#fff" : "#1e293b", fontSize: 12 };
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ background: TENANT.modalBg, borderRadius: 14, padding: 24, width: 580, maxHeight: "88vh", overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>🖨 Nastavení tisku</h3>
+                <button onClick={() => setShowPrintDialog(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>✕</button>
+              </div>
+
+              {/* FILTRY ŘÁDKŮ */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: TENANT.p2, letterSpacing: 1, marginBottom: 10 }}>FILTRY ŘÁDKŮ</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <span style={labelStyle}>Firma</span>
+                    <select value={pf.firma} onChange={e => setPF("firma", e.target.value)} style={selStyle}>
+                      <option>Všechny firmy</option>
+                      {firmy.map(f => <option key={f.hodnota}>{f.hodnota}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <span style={labelStyle}>Stavbyvedoucí</span>
+                    <select value={pf.sv} onChange={e => setPF("sv", e.target.value)} style={selStyle}>
+                      <option>Všichni stavbyvedoucí</option>
+                      {stavbyvedouci.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <span style={labelStyle}>Objednatel</span>
+                    <select value={pf.objed} onChange={e => setPF("objed", e.target.value)} style={selStyle}>
+                      <option>Všichni objednatelé</option>
+                      {objednatele.map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <span style={labelStyle}>Po termínu</span>
+                    <select value={pf.prosle ? "ano" : "ne"} onChange={e => setPF("prosle", e.target.value === "ano")} style={selStyle}>
+                      <option value="ne">Všechny stavby</option>
+                      <option value="ano">Jen po termínu</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* SLOUPCE */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: TENANT.p2, letterSpacing: 1 }}>SLOUPCE</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={selectAll} style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "rgba(255,255,255,0.7)", cursor: "pointer" }}>Vše</button>
+                    <button onClick={selectNone} style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "rgba(255,255,255,0.7)", cursor: "pointer" }}>Nic</button>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
+                  {orderedCols.map(col => (
+                    <div key={col.key} style={rowStyle} onClick={() => toggleCol(col.key)}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${pc.has(col.key) ? TENANT.p2 : "rgba(255,255,255,0.25)"}`, background: pc.has(col.key) ? TENANT.p2 : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", transition: "all 0.15s" }}>
+                        {pc.has(col.key) ? "✓" : ""}
+                      </div>
+                      <span style={{ fontSize: 12, color: pc.has(col.key) ? (isDark ? "#fff" : "#1e293b") : "rgba(255,255,255,0.4)" }}>{col.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* TLAČÍTKA */}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                <button onClick={() => setShowPrintDialog(false)} style={{ padding: "8px 18px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
+                <button onClick={() => executePrint(pc, pf)} disabled={pc.size === 0} style={{ padding: "8px 22px", background: pc.size === 0 ? "rgba(255,255,255,0.05)" : TENANT.p1, border: "none", borderRadius: 8, color: pc.size === 0 ? "rgba(255,255,255,0.3)" : "#fff", cursor: pc.size === 0 ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>🖨 Tisknout ({pc.size} sloupců)</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {deleteConfirm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
