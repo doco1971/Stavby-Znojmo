@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_30_build0260
+// BUILD: 2026_03_30_build0261
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -2129,16 +2129,16 @@ export default function App() {
       )}
 
       {/* ZÁHLAVÍ PRO TISK */}
-      <div className="print-only" style={{ padding: "0 0 5px 0", borderBottom: `2px solid ${TENANT.p1}`, marginBottom: 5 }}>
+      <div className="print-only" style={{ padding: "4px 8px 5px 8px", borderBottom: "1.5px solid #aaa", marginBottom: 5, background: "#f8fafc" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: TENANT.p1deep }}>{appNazev}</div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 9, color: "#555" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{appNazev}</div>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 8.5, color: "#444" }}>
             {activePrintFilters?.firma !== "Všechny firmy" && <span>Firma: <b>{activePrintFilters?.firma}</b></span>}
             {activePrintFilters?.sv !== "Všichni stavbyvedoucí" && <span>SV: <b>{activePrintFilters?.sv}</b></span>}
             {activePrintFilters?.objed !== "Všichni objednatelé" && <span>Obj: <b>{activePrintFilters?.objed}</b></span>}
             {activePrintFilters?.prosle && <span><b>Jen po termínu</b></span>}
             <span>Záznamů: <b>{printFiltered.length}</b></span>
-            <span>Vytištěno: <b>{new Date().toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</b></span>
+            <span style={{ paddingRight: 4 }}>Vytištěno: <b>{new Date().toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</b></span>
           </div>
         </div>
       </div>
@@ -2732,6 +2732,7 @@ export default function App() {
                     </tr>`;
                   }).join("");
                   const w = window.open("", "_blank");
+                  setShowOrphanWarning(false);
                   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Stavby bez firmy</title>
                   <style>
                     @page { size: A4 landscape; margin: 10mm; }
@@ -2830,6 +2831,7 @@ export default function App() {
                   </tr>`;
                 }).join("");
                 const w = window.open("", "_blank");
+                setShowDeadlines(false);
                 w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Blížící se termíny</title>
                 <style>
                   @page { size: A4 landscape; margin: 10mm; }
@@ -2871,13 +2873,13 @@ export default function App() {
         const dialogFirmy = firmy.length > 0 ? firmy.map(f => f.hodnota) : [...new Set(data.map(r => r.firma).filter(Boolean))];
         const dialogSV = stavbyvedouci.length > 0 ? stavbyvedouci : [...new Set(data.map(r => r.stavbyvedouci).filter(Boolean))];
         const dialogObj = objednatele.length > 0 ? objednatele : [...new Set(data.map(r => r.objednatel).filter(Boolean))];
-        const dialogBg = isDark ? "#1e293b" : "#ffffff";
+        const dialogBg = isDark ? "#263348" : "#ffffff";
         const dialogText = isDark ? "#f1f5f9" : "#1e293b";
         const dialogMuted = isDark ? "rgba(255,255,255,0.6)" : "#555";
         const dialogBorder = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
         const labelStyle = { fontSize: 12, color: dialogMuted, marginBottom: 4, display: "block", fontWeight: 600 };
         const rowStyle = { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: `1px solid ${dialogBorder}`, cursor: "pointer" };
-        const selStyle = { width: "100%", padding: "6px 8px", background: isDark ? "rgba(255,255,255,0.07)" : "#f1f5f9", border: `1px solid ${dialogBorder}`, borderRadius: 7, color: dialogText, fontSize: 12 };
+        const selStyle = { width: "100%", padding: "6px 8px", background: isDark ? "#1a2638" : "#f1f5f9", border: `1px solid ${dialogBorder}`, borderRadius: 7, color: isDark ? "#e2e8f0" : "#1e293b", fontSize: 12 };
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ background: dialogBg, borderRadius: 14, padding: 24, width: 580, maxHeight: "88vh", overflowY: "auto", border: `1px solid ${dialogBorder}`, display: "flex", flexDirection: "column", gap: 16 }}>
