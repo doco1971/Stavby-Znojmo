@@ -1041,7 +1041,6 @@ export default function App() {
       }, 1000);
     }, needsSwitch ? 150 : 50);
   };
-  };
   const exportXLSColor = () => { setConfirmExport({ type: "xls-color", label: "Barevný Excel (.xls)" }); setShowExport(false); };
 
   const exportLog = async () => {
