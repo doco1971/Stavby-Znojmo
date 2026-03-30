@@ -3,7 +3,7 @@
 // ============================================================
 import { TENANT } from "./tenant";
 
-export const APP_BUILD = "build0259";
+export const APP_BUILD = "build0260";
 
 // ── Číselné / datumové / textové pole ─────────────────────
 export const NUM_FIELDS = [

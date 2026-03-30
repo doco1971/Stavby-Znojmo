@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-// BUILD: 2026_03_30_build0259
+// BUILD: 2026_03_30_build0260
 // Refaktoring: komponenty přesunuty do src/components/, src/hooks/, src/utils/
 
 // ── Utils ──────────────────────────────────────────────────
@@ -2129,20 +2129,16 @@ export default function App() {
       )}
 
       {/* ZÁHLAVÍ PRO TISK */}
-      <div className="print-only" style={{ padding: "0 0 6px 0", borderBottom: `2px solid ${TENANT.p1}`, marginBottom: 6 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: TENANT.p1deep }}>{appNazev}</div>
-            <div style={{ fontSize: 9, color: "#555", marginTop: 2 }}>
-              {activePrintFilters?.firma !== "Všechny firmy" && <span>Firma: <b>{activePrintFilters?.firma}</b> &nbsp;</span>}
-              {activePrintFilters?.sv !== "Všichni stavbyvedoucí" && <span>Stavbyvedoucí: <b>{activePrintFilters?.sv}</b> &nbsp;</span>}
-              {activePrintFilters?.objed !== "Všichni objednatelé" && <span>Objednatel: <b>{activePrintFilters?.objed}</b> &nbsp;</span>}
-              {activePrintFilters?.prosle && <span>Jen po termínu &nbsp;</span>}
-            </div>
-          </div>
-          <div style={{ textAlign: "right", fontSize: 9, color: "#555" }}>
-            <div>Počet záznamů: <b>{printFiltered.length}</b></div>
-            <div>Vytištěno: <b>{new Date().toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</b></div>
+      <div className="print-only" style={{ padding: "0 0 5px 0", borderBottom: `2px solid ${TENANT.p1}`, marginBottom: 5 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: TENANT.p1deep }}>{appNazev}</div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 9, color: "#555" }}>
+            {activePrintFilters?.firma !== "Všechny firmy" && <span>Firma: <b>{activePrintFilters?.firma}</b></span>}
+            {activePrintFilters?.sv !== "Všichni stavbyvedoucí" && <span>SV: <b>{activePrintFilters?.sv}</b></span>}
+            {activePrintFilters?.objed !== "Všichni objednatelé" && <span>Obj: <b>{activePrintFilters?.objed}</b></span>}
+            {activePrintFilters?.prosle && <span><b>Jen po termínu</b></span>}
+            <span>Záznamů: <b>{printFiltered.length}</b></span>
+            <span>Vytištěno: <b>{new Date().toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</b></span>
           </div>
         </div>
       </div>
@@ -2871,40 +2867,48 @@ export default function App() {
         });
         const selectAll = () => setPrintCols(new Set(orderedCols.map(c => c.key)));
         const selectNone = () => setPrintCols(new Set());
-        const labelStyle = { fontSize: 12, color: isDark ? "rgba(255,255,255,0.7)" : "#444", marginBottom: 4, display: "block", fontWeight: 600 };
-        const rowStyle = { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", cursor: "pointer" };
-        const selStyle = { width: "100%", padding: "6px 8px", background: isDark ? "rgba(255,255,255,0.07)" : "#f1f5f9", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7, color: isDark ? "#fff" : "#1e293b", fontSize: 12 };
+        // Fallback: pokud jsou číselníky prázdné, vezmi unikátní hodnoty z dat
+        const dialogFirmy = firmy.length > 0 ? firmy.map(f => f.hodnota) : [...new Set(data.map(r => r.firma).filter(Boolean))];
+        const dialogSV = stavbyvedouci.length > 0 ? stavbyvedouci : [...new Set(data.map(r => r.stavbyvedouci).filter(Boolean))];
+        const dialogObj = objednatele.length > 0 ? objednatele : [...new Set(data.map(r => r.objednatel).filter(Boolean))];
+        const dialogBg = isDark ? "#1e293b" : "#ffffff";
+        const dialogText = isDark ? "#f1f5f9" : "#1e293b";
+        const dialogMuted = isDark ? "rgba(255,255,255,0.6)" : "#555";
+        const dialogBorder = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
+        const labelStyle = { fontSize: 12, color: dialogMuted, marginBottom: 4, display: "block", fontWeight: 600 };
+        const rowStyle = { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: `1px solid ${dialogBorder}`, cursor: "pointer" };
+        const selStyle = { width: "100%", padding: "6px 8px", background: isDark ? "rgba(255,255,255,0.07)" : "#f1f5f9", border: `1px solid ${dialogBorder}`, borderRadius: 7, color: dialogText, fontSize: 12 };
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ background: TENANT.modalBg, borderRadius: 14, padding: 24, width: 580, maxHeight: "88vh", overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ background: dialogBg, borderRadius: 14, padding: 24, width: 580, maxHeight: "88vh", overflowY: "auto", border: `1px solid ${dialogBorder}`, display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>🖨 Nastavení tisku</h3>
-                <button onClick={() => setShowPrintDialog(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>✕</button>
+                <h3 style={{ color: dialogText, margin: 0, fontSize: 16 }}>🖨 Nastavení tisku</h3>
+                <button onClick={() => setShowPrintDialog(false)} style={{ background: "none", border: "none", color: dialogMuted, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>✕</button>
               </div>
 
               {/* FILTRY ŘÁDKŮ */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: TENANT.p2, letterSpacing: 1, marginBottom: 10 }}>FILTRY ŘÁDKŮ</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: TENANT.p1, letterSpacing: 1, marginBottom: 10 }}>FILTRY ŘÁDKŮ</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div>
                     <span style={labelStyle}>Firma</span>
                     <select value={pf.firma} onChange={e => setPF("firma", e.target.value)} style={selStyle}>
                       <option>Všechny firmy</option>
-                      {firmy.map(f => <option key={f.hodnota}>{f.hodnota}</option>)}
+                      {dialogFirmy.map(f => <option key={f}>{f}</option>)}
                     </select>
                   </div>
                   <div>
                     <span style={labelStyle}>Stavbyvedoucí</span>
                     <select value={pf.sv} onChange={e => setPF("sv", e.target.value)} style={selStyle}>
                       <option>Všichni stavbyvedoucí</option>
-                      {stavbyvedouci.map(s => <option key={s}>{s}</option>)}
+                      {dialogSV.map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
                     <span style={labelStyle}>Objednatel</span>
                     <select value={pf.objed} onChange={e => setPF("objed", e.target.value)} style={selStyle}>
                       <option>Všichni objednatelé</option>
-                      {objednatele.map(o => <option key={o}>{o}</option>)}
+                      {dialogObj.map(o => <option key={o}>{o}</option>)}
                     </select>
                   </div>
                   <div>
@@ -2920,28 +2924,28 @@ export default function App() {
               {/* SLOUPCE */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: TENANT.p2, letterSpacing: 1 }}>SLOUPCE</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: TENANT.p1, letterSpacing: 1 }}>SLOUPCE</div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={selectAll} style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "rgba(255,255,255,0.7)", cursor: "pointer" }}>Vše</button>
-                    <button onClick={selectNone} style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "rgba(255,255,255,0.7)", cursor: "pointer" }}>Nic</button>
+                    <button onClick={selectAll} style={{ fontSize: 11, padding: "3px 10px", background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)", border: `1px solid ${dialogBorder}`, borderRadius: 6, color: dialogMuted, cursor: "pointer" }}>Vše</button>
+                    <button onClick={selectNone} style={{ fontSize: 11, padding: "3px 10px", background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)", border: `1px solid ${dialogBorder}`, borderRadius: 6, color: dialogMuted, cursor: "pointer" }}>Nic</button>
                   </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
                   {orderedCols.map(col => (
                     <div key={col.key} style={rowStyle} onClick={() => toggleCol(col.key)}>
-                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${pc.has(col.key) ? TENANT.p2 : "rgba(255,255,255,0.25)"}`, background: pc.has(col.key) ? TENANT.p2 : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", transition: "all 0.15s" }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${pc.has(col.key) ? TENANT.p1 : (isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.2)")}`, background: pc.has(col.key) ? TENANT.p1 : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", transition: "all 0.15s" }}>
                         {pc.has(col.key) ? "✓" : ""}
                       </div>
-                      <span style={{ fontSize: 12, color: pc.has(col.key) ? (isDark ? "#fff" : "#1e293b") : "rgba(255,255,255,0.4)" }}>{col.label}</span>
+                      <span style={{ fontSize: 12, color: pc.has(col.key) ? dialogText : dialogMuted }}>{col.label}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* TLAČÍTKA */}
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-                <button onClick={() => setShowPrintDialog(false)} style={{ padding: "8px 18px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 13 }}>Zrušit</button>
-                <button onClick={() => executePrint(pc, pf)} disabled={pc.size === 0} style={{ padding: "8px 22px", background: pc.size === 0 ? "rgba(255,255,255,0.05)" : TENANT.p1, border: "none", borderRadius: 8, color: pc.size === 0 ? "rgba(255,255,255,0.3)" : "#fff", cursor: pc.size === 0 ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>🖨 Tisknout ({pc.size} sloupců)</button>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 8, borderTop: `1px solid ${dialogBorder}` }}>
+                <button onClick={() => setShowPrintDialog(false)} style={{ padding: "8px 18px", background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)", border: `1px solid ${dialogBorder}`, borderRadius: 8, color: dialogMuted, cursor: "pointer", fontSize: 13 }}>Zrušit</button>
+                <button onClick={() => executePrint(pc, pf)} disabled={pc.size === 0} style={{ padding: "8px 22px", background: pc.size === 0 ? (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)") : TENANT.p1, border: "none", borderRadius: 8, color: pc.size === 0 ? dialogMuted : "#fff", cursor: pc.size === 0 ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>🖨 Tisknout ({pc.size} sloupců)</button>
               </div>
             </div>
           </div>
